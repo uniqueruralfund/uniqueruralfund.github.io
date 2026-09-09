@@ -109,7 +109,7 @@
   .cell-pill.unpaid{background:var(--unpaid-bg); color:var(--unpaid-text);}
 
   .search-row{margin-bottom:1rem; display:flex; gap:.6rem; flex-wrap:wrap; align-items:center;}
-  input[type=text],input[type=number],textarea{font-family:'Hind Siliguri',sans-serif; padding:.55rem .8rem; border:1px solid var(--line); background:#fff; border-radius:8px; font-size:.92rem;}
+  input[type=text],input[type=number],input[type=password],textarea{font-family:'Hind Siliguri',sans-serif; padding:.6rem .8rem; border:1px solid var(--line); background:#fff; border-radius:8px; font-size:1rem;}
   input[type=text]{flex:1; min-width:200px;}
   .pill-badge{display:inline-block; padding:.2rem .6rem; border-radius:20px; font-size:.75rem; font-weight:600; background:var(--paid-bg); color:var(--paid-text);}
   .pill-badge.red{background:var(--unpaid-bg); color:var(--unpaid-text);}
@@ -184,8 +184,8 @@
   .pin-box .linklike{all:unset; cursor:pointer; font-size:.78rem; color:var(--gold); font-weight:600; display:block; text-align:center; margin-top:.9rem;}
   .pin-box .field-label{display:block; font-size:.74rem; font-weight:600; color:var(--ink-soft); margin:0 0 .3rem; text-align:left;}
   .pin-box .forgot-link{text-align:right; margin:-.3rem 0 0;}
-  .pay-select{width:100%; padding:.55rem .8rem; border:1px solid var(--line); background:#fff;
-    border-radius:8px; font-family:'Hind Siliguri',sans-serif; font-size:.92rem; color:var(--ink);}
+  .pay-select{width:100%; padding:.6rem .8rem; border:1px solid var(--line); background:#fff;
+    border-radius:8px; font-family:'Hind Siliguri',sans-serif; font-size:1rem; color:var(--ink);}
   .pay-row{display:flex; gap:1rem; flex-wrap:wrap; align-items:flex-end; margin-bottom:.9rem;}
   .pay-field{flex:1; min-width:190px;}
   .pay-field .field-label{display:block; font-size:.74rem; font-weight:600; color:var(--ink-soft); margin:0 0 .3rem;}
@@ -203,11 +203,11 @@
     border-bottom:1px dashed var(--green); white-space:nowrap;}
   .receipt-link:hover{color:var(--green);}
   .pay-subhead{margin:1.3rem 0 .6rem; font-size:.95rem; color:var(--green-dark); border-top:1px solid var(--line); padding-top:1rem;}
-  .approve-btn{all:unset; cursor:pointer; padding:.35rem .8rem; border-radius:7px; font-weight:600; font-size:.76rem;
-    background:var(--green); color:#fff; white-space:nowrap;}
+  .approve-btn{all:unset; cursor:pointer; padding:.55rem 1rem; border-radius:8px; font-weight:600; font-size:.85rem;
+    background:var(--green); color:#fff; white-space:nowrap; display:inline-block; text-align:center;}
   .approve-btn:hover{opacity:.88;}
-  .reject-btn{all:unset; cursor:pointer; padding:.35rem .8rem; border-radius:7px; font-weight:600; font-size:.76rem;
-    background:#B4453A; color:#fff; white-space:nowrap;}
+  .reject-btn{all:unset; cursor:pointer; padding:.55rem 1rem; border-radius:8px; font-weight:600; font-size:.85rem;
+    background:#B4453A; color:#fff; white-space:nowrap; display:inline-block; text-align:center;}
   .reject-btn:hover{opacity:.88;}
   .btn-pair{display:flex; gap:.4rem; flex-wrap:wrap;}
   .pay-tag{display:inline-block; font-size:.72rem; font-weight:700; padding:.15rem .5rem; border-radius:12px;
@@ -275,7 +275,7 @@
   .wc-card .sub{font-size:.82rem; color:var(--ink-soft); margin:0 0 1.3rem; line-height:1.6;}
   .wc-card label{display:block; font-size:.74rem; font-weight:700; letter-spacing:.04em;
     color:var(--green-dark); margin:0 0 .3rem;}
-  .wc-card input{width:100%; padding:.75rem .85rem; font-size:.95rem; font-family:inherit;
+  .wc-card input{width:100%; padding:.75rem .85rem; font-size:1rem; font-family:inherit;
     border:1.5px solid var(--line); border-radius:10px; background:#fff; color:var(--ink);
     margin-bottom:.95rem; outline:none;}
   .wc-card input:focus{border-color:var(--green); box-shadow:0 0 0 3px rgba(46,107,79,.12);}
@@ -439,6 +439,7 @@
   <nav class="navlist" id="navlist"></nav>
   <div class="edit-toggle">
     <button class="edit-btn" id="memberBtn" style="margin-bottom:.5rem;">👤 ব্যক্তিগত তথ্য দেখুন</button>
+    <button class="edit-btn" id="approveBtn" style="margin-bottom:.5rem;" hidden onclick="openApprovalOverlay()">🧾 পেমেন্ট Receipt</button>
     <button class="edit-btn" id="editBtn">🔒 এডিট মোড</button>
   </div>
 </div>
@@ -528,6 +529,16 @@
   <div class="pin-box" style="width:min(90vw,420px); max-height:85vh; overflow-y:auto;">
     <div id="memberViewBody"></div>
     <button type="button" class="linklike" onclick="closeMemberView()">বন্ধ করুন</button>
+  </div>
+</div>
+
+<!-- Wide overlay for Satyajit Das / Prasun Jyoti — the approve/reject table
+     needs real width to breathe, which the narrow প্রোফাইল popup above can't
+     give it, so this gets its own roomier box instead of being squeezed in there. -->
+<div class="pin-overlay" id="approvalOverlay" hidden>
+  <div class="pin-box" style="width:min(94vw,880px); max-height:88vh; overflow-y:auto;">
+    <div id="approvalOverlayBody"></div>
+    <button type="button" class="linklike" onclick="closeApprovalOverlay()">বন্ধ করুন</button>
   </div>
 </div>
 
@@ -645,6 +656,8 @@ function updateEditBtn(){
   b.textContent = isEditing() ? '🔓 এডিট মোড (চালু)' : '🔒 এডিট মোড';
   b.classList.toggle('unlocked', isEditing());
   b.hidden = !isAdminMember();   // only Prasun Jyoti ever sees the edit-mode button
+  const apprBtn = document.getElementById('approveBtn');
+  if(apprBtn) apprBtn.hidden = !canApprove();   // only the collector + admin see this
 }
 document.getElementById('editBtn').addEventListener('click', ()=>{
   if(isEditing()){ editPin=null; sessionStorage.removeItem('urf_edit_pin'); updateEditBtn(); renderPage(currentPage); }
@@ -1021,10 +1034,18 @@ function showMemberView(d){
     <h4 style="margin:.8rem 0 .3rem; color:var(--green-dark);">ঋণের অবস্থা</h4>
     ${loanHtml}
     <p class="hint-text" style="margin:1rem 0 0; border-top:1px solid var(--line); padding-top:.9rem;">💰 টাকা জমা দিতে বাঁদিকের <strong>০৫ পেমেন্ট</strong> পাতায় যান — সেখানে মাসিক জমা ও ঋণের সুদ — দুটোই অনলাইনে দেওয়া যাবে।</p>
-    ${canApprove() ? '<div style="margin-top:1.2rem;">' + buildApprovalCardHTML('2') + '</div>' : ''}
   `;
   document.getElementById('memberViewOverlay').hidden = false;
 }
+
+// Satyajit Das / Prasun Jyoti's approve/reject panel — its own wide overlay
+// (see approvalOverlay in the markup) so the table never has to squeeze into
+// the narrow প্রোফাইল popup above.
+function openApprovalOverlay(){
+  document.getElementById('approvalOverlayBody').innerHTML = buildApprovalCardHTML('3');
+  document.getElementById('approvalOverlay').hidden = false;
+}
+function closeApprovalOverlay(){ document.getElementById('approvalOverlay').hidden = true; }
 function closeMemberView(){ document.getElementById('memberViewOverlay').hidden = true; }
 
 /* ================= online payment (পেমেন্ট page) ================= */
@@ -1614,10 +1635,10 @@ async function postApprovalAction(ev, body, stage, btnLabel, failMsg, idSuffix){
     if(json.data) DATA = json.data;
     flashSaved(json.message || 'হয়ে গেছে', false);
     renderPage(currentPage);
-    // The approve/reject panel also lives inside the প্রোফাইল overlay — keep
+    // The approve/reject panel also lives inside its own wide overlay — keep
     // that copy's pending list in sync too when it's the one left open.
-    if(!document.getElementById('memberViewOverlay').hidden && memberViewCache){
-      showMemberView(memberViewCache);
+    if(!document.getElementById('approvalOverlay').hidden){
+      openApprovalOverlay();
     }
   }catch(err){
     if(errBox){ errBox.textContent = 'নেটওয়ার্ক সমস্যা, আবার চেষ্টা করুন।'; errBox.hidden = false; }
