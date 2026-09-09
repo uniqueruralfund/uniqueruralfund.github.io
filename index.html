@@ -6,11 +6,6 @@
 <title>Unique Rural Fund — ড্যাশবোর্ড</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Tiro+Bangla:ital@0;1&family=Hind+Siliguri:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<!-- QR code generator — used so members can SCAN to pay instead of tapping a upi:// link.
-     GPay/PhonePe have started rejecting upi:// links opened from a mobile browser with
-     "declined for security reasons", but the same link scanned as a QR through the UPI
-     app's own camera works fine — scanning isn't a browser redirect. -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   :root{
     --sidebar-bg:#15291F;
@@ -201,27 +196,12 @@
     background:var(--green-dark); color:#F1E8D5; text-align:center;}
   .pay-btn.claim{background:var(--gold); color:#3a2a08;}
   .pay-btn:hover{opacity:.9;}
-  .pay-qr-wrap{display:flex; flex-direction:column; align-items:center; gap:.6rem;
-    padding:1.1rem; margin:0 0 1rem; background:#F7F4EA; border:1px solid var(--line); border-radius:12px;}
-  .pay-qr-wrap .pay-qr{background:#fff; padding:10px; border-radius:8px; line-height:0;}
-  .pay-qr-wrap .pay-qr img{display:block;}
   .copy-btn{all:unset; cursor:pointer; font-size:.74rem; font-weight:700; color:var(--green-dark);
     background:#fff; border:1px solid var(--line); border-radius:14px; padding:.25rem .7rem; white-space:nowrap;}
   .copy-btn:hover{background:#EDF6EA;}
-  .pay-manual-lead{display:flex; align-items:center; justify-content:center; gap:.6rem; flex-wrap:wrap;
-    background:#EDF6EA; border:1.5px solid var(--green); border-radius:12px;
-    padding:.8rem 1rem; font-size:.95rem; color:var(--green-dark);}
-  .pay-manual-lead .mono{color:var(--green-dark); font-size:1.05rem; font-weight:700;}
   .receipt-link{font-size:.78rem; font-weight:700; color:var(--green-dark); text-decoration:none;
     border-bottom:1px dashed var(--green); white-space:nowrap;}
   .receipt-link:hover{color:var(--green);}
-  .pay-qr-fallback{margin-top:1rem;}
-  .pay-qr-fallback summary{cursor:pointer; font-size:.82rem; font-weight:600; color:var(--green);
-    list-style:none;}
-  .pay-qr-fallback summary::-webkit-details-marker{display:none;}
-  .pay-qr-fallback summary::before{content:'▸ '; }
-  .pay-qr-fallback[open] summary::before{content:'▾ ';}
-  .pay-qr-fallback .pay-qr-wrap{margin-top:.7rem;}
   .pay-subhead{margin:1.3rem 0 .6rem; font-size:.95rem; color:var(--green-dark); border-top:1px solid var(--line); padding-top:1rem;}
   .approve-btn{all:unset; cursor:pointer; padding:.35rem .8rem; border-radius:7px; font-weight:600; font-size:.76rem;
     background:var(--green); color:#fff; white-space:nowrap;}
@@ -282,6 +262,11 @@
     font-weight:600; color:#CFE0D2; text-decoration:none; border-bottom:1px dashed rgba(207,224,210,.45);
     padding-bottom:2px;}
   .wc-site:hover{color:var(--active-bg); border-color:var(--active-bg);}
+  .wc-contact{margin-top:1.8rem; padding-top:1.3rem; border-top:1px solid rgba(239,230,210,.18);
+    font-size:.82rem; line-height:1.7; color:#B9CDBD;}
+  .wc-contact .t{font-weight:700; color:#EFE6D2; margin:0 0 .3rem;}
+  .wc-contact a{color:var(--active-bg); text-decoration:none;}
+  .wc-contact a:hover{text-decoration:underline;}
 
   .wc-card{background:#FBF7EC; border-radius:18px; padding:2rem 1.9rem 1.7rem;
     box-shadow:0 26px 60px rgba(0,0,0,.34);}
@@ -294,9 +279,14 @@
     border:1.5px solid var(--line); border-radius:10px; background:#fff; color:var(--ink);
     margin-bottom:.95rem; outline:none;}
   .wc-card input:focus{border-color:var(--green); box-shadow:0 0 0 3px rgba(46,107,79,.12);}
+  .wc-pin-wrap{position:relative;}
+  .wc-pin-wrap input{padding-right:2.6rem;}
+  .wc-pin-toggle{all:unset; position:absolute; right:.7rem; top:0; bottom:.95rem; height:calc(100% - .95rem);
+    display:flex; align-items:center; cursor:pointer; font-size:1.05rem; opacity:.65;}
+  .wc-pin-toggle:hover{opacity:1;}
   .wc-go{all:unset; display:block; width:100%; text-align:center; cursor:pointer; box-sizing:border-box;
-    padding:.85rem 1rem; border-radius:11px; font-size:.98rem; font-weight:700;
-    background:var(--green-dark); color:#F6EEDC; margin-top:.35rem;}
+    padding:1rem 1rem; border-radius:11px; font-size:1.12rem; font-weight:800; letter-spacing:.02em;
+    background:var(--green-dark); color:#F6EEDC; margin-top:.55rem; box-shadow:0 10px 22px rgba(31,74,54,.28);}
   .wc-go:hover{background:var(--green);}
   .wc-go[disabled]{opacity:.6; cursor:default;}
   .wc-link{all:unset; cursor:pointer; display:block; text-align:center; margin-top:1rem;
@@ -365,6 +355,11 @@
       <p>নিজের <strong style="color:#EFE6D2;">User ID ও Password</strong> দিয়ে ঢুকলে নিজের সব হিসাব দেখতে পাবেন এবং অনলাইনে টাকা জমা দিতে পারবেন।</p>
       <div class="wc-stats" id="wcStats"></div>
       <a class="wc-site" href="https://sites.google.com/view/uniqueruralfund/home" target="_blank" rel="noopener">🔗 আমাদের ওয়েবসাইট দেখুন</a>
+      <div class="wc-contact">
+        <p class="t">যোগাযোগ — Unique Rural Fund</p>
+        <p>Dhwaja, Alipur, Shyampur<br>Howrah – 711315<br>West Bengal, India</p>
+        <p>📧 E-mail: <a href="mailto:uniqueruralfund21@gmail.com">uniqueruralfund21@gmail.com</a></p>
+      </div>
     </div>
 
     <div class="wc-card">
@@ -374,8 +369,11 @@
       <label for="wcId">User ID (আপনার নাম)</label>
       <input type="text" id="wcId" placeholder="যেমন: Satyajit Das" autocomplete="username">
       <label for="wcPin">Password</label>
-      <input type="password" id="wcPin" placeholder="ডিফল্ট: আপনার মোবাইল নম্বর" autocomplete="current-password">
-      <button class="wc-go" id="wcGo" onclick="welcomeLogin(event)">ঢুকুন →</button>
+      <div class="wc-pin-wrap">
+        <input type="password" id="wcPin" placeholder="ডিফল্ট: আপনার মোবাইল নম্বর" autocomplete="current-password">
+        <button type="button" class="wc-pin-toggle" id="wcPinToggle" onclick="toggleWcPinVisibility()" aria-label="পাসওয়ার্ড দেখুন">👁</button>
+      </div>
+      <button class="wc-go" id="wcGo" onclick="welcomeLogin(event)">প্রবেশ করুন</button>
       <button type="button" class="wc-link" onclick="welcomeForgot()">Password ভুলে গেছেন?</button>
       <p class="wc-note">
         <strong>User ID</strong> = Sheet-এ লেখা আপনার নিজের নাম (যেমন Satyajit Das)<br>
@@ -784,8 +782,16 @@ async function welcomeLogin(ev){
     errBox.hidden = false;
   }finally{
     btn.disabled = false;
-    btn.textContent = 'ঢুকুন →';
+    btn.textContent = 'প্রবেশ করুন';
   }
+}
+function toggleWcPinVisibility(){
+  const inp = document.getElementById('wcPin');
+  const btn = document.getElementById('wcPinToggle');
+  const showing = inp.type === 'text';
+  inp.type = showing ? 'password' : 'text';
+  btn.textContent = showing ? '👁' : '🙈';
+  btn.setAttribute('aria-label', showing ? 'পাসওয়ার্ড দেখুন' : 'পাসওয়ার্ড লুকান');
 }
 document.getElementById('wcId').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('wcPin').focus(); });
 document.getElementById('wcPin').addEventListener('keydown', e=>{ if(e.key==='Enter') welcomeLogin(e); });
@@ -981,6 +987,7 @@ function memberLogout(){
   editPin = null;
   sessionStorage.removeItem('urf_edit_pin');
   payType = 'contribution';
+  payForName = null;
   currentPage = 'overview';
   updateUserChip();
   updateEditBtn();
@@ -990,13 +997,19 @@ function memberLogout(){
   document.getElementById('wcErr').hidden = true;
   showWelcome();
 }
+function contribRowByName(name){
+  if(!DATA || !name) return null;
+  return DATA.contributions.find(c=>c.name.toLowerCase()===name.toLowerCase()) || null;
+}
+function activeLoanByName(name){
+  if(!DATA || !name) return null;
+  return DATA.activeLoans.find(l=>l.name.toLowerCase()===name.toLowerCase()) || null;
+}
 function myContribRow(){
-  if(!memberSession || !DATA) return null;
-  return DATA.contributions.find(c=>c.name.toLowerCase()===memberSession.userId.toLowerCase()) || null;
+  return memberSession ? contribRowByName(memberSession.userId) : null;
 }
 function myActiveLoan(){
-  if(!memberSession || !DATA) return null;
-  return DATA.activeLoans.find(l=>l.name.toLowerCase()===memberSession.userId.toLowerCase()) || null;
+  return memberSession ? activeLoanByName(memberSession.userId) : null;
 }
 function isCollector(){
   return !!(memberSession && DATA && DATA.collectorName &&
@@ -1016,6 +1029,10 @@ let payType = 'contribution';
 function payTypeChanged(v){ payType = v; renderPage('payment'); }
 let fineSubType = 'contribution';
 function fineSubTypeChanged(v){ fineSubType = v; renderPage('payment'); }
+// null means "নিজে" (the logged-in member); set when someone submits a
+// payment on another member's behalf (cash collected, paid for a relative, …).
+let payForName = null;
+function payForChanged(v){ payForName = v; renderPage('payment'); }
 
 // Recomputes the fine total from whichever month checkboxes are ticked —
 // (checked months × per-month rate) + one month's rate as the fine itself,
@@ -1027,9 +1044,10 @@ function updatePayAmount(rate){
   if(!amountEl) return;
   const checked = document.querySelectorAll('.pay-month-cb:checked').length;
   const total = checked * rate;
-  amountEl.textContent = '₹' + total;
-  amountEl.dataset.amount = total;
-  renderPayQr(payType, total);
+  amountEl.value = total || '';
+  amountEl.dataset.required = total;
+  const hint = document.getElementById('payReqHint');
+  if(hint) hint.innerHTML = 'বাছাই করা মাস অনুযায়ী প্রয়োজনীয় পরিমাণ হলো <strong>₹' + total + '</strong> — রসিদের সাথে মিলিয়ে ঠিক এই টাকাটাই লিখুন।';
 }
 
 function updateFineAmount(){
@@ -1040,23 +1058,12 @@ function updateFineAmount(){
   const total = checked ? (checked * rate + rate) : 0;
   amountEl.value = total || '';
   amountEl.dataset.amount = total;
-  renderPayQr('fine', total);
 }
 
-// Shared by all three payment types — the UPI reference block, the mandatory
-// receipt upload, and the submit button don't differ between them.
+// Shared by all three payment types — the mandatory receipt upload and the
+// submit button don't differ between them.
 function paymentFooterHTML(type, required){
   return `
-      <div class="pay-manual-lead">
-        <span>💳 UPI ID: <span class="mono" id="payUpiIdText">${DATA.upiId||''}</span></span>
-        <button type="button" class="copy-btn" onclick="copyUpiId(event)">📋 কপি করুন</button>
-        <button type="button" class="pay-btn" style="padding:.4rem .9rem; font-size:.8rem;" onclick="openUpiApp('${type}')">📱 app খুলুন</button>
-      </div>
-      <div class="pay-qr-wrap" style="margin-top:.8rem;">
-        <div class="pay-qr" id="payQr"></div>
-        <p class="hint-text" style="margin:0; text-align:center;">${DATA.upiName||'সংগ্রাহক'}-এর UPI — উপরের আইডি কপি করে নিজের app-এ পাঠান, অথবা এই QR স্ক্যান করুন।</p>
-      </div>
-
       <div class="pay-field" style="margin-top:1rem;">
         <label class="field-label" for="payReceiptInput">পেমেন্টের স্ক্রিনশট (আবশ্যক)</label>
         <input type="file" accept="image/*,application/pdf" id="payReceiptInput" class="pay-select">
@@ -1066,15 +1073,18 @@ function paymentFooterHTML(type, required){
       </div>
       <div class="msg-err" id="payErr" hidden></div>
       <div class="msg-ok" id="payOk" hidden></div>
-      <p class="hint-text" style="margin-top:.8rem;">টাকা পাঠানোর পর পেমেন্ট app-এর "Successful" স্ক্রিনশটটা উপরে বেছে নিয়ে <strong>✅ পেমেন্ট করেছি</strong>-তে চাপুন — রসিদ ছাড়া দাবি জমা নেওয়া হবে না। ${DATA.upiName||'সংগ্রাহক'} রসিদ দেখে অনুমোদন করবেন, তারপর Prasun Jyoti চূড়ান্ত করবেন।</p>`;
+      <p class="hint-text" style="margin-top:.8rem;">টাকা পাঠানোর/জমা দেওয়ার পর তার প্রমাণ (স্ক্রিনশট বা রসিদ) উপরে বেছে নিয়ে <strong>✅ পেমেন্ট করেছি</strong>-তে চাপুন — রসিদ ছাড়া দাবি জমা নেওয়া হবে না। ${DATA.collectorName||'সংগ্রাহক'} রসিদ দেখে অনুমোদন করবেন, তারপর Prasun Jyoti চূড়ান্ত করবেন।</p>`;
 }
 
 function renderPayment(){
   const isLoan = payType === 'loan';
   const isFine = payType === 'fine';
-  const mine = isFine ? myContribRow() : (isLoan ? myActiveLoan() : myContribRow());
+  // A member can submit a claim for someone else too (cash collected on their
+  // behalf, paying for a relative, …) — targetName is whoever the payment is
+  // actually FOR; the logged-in member stays recorded separately as processedBy.
+  const targetName = memberSession ? (payForName || memberSession.userId) : '';
+  const mine = isFine ? contribRowByName(targetName) : (isLoan ? activeLoanByName(targetName) : contribRowByName(targetName));
   const required = isFine ? 0 : (isLoan ? (mine ? mine.monthlyInterest : 0) : (DATA.monthlyContribution || 100));
-  let qrAmount = required; // fine overrides this below once its auto-computed total is known
 
   const typeSelect = `
     <div class="pay-field">
@@ -1086,6 +1096,17 @@ function renderPayment(){
       </select>
     </div>`;
 
+  // Anyone paying cash/online for another member picks that member here —
+  // months-due and the amount then auto-follow THAT member, not the submitter.
+  const payForSelect = memberSession ? `
+    <div class="pay-field">
+      <label class="field-label" for="payForWhom">কার হয়ে জমা দিচ্ছেন?</label>
+      <select id="payForWhom" class="pay-select" onchange="payForChanged(this.value)">
+        ${(DATA.contributions||[]).slice().sort((a,b)=>a.name.localeCompare(b.name,'bn'))
+          .map(c=>`<option value="${c.name}" ${c.name.toLowerCase()===targetName.toLowerCase()?'selected':''}>${c.name}${c.name.toLowerCase()===memberSession.userId.toLowerCase()?' (নিজে)':''}</option>`).join('')}
+      </select>
+    </div>` : '';
+
   let claimBox;
   if(!memberSession){
     claimBox = `
@@ -1093,11 +1114,11 @@ function renderPayment(){
       <p class="hint-text" style="margin-top:.9rem;">নিজের টাকা জমা দিতে সাইডবারের <strong>👤 ব্যক্তিগত তথ্য দেখুন</strong>-এ নিজের User ID ও Password দিয়ে লগইন করুন। লগইন করলে উপরে আপনার নাম দেখা যাবে।</p>`;
   } else if(!mine){
     claimBox = `
-      <div class="pay-row">${typeSelect}</div>
-      <p class="hint-text" style="margin-top:.9rem;">${isLoan ? 'আপনার কোনো চলতি ঋণ নেই।' : 'আপনার নাম চাঁদার তালিকায় পাওয়া যায়নি।'}</p>`;
+      <div class="pay-row">${typeSelect}${payForSelect}</div>
+      <p class="hint-text" style="margin-top:.9rem;">${isLoan ? (targetName===memberSession.userId?'আপনার':targetName+'-এর') + ' কোনো চলতি ঋণ নেই।' : (targetName===memberSession.userId?'আপনার':targetName+'-এর') + ' নাম চাঁদার তালিকায় পাওয়া যায়নি।'}</p>`;
   } else if(isFine){
     const isLoanFine = fineSubType === 'loan';
-    const loanMine = myActiveLoan();
+    const loanMine = activeLoanByName(targetName);
     const subTypeSelect = `
       <div class="pay-field">
         <label class="field-label" for="fineSubType">কিসের ফাইন?</label>
@@ -1128,7 +1149,6 @@ function renderPayment(){
         // All overdue months start checked — "কোন মাসগুলো বাকি" is already
         // known from the sheet, members shouldn't have to re-figure it out.
         initialTotal = overdue.length * perMonthRate + perMonthRate; // + one month's worth as the fine itself
-        qrAmount = initialTotal;
         monthsBox = `
           <div class="pay-field">
             <label class="field-label">কোন কোন মাসের জন্য ফাইন?</label>
@@ -1142,6 +1162,7 @@ function renderPayment(){
     claimBox = `
       <div class="pay-row">
         ${typeSelect}
+        ${payForSelect}
         ${subTypeSelect}
       </div>
       ${monthsBox}
@@ -1150,7 +1171,7 @@ function renderPayment(){
           <label class="field-label" for="payAmount">মোট টাকা (বাকি মাস + ১ মাসের ফাইন)</label>
           <input type="number" id="payAmount" class="pay-select mono" min="1" step="1"
                  value="${initialTotal||''}" data-amount="${initialTotal}" data-rate="${perMonthRate}"
-                 oninput="this.dataset.amount=this.value||0; renderPayQr('fine', Number(this.value)||0);">
+                 oninput="this.dataset.amount=this.value||0;">
         </div>
       </div>
       <p class="hint-text" style="margin:.3rem 0 1rem;">উপরের মাসগুলোর টিক অনুযায়ী টাকাটা নিজে থেকেই হিসাব হয় — নিয়মটা <a href="#" onclick="document.querySelector('[data-page=fine]').click(); return false;">এখানে দেখুন</a>। প্রয়োজনে টাকার অঙ্ক নিজে বদলেও দিতে পারেন।</p>
@@ -1177,30 +1198,37 @@ function renderPayment(){
         </div>`;
     }
     const initialPayTotal = unpaidList.length ? required : 0;
-    qrAmount = initialPayTotal;
 
     claimBox = `
-      <div class="pay-row">${typeSelect}</div>
+      <div class="pay-row">${typeSelect}${payForSelect}</div>
       ${monthsBox}
       <div class="pay-row" style="margin-top:.8rem;">
         <div class="pay-field" style="flex:0 0 auto;">
-          <label class="field-label">মোট টাকা (বাছাই করা মাস অনুযায়ী)</label>
-          <div class="pay-amount mono" id="payAmount" data-amount="${initialPayTotal}">₹${initialPayTotal}</div>
+          <label class="field-label" for="payAmount">আপনি কত টাকা পাঠিয়েছেন? (নিজে লিখুন)</label>
+          <input type="number" id="payAmount" class="pay-select mono" min="1" step="1"
+                 value="${initialPayTotal||''}" data-required="${initialPayTotal}">
         </div>
       </div>
+      <p class="hint-text" id="payReqHint" style="margin:.3rem 0 1rem;">বাছাই করা মাস অনুযায়ী প্রয়োজনীয় পরিমাণ হলো <strong>₹${initialPayTotal}</strong> — রসিদের সাথে মিলিয়ে ঠিক এই টাকাটাই লিখুন।</p>
       ${paymentFooterHTML(payType, initialPayTotal)}`;
   }
 
   const reqs = DATA.paymentRequests || [];
   const pend = reqs.filter(p=>p.stage==='collector' || p.stage==='admin');
   let doneList = reqs.filter(p=>p.stage==='done' || p.stage==='rejected');
-  // an ordinary member only sees their own history; the collector & admin see everyone's
+  // an ordinary member only sees claims that are theirs OR that they themselves
+  // submitted on someone else's behalf; the collector & admin see everyone's
+  const involvesMe = p => memberSession && (
+    p.member.toLowerCase() === memberSession.userId.toLowerCase() ||
+    (p.processedBy && p.processedBy.toLowerCase() === memberSession.userId.toLowerCase()));
   if(!canApprove() && memberSession){
-    doneList = doneList.filter(p=>p.member.toLowerCase() === memberSession.userId.toLowerCase());
+    doneList = doneList.filter(involvesMe);
   }
   doneList = doneList.slice(-15).reverse();
 
   const tag = p => `<span class="pay-tag ${p.typeLabel==='ফাইন'?'fine':(p.typeLabel==='মাসিক জমা'?'':'loan')}">${p.typeLabel}</span>`;
+  const memberCell = p => p.member + (p.processedBy && p.processedBy.toLowerCase()!==p.member.toLowerCase()
+    ? ` <span class="hint-text">(${p.processedBy} জমা দিয়েছেন)</span>` : '');
 
   let apprCard = '';
   if(canApprove()){
@@ -1228,7 +1256,7 @@ function renderPayment(){
             const receipt = p.receiptUrl
               ? `<a href="${p.receiptUrl}" target="_blank" rel="noopener" class="receipt-link">🧾 দেখুন</a>`
               : `<span class="hint-text">নেই</span>`;
-            return `<tr><td>${p.member}</td><td>${tag(p)}</td><td>${p.monthLabel}</td><td class="mono">${moneyInt(p.amount)}</td><td>${receipt}</td><td>${p.status}</td><td>${btns}</td></tr>`;
+            return `<tr><td>${memberCell(p)}</td><td>${tag(p)}</td><td>${p.monthLabel}</td><td class="mono">${moneyInt(p.amount)}</td><td>${receipt}</td><td>${p.status}</td><td>${btns}</td></tr>`;
           }).join('')}</tbody>
         </table></div>`;
     }
@@ -1246,20 +1274,20 @@ function renderPayment(){
 
   let myPendBox = '';
   if(!canApprove() && memberSession){
-    const myPend = pend.filter(p=>p.member.toLowerCase() === memberSession.userId.toLowerCase());
+    const myPend = pend.filter(involvesMe);
     if(myPend.length){
       myPendBox = `
         <h4 class="pay-subhead">আপনার অপেক্ষমাণ অনুরোধ (${myPend.length})</h4>
-        <p class="hint-text" style="margin:0 0 .7rem;">পেমেন্টের স্ক্রিনশট যুক্ত করলে ${DATA.upiName||'সংগ্রাহক'} দ্রুত ও নিশ্চিত হয়ে অনুমোদন করতে পারবেন।</p>
+        <p class="hint-text" style="margin:0 0 .7rem;">পেমেন্টের স্ক্রিনশট যুক্ত করলে ${DATA.collectorName||'সংগ্রাহক'} দ্রুত ও নিশ্চিত হয়ে অনুমোদন করতে পারবেন।</p>
         <div class="table-scroll" style="max-height:none;"><table>
-          <thead><tr><th>ধরন</th><th>মাস</th><th>টাকা</th><th>অবস্থা</th><th>রসিদ</th></tr></thead>
+          <thead><tr><th>সদস্য</th><th>ধরন</th><th>মাস</th><th>টাকা</th><th>অবস্থা</th><th>রসিদ</th></tr></thead>
           <tbody>${myPend.map(p=>{
             const receiptCell = p.receiptUrl
               ? `<a href="${p.receiptUrl}" target="_blank" rel="noopener" class="receipt-link">🧾 দেখুন</a>`
               : `<button type="button" class="copy-btn" onclick="document.getElementById('rcpt-${p.token}').click()">📎 যুক্ত করুন</button>
                  <input type="file" accept="image/*,application/pdf" id="rcpt-${p.token}" hidden
                         onchange="onReceiptFileChosen(event,'${p.token}')">`;
-            return `<tr><td>${tag(p)}</td><td>${p.monthLabel}</td><td class="mono">${moneyInt(p.amount)}</td><td>${p.status}</td><td>${receiptCell}</td></tr>`;
+            return `<tr><td>${memberCell(p)}</td><td>${tag(p)}</td><td>${p.monthLabel}</td><td class="mono">${moneyInt(p.amount)}</td><td>${p.status}</td><td>${receiptCell}</td></tr>`;
           }).join('')}</tbody>
         </table></div>
         <div class="msg-err" id="rcptErr" hidden></div>`;
@@ -1276,7 +1304,7 @@ function renderPayment(){
         </div>
         <div class="table-scroll" style="max-height:340px;"><table>
           <thead><tr><th>সদস্য</th><th>ধরন</th><th>মাস</th><th>টাকা</th><th>ফলাফল</th></tr></thead>
-          <tbody>${doneList.map(p=>`<tr><td>${p.member}</td><td>${tag(p)}</td><td>${p.monthLabel}</td><td class="mono">${moneyInt(p.amount)}</td><td>${p.status}</td></tr>`).join('')}</tbody>
+          <tbody>${doneList.map(p=>`<tr><td>${memberCell(p)}</td><td>${tag(p)}</td><td>${p.monthLabel}</td><td class="mono">${moneyInt(p.amount)}</td><td>${p.status}</td></tr>`).join('')}</tbody>
         </table></div>
       </div>`;
   }
@@ -1285,68 +1313,13 @@ function renderPayment(){
     <div class="card">
       <div class="card-head">
         <h2>💰 অনলাইন পেমেন্ট</h2>
-        <div class="hint">টাকা যাবে <strong>${DATA.upiName||''}</strong>-এর UPI-তে। ${DATA.upiName||''} ও Prasun Jyoti — দুজনের অনুমোদনের পরেই শিটে বসবে।</div>
+        <div class="hint">${DATA.collectorName||'সংগ্রাহক'} ও Prasun Jyoti — দুজনের অনুমোদনের পরেই শিটে বসবে।</div>
       </div>
       ${claimBox}
       ${myPendBox}
     </div>
     ${apprCard}
     ${histBox}`;
-
-  if(mine) renderPayQr(payType, qrAmount);
-}
-
-// Builds the upi://pay link. Shared by the QR code and the "open app" button so
-// both always point at the exact same request. `tr` is a fresh reference id each
-// time — some UPI apps flag links that lack one as looking auto-generated/unsafe.
-function buildUpiLink(type, amount){
-  const checked = Array.from(document.querySelectorAll('.pay-month-cb:checked, .fine-month-cb:checked'));
-  const label = checked.map(cb=>cb.dataset.label).join(', ');
-  return 'upi://pay?pa=' + encodeURIComponent(DATA.upiId)
-    + '&pn=' + encodeURIComponent(DATA.upiName||'')
-    + '&am=' + encodeURIComponent(amount)
-    + '&cu=INR'
-    + '&tr=URF' + Date.now()
-    + '&tn=' + encodeURIComponent('URF ' + (memberSession ? memberSession.userId : '') + ' ' + label);
-}
-
-// Renders the scannable QR for the current type/amount. A QR is not a browser
-// redirect, so GPay's "declined for security reasons" block on upi:// deep
-// links opened from a mobile browser does not apply to it — scanning works
-// even when the button below does not.
-let payQrObj = null;
-function renderPayQr(type, amount){
-  const box = document.getElementById('payQr');
-  if(!box || typeof QRCode === 'undefined') return;
-  box.innerHTML = '';
-  payQrObj = new QRCode(box, {
-    text: buildUpiLink(type, amount),
-    width: 168, height: 168,
-    colorDark: '#1E4A35', colorLight: '#ffffff',
-    correctLevel: QRCode.CorrectLevel.M
-  });
-}
-
-function copyUpiId(ev){
-  const id = (DATA && DATA.upiId) || '';
-  const btn = ev.target;
-  const done = ()=>{ const old = btn.textContent; btn.textContent = '✅ কপি হয়েছে'; setTimeout(()=>{ btn.textContent = old; }, 1600); };
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(id).then(done).catch(()=>{ prompt('UPI ID কপি করুন:', id); });
-  } else {
-    prompt('UPI ID কপি করুন:', id);
-  }
-}
-
-function openUpiApp(type){
-  const errBox = document.getElementById('payErr');
-  if(!DATA.upiId || DATA.upiId === 'PASTE_UPI_ID_HERE'){
-    errBox.textContent = 'UPI আইডি এখনো সেট করা হয়নি — Prasun Jyoti-কে জানান।';
-    errBox.hidden = false;
-    return;
-  }
-  const amount = document.getElementById('payAmount').dataset.amount;
-  window.location.href = buildUpiLink(type, amount);
 }
 
 // Restores the two-step flow — open the app to pay, then separately confirm —
@@ -1375,13 +1348,14 @@ async function confirmPaymentClaim(ev, type){
     monthLabel = checkedBoxes.map(cb=>cb.dataset.label).join(', ');
   }
   const typeLabel = isFine ? 'ফাইন' : (type === 'loan' ? 'চলতি ঋণের সুদ' : 'মাসিক জমা');
+  const payForTarget = payForName || memberSession.userId;
   if(!isFine){
     const already = (DATA.paymentRequests||[]).some(p=>
-      p.member.toLowerCase() === memberSession.userId.toLowerCase() &&
+      p.member.toLowerCase() === payForTarget.toLowerCase() &&
       p.typeLabel === typeLabel && p.monthLabel === monthLabel &&
       (p.stage === 'collector' || p.stage === 'admin'));
     if(already){
-      errBox.textContent = 'এই মাসগুলোর জন্য আপনার একটা অনুরোধ ইতিমধ্যে অনুমোদনের অপেক্ষায় আছে — নতুন করে পাঠানোর দরকার নেই।';
+      errBox.textContent = 'এই মাসগুলোর জন্য একটা অনুরোধ ইতিমধ্যে অনুমোদনের অপেক্ষায় আছে — নতুন করে পাঠানোর দরকার নেই।';
       errBox.hidden = false;
       return;
     }
@@ -1394,13 +1368,23 @@ async function confirmPaymentClaim(ev, type){
     return;
   }
 
-  const amount = Number(document.getElementById('payAmount').dataset.amount);
-  if(isFine && (!amount || amount <= 0)){
-    errBox.textContent = 'সঠিক পরিমাণ দিন।';
+  const amountEl = document.getElementById('payAmount');
+  const amount = Number(amountEl.value);
+  if(!amount || amount <= 0){
+    errBox.textContent = 'কত টাকা দিয়েছেন তা লিখুন।';
     errBox.hidden = false;
     return;
   }
-  if(!confirm('আপনি নিশ্চিত যে ₹' + amount + ' পাঠিয়েছেন? রসিদসহ অনুমোদনের জন্য অনুরোধ যাবে।')) return;
+  if(!isFine){
+    const required = Number(amountEl.dataset.required || 0);
+    if(amount !== required){
+      errBox.textContent = 'আপনার লেখা পরিমাণ (₹' + amount + ') প্রয়োজনীয় পরিমাণের (₹' + required + ') সাথে মিলছে না — তাই জমা নেওয়া হয়নি। বাছাই করা মাস ও রসিদ আবার দেখুন।';
+      errBox.hidden = false;
+      return;
+    }
+  }
+  const confirmName = payForTarget === memberSession.userId ? 'আপনি' : payForTarget;
+  if(!confirm(confirmName + ' নিশ্চিতভাবে ₹' + amount + ' পাঠিয়েছেন? রসিদসহ অনুমোদনের জন্য অনুরোধ যাবে।')) return;
 
   const btn = ev.target;
   btn.disabled = true;
@@ -1412,6 +1396,7 @@ async function confirmPaymentClaim(ev, type){
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
       body: JSON.stringify({action:'submitPaymentClaim', userId:memberSession.userId, pin:memberSession.pin,
+                            payForMember: payForTarget,
                             type, monthIndexes, note: monthLabel, amount, receiptData: receipt.data, receiptMime: receipt.mime})
     });
     const json = await res.json();
@@ -1506,14 +1491,21 @@ async function onReceiptFileChosen(ev, token){
 }
 
 async function approvePaymentClick(ev, token, stage){
+  const reason = prompt('কোনো মন্তব্য যোগ করতে চাইলে লিখুন (না চাইলে খালি রেখে OK করুন):');
+  if(reason === null) return;
   if(!confirm('এই পেমেন্টটি অনুমোদন করবেন?')) return;
-  await postApprovalAction(ev, {action:'approvePayment', token, stage}, stage, '✅ অনুমোদন', 'অনুমোদন হয়নি।');
+  await postApprovalAction(ev, {action:'approvePayment', token, stage, reason: reason.trim()}, stage, '✅ অনুমোদন', 'অনুমোদন হয়নি।');
 }
 
 async function rejectPaymentClick(ev, token, stage){
-  const reason = prompt('কেন বাতিল করছেন? (কারণ লিখুন — খালি রাখলেও চলবে)\n\nOK চাপলে অনুরোধটি বাতিল হয়ে যাবে।');
-  if(reason === null) return;
-  await postApprovalAction(ev, {action:'rejectPayment', token, stage, reason: reason.trim()}, stage, '❌ বাতিল', 'বাতিল করা যায়নি।');
+  let reason = '';
+  while(!reason){
+    const entered = prompt('কেন বাতিল করছেন? কারণ লেখা আবশ্যক।');
+    if(entered === null) return;
+    reason = entered.trim();
+    if(!reason) alert('কারণ ছাড়া বাতিল করা যাবে না।');
+  }
+  await postApprovalAction(ev, {action:'rejectPayment', token, stage, reason}, stage, '❌ বাতিল', 'বাতিল করা যায়নি।');
 }
 
 async function postApprovalAction(ev, body, stage, btnLabel, failMsg){
