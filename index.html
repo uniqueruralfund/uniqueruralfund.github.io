@@ -1041,7 +1041,7 @@ function showMemberView(d){
 // (see approvalOverlay in the markup) so the table never has to squeeze into
 // the narrow প্রোফাইল popup above.
 function openApprovalOverlay(){
-  document.getElementById('approvalOverlayBody').innerHTML = buildApprovalCardHTML('3');
+  document.getElementById('approvalOverlayBody').innerHTML = buildApprovalCardHTML('3', false);
   document.getElementById('approvalOverlay').hidden = false;
 }
 function closeApprovalOverlay(){ document.getElementById('approvalOverlay').hidden = true; }
@@ -1120,7 +1120,7 @@ const memberCell = p => p.member + (p.processedBy && p.processedBy.toLowerCase()
 // on pending claims from either place. idSuffix keeps each copy's error/ok
 // message boxes (and any other per-instance ids) from colliding if both
 // happen to be in the DOM at once.
-function buildApprovalCardHTML(idSuffix){
+function buildApprovalCardHTML(idSuffix, readOnly){
   idSuffix = idSuffix || '';
   const reqs = DATA.paymentRequests || [];
   const pend = reqs.filter(p=>p.stage==='collector' || p.stage==='admin');
@@ -1130,12 +1130,14 @@ function buildApprovalCardHTML(idSuffix){
   } else {
     pendBox = `
       <div class="table-scroll" style="max-height:none;"><table>
-        <thead><tr><th>সদস্য</th><th>ধরন</th><th>মাস</th><th>টাকা</th><th>রসিদ</th><th>অবস্থা</th><th>অনুমোদন / বাতিল</th></tr></thead>
+        <thead><tr><th>সদস্য</th><th>ধরন</th><th>মাস</th><th>টাকা</th><th>রসিদ</th><th>অবস্থা</th><th>${readOnly?'':'অনুমোদন / বাতিল'}</th></tr></thead>
         <tbody>${pend.map(p=>{
           const stage = p.stage;
           const mine = stage === 'collector' ? isCollector() : isAdminMember();
           let btns;
-          if(!mine){
+          if(readOnly){
+            btns = `<span class="hint-text">${stage==='collector' ? (DATA.collectorName||'')+'-এর' : ADMIN_NAME+'-র'} অপেক্ষায়</span>`;
+          } else if(!mine){
             btns = `<span class="hint-text">${stage==='collector' ? (DATA.collectorName||'')+'-এর' : ADMIN_NAME+'-র'} অপেক্ষায়</span>`;
           } else if(stage === 'admin' && !isEditing()){
             btns = `<span class="hint-text">অনুমোদন করতে বাঁদিকে <strong>🔒 এডিট মোড</strong> আনলক করুন</span>`;
@@ -1156,11 +1158,14 @@ function buildApprovalCardHTML(idSuffix){
     <div class="card">
       <div class="card-head">
         <h2>🛡️ পেমেন্ট অনুমোদন ও বাতিল${pend.length?' ('+pend.length+')':''}</h2>
-        <div class="hint">এই অংশটি শুধু ${DATA.collectorName||''} ও ${ADMIN_NAME}-ই দেখতে পান। ভুল পেমেন্ট হলে <strong>❌ বাতিল</strong> করুন।</div>
+        <div class="hint">${readOnly
+          ? 'এই অংশটি শুধু তথ্যের জন্য — অনুমোদন/বাতিল করতে বাঁদিকের <strong>🧾 পেমেন্ট Receipt</strong>-এ যান।'
+          : 'এই অংশটি শুধু ' + (DATA.collectorName||'') + ' ও ' + ADMIN_NAME + '-ই দেখতে পান। ভুল পেমেন্ট হলে <strong>❌ বাতিল</strong> করুন।'}</div>
       </div>
       ${pendBox}
+      ${readOnly ? '' : `
       <div class="msg-err" id="apprErr${idSuffix}" hidden></div>
-      <div class="msg-ok" id="apprOk${idSuffix}" hidden></div>
+      <div class="msg-ok" id="apprOk${idSuffix}" hidden></div>`}
     </div>`;
 }
 
@@ -1364,7 +1369,10 @@ function renderPayment(){
   }
   doneList = doneList.slice(-15).reverse();
 
-  let apprCard = canApprove() ? buildApprovalCardHTML('') : '';
+  // Read-only here on purpose — the actionable version (with real Approve/
+  // Reject buttons) lives only in the পেমেন্ট Receipt overlay now, so there's
+  // exactly one place to click and Prasun Jyoti stops hitting the wrong copy.
+  let apprCard = canApprove() ? buildApprovalCardHTML('', true) : '';
 
   let myPendBox = '';
   if(!canApprove() && memberSession){
