@@ -296,10 +296,23 @@
   .wc-err{background:var(--unpaid-bg); color:var(--unpaid-text); border-radius:9px;
     padding:.6rem .8rem; font-size:.82rem; margin-bottom:1rem;}
 
+  .wc-guide{width:min(1040px,100%); margin:2.6rem auto 0; background:#FBF7EC; border-radius:18px;
+    padding:1.8rem 2rem 2rem; box-shadow:0 26px 60px rgba(0,0,0,.28);}
+  .wc-guide h2{font-family:'Tiro Bangla',serif; font-weight:400; margin:0 0 1.2rem;
+    font-size:1.5rem; color:var(--green-dark); text-align:center;}
+  .wc-guide-cols{display:grid; grid-template-columns:1fr 1fr; gap:2rem;}
+  .wc-guide-col h3{margin:0 0 .8rem; font-size:1.05rem; color:var(--green-dark); font-weight:700;
+    font-family:'Hind Siliguri',sans-serif;}
+  .wc-guide-col ol{margin:0; padding-left:1.3rem; color:var(--ink); font-size:.88rem; line-height:1.7;}
+  .wc-guide-col li{margin-bottom:.55rem;}
+  .wc-guide-col li strong{color:var(--green-dark);}
+
   @media (max-width:860px){
     .welcome-inner{grid-template-columns:1fr; gap:2rem;}
     .welcome{align-items:flex-start; padding:1.8rem 1.1rem 2.6rem;}
     .wc-card{padding:1.6rem 1.3rem 1.4rem;}
+    .wc-guide{padding:1.4rem 1.3rem 1.6rem;}
+    .wc-guide-cols{grid-template-columns:1fr; gap:1.6rem;}
   }
 
   [hidden]{display:none!important;}
@@ -379,6 +392,35 @@
         <strong>User ID</strong> = Sheet-এ লেখা আপনার নিজের নাম (যেমন Satyajit Das)<br>
         <strong>Password</strong> = আপনার মোবাইল নম্বর — নিজের ইমেইলে OTP নিয়ে বদলে নিতে পারবেন।
       </p>
+    </div>
+  </div>
+
+  <div class="wc-guide">
+    <h2>কীভাবে ব্যবহার করবেন</h2>
+    <div class="wc-guide-cols">
+      <div class="wc-guide-col">
+        <h3>👤 সাধারণ সদস্যের জন্য</h3>
+        <ol>
+          <li>বাঁদিকের <strong>"👤 ব্যক্তিগত তথ্য দেখুন"</strong>-এ ক্লিক করুন — User ID-তে নিজের নাম, Password-এ মোবাইল নম্বর (ডিফল্ট) দিন।</li>
+          <li>লগইন করলেই নিজের জমা/ঋণের হিসাব দেখা যাবে।</li>
+          <li>মাসিক জমা/ঋণের সুদ দিতে <strong>০৫ পেমেন্ট</strong> পাতায় গিয়ে ধরন ও মাস বেছে নিন।</li>
+          <li>অন্য কারো পক্ষে (ক্যাশ নিয়ে) জমা দিলে "কার হয়ে জমা দিচ্ছেন"-এ তাঁর নাম বেছে নিন।</li>
+          <li>টাকা পাঠানোর প্রমাণ (স্ক্রিনশট/PDF) আপলোড করে <strong>✅ পেমেন্ট করেছি</strong>-তে চাপুন।</li>
+          <li>ফাইন দিতে "ফাইন" বেছে নিন, কোন মাসের তা টিক দিন — টাকা নিজে থেকেই হিসাব হবে।</li>
+          <li>নতুন ঋণ চাইতে <strong>০৬ ঋণের আবেদন</strong> পাতায় পরিমাণ লিখে পাঠান; টাকা পেলে সেখানেই স্বীকৃতি দিন।</li>
+          <li>পাসওয়ার্ড ভুলে গেলে "Password ভুলে গেছেন?"-এ ক্লিক করে OTP দিয়ে নতুন পাসওয়ার্ড দিন।</li>
+        </ol>
+      </div>
+      <div class="wc-guide-col">
+        <h3>🛡️ অনুমোদনকারীর জন্য (Satyajit Das ও Prasun Jyoti)</h3>
+        <ol>
+          <li>পেমেন্ট পাতায় বা প্রোফাইলে <strong>"🛡️ পেমেন্ট অনুমোদন ও বাতিল"</strong> অংশ দেখুন।</li>
+          <li>রসিদ দেখে টাকার অঙ্ক মিলিয়ে নিন।</li>
+          <li>ঠিক থাকলে <strong>✅ অনুমোদন</strong> (Prasun-এর ক্ষেত্রে আগে 🔒 এডিট মোড আনলক করতে হবে)।</li>
+          <li>ভুল হলে <strong>❌ বাতিল</strong> — কারণ লেখা বাধ্যতামূলক।</li>
+          <li>অনুমোদন/বাতিল দুই ক্ষেত্রেই সবাইকে ইমেইলে জানানো হয়ে যায়।</li>
+        </ol>
+      </div>
     </div>
   </div>
 </div>
