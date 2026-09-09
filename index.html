@@ -1098,10 +1098,8 @@ function updatePayAmount(rate){
   if(!amountEl) return;
   const checked = document.querySelectorAll('.pay-month-cb:checked').length;
   const total = checked * rate;
-  amountEl.value = total || '';
-  amountEl.dataset.required = total;
-  const hint = document.getElementById('payReqHint');
-  if(hint) hint.innerHTML = 'বাছাই করা মাস অনুযায়ী প্রয়োজনীয় পরিমাণ হলো <strong>₹' + total + '</strong> — রসিদের সাথে মিলিয়ে ঠিক এই টাকাটাই লিখুন।';
+  amountEl.textContent = '₹' + total;
+  amountEl.dataset.amount = total;
 }
 
 function updateFineAmount(){
@@ -1258,12 +1256,10 @@ function renderPayment(){
       ${monthsBox}
       <div class="pay-row" style="margin-top:.8rem;">
         <div class="pay-field" style="flex:0 0 auto;">
-          <label class="field-label" for="payAmount">আপনি কত টাকা পাঠিয়েছেন? (নিজে লিখুন)</label>
-          <input type="number" id="payAmount" class="pay-select mono" min="1" step="1"
-                 value="${initialPayTotal||''}" data-required="${initialPayTotal}">
+          <label class="field-label">মোট টাকা (বাছাই করা মাস অনুযায়ী)</label>
+          <div class="pay-amount mono" id="payAmount" data-amount="${initialPayTotal}">₹${initialPayTotal}</div>
         </div>
       </div>
-      <p class="hint-text" id="payReqHint" style="margin:.3rem 0 1rem;">বাছাই করা মাস অনুযায়ী প্রয়োজনীয় পরিমাণ হলো <strong>₹${initialPayTotal}</strong> — রসিদের সাথে মিলিয়ে ঠিক এই টাকাটাই লিখুন।</p>
       ${paymentFooterHTML(payType, initialPayTotal)}`;
   }
 
@@ -1379,19 +1375,11 @@ async function confirmPaymentClaim(ev, type){
   }
 
   const amountEl = document.getElementById('payAmount');
-  const amount = Number(amountEl.value);
+  const amount = isFine ? Number(amountEl.value) : Number(amountEl.dataset.amount);
   if(!amount || amount <= 0){
-    errBox.textContent = 'কত টাকা দিয়েছেন তা লিখুন।';
+    errBox.textContent = 'সঠিক পরিমাণ দিন।';
     errBox.hidden = false;
     return;
-  }
-  if(!isFine){
-    const required = Number(amountEl.dataset.required || 0);
-    if(amount !== required){
-      errBox.textContent = 'আপনার লেখা পরিমাণ (₹' + amount + ') প্রয়োজনীয় পরিমাণের (₹' + required + ') সাথে মিলছে না — তাই জমা নেওয়া হয়নি। বাছাই করা মাস ও রসিদ আবার দেখুন।';
-      errBox.hidden = false;
-      return;
-    }
   }
   const confirmName = payForTarget === memberSession.userId ? 'আপনি' : payForTarget;
   if(!confirm(confirmName + ' নিশ্চিতভাবে ₹' + amount + ' পাঠিয়েছেন? রসিদসহ অনুমোদনের জন্য অনুরোধ যাবে।')) return;
