@@ -296,8 +296,11 @@
   .wc-err{background:var(--unpaid-bg); color:var(--unpaid-text); border-radius:9px;
     padding:.6rem .8rem; font-size:.82rem; margin-bottom:1rem;}
 
-  .wc-guide{width:min(1040px,100%); margin:2.6rem auto 0; background:#FBF7EC; border-radius:18px;
+  .wc-guide{width:min(1040px,100%); margin:0 auto; background:#FBF7EC; border-radius:18px;
     padding:1.8rem 2rem 2rem; box-shadow:0 26px 60px rgba(0,0,0,.28);}
+  .wc-guide-back{all:unset; cursor:pointer; display:inline-block; font-size:.82rem; font-weight:600;
+    color:var(--green-dark); margin-bottom:1.1rem;}
+  .wc-guide-back:hover{text-decoration:underline;}
   .wc-guide h2{font-family:'Tiro Bangla',serif; font-weight:400; margin:0 0 1.2rem;
     font-size:1.5rem; color:var(--green-dark); text-align:center;}
   .wc-guide-cols{display:grid; grid-template-columns:1fr 1fr; gap:2rem;}
@@ -352,7 +355,7 @@
 </svg>
 
 <div class="welcome" id="welcomeScreen" hidden>
-  <div class="welcome-inner">
+  <div class="welcome-inner" id="wcMainView">
     <div class="wc-hero">
       <div class="wc-logo-wrap">
         <svg role="img" aria-label="Unique Rural Fund"><use href="#urfMark"/></svg>
@@ -367,7 +370,8 @@
       <p>আমাদের নিজেদের গড়া তহবিল — প্রতি মাসে ছোট ছোট জমা থেকে তৈরি হয়েছে সবার ভরসার জায়গা।</p>
       <p>নিজের <strong style="color:#EFE6D2;">User ID ও Password</strong> দিয়ে ঢুকলে নিজের সব হিসাব দেখতে পাবেন এবং অনলাইনে টাকা জমা দিতে পারবেন।</p>
       <div class="wc-stats" id="wcStats"></div>
-      <a class="wc-site" href="https://sites.google.com/view/uniqueruralfund/home" target="_blank" rel="noopener">🔗 আমাদের ওয়েবসাইট দেখুন</a>
+      <a class="wc-site" href="https://sites.google.com/view/uniqueruralfund/home" target="_blank" rel="noopener">🔗 আমাদের ওয়েবসাইট দেখুন</a><br>
+      <a class="wc-site" href="#" onclick="showWcGuide(); return false;">📘 কীভাবে ব্যবহার করবেন</a>
       <div class="wc-contact">
         <p class="t">যোগাযোগ — Unique Rural Fund</p>
         <p>Dhwaja, Alipur, Shyampur<br>Howrah – 711315<br>West Bengal, India</p>
@@ -395,7 +399,8 @@
     </div>
   </div>
 
-  <div class="wc-guide">
+  <div class="wc-guide" id="wcGuideView" hidden>
+    <button type="button" class="wc-guide-back" onclick="hideWcGuide()">← লগইন-এ ফিরুন</button>
     <h2>কীভাবে ব্যবহার করবেন</h2>
     <div class="wc-guide-cols">
       <div class="wc-guide-col">
@@ -834,6 +839,14 @@ function toggleWcPinVisibility(){
   inp.type = showing ? 'password' : 'text';
   btn.textContent = showing ? '👁' : '🙈';
   btn.setAttribute('aria-label', showing ? 'পাসওয়ার্ড দেখুন' : 'পাসওয়ার্ড লুকান');
+}
+function showWcGuide(){
+  document.getElementById('wcMainView').hidden = true;
+  document.getElementById('wcGuideView').hidden = false;
+}
+function hideWcGuide(){
+  document.getElementById('wcGuideView').hidden = true;
+  document.getElementById('wcMainView').hidden = false;
 }
 document.getElementById('wcId').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('wcPin').focus(); });
 document.getElementById('wcPin').addEventListener('keydown', e=>{ if(e.key==='Enter') welcomeLogin(e); });
