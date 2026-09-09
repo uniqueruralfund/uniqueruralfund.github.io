@@ -153,8 +153,7 @@
   .chart-box{margin-bottom:1.4rem;}
   .chart-box .cap{font-size:.85rem; color:var(--ink-soft); margin-bottom:.5rem;}
   svg text{font-family:'IBM Plex Mono',monospace; fill:var(--ink-soft);}
-  .two-col{display:grid; grid-template-columns:1fr 1fr; gap:1.4rem;}
-  @media (max-width:900px){.two-col{grid-template-columns:1fr;}}
+  .two-col{display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:1.4rem;}
 
   .foot-help{font-size:.82rem; color:var(--ink-soft); line-height:1.7; background:var(--card-bg); border:1px dashed var(--line); border-radius:12px; padding:1.1rem 1.3rem;}
   .foot-help h3{color:var(--green-dark); font-size:1rem; margin-top:0;}
@@ -1999,6 +1998,39 @@ function svgLineChart(labels, series){
   });
   return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;">${grid}<path d="${pts}" fill="none" stroke="#B8892B" stroke-width="2.5"/>${dots}${lab}</svg>`;
 }
+// slices: [{label, value, color}] — draws wedges clockwise from the top and a
+// matching legend with each slice's amount and share of the total.
+function svgPieChart(slices){
+  const cx=90, cy=90, r=80;
+  const total = slices.reduce((s,x)=>s+Math.max(0,x.value),0);
+  const live = slices.filter(s=>s.value>0);
+  let arcs;
+  if(total<=0){
+    arcs = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#EFE9D8"/>`;
+  } else if(live.length===1){
+    arcs = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${live[0].color}"><title>${live[0].label}</title></circle>`;
+  } else {
+    let angle=-90, d='';
+    live.forEach(sl=>{
+      const frac = sl.value/total;
+      const a0=angle, a1=angle+frac*360, large=(a1-a0)>180?1:0;
+      const x1=cx+r*Math.cos(a0*Math.PI/180), y1=cy+r*Math.sin(a0*Math.PI/180);
+      const x2=cx+r*Math.cos(a1*Math.PI/180), y2=cy+r*Math.sin(a1*Math.PI/180);
+      d += `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${large} 1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${sl.color}"><title>${sl.label}: ${moneyInt(sl.value)}</title></path>`;
+      angle = a1;
+    });
+    arcs = d;
+  }
+  const legend = slices.map(sl=>`
+    <div style="display:flex; align-items:center; gap:.5rem; font-size:.85rem; margin-bottom:.5rem;">
+      <span style="width:11px;height:11px;border-radius:3px;background:${sl.color};display:inline-block;flex:none;"></span>
+      <span>${sl.label} — <strong class="mono">${moneyInt(sl.value)}</strong> <span style="color:var(--ink-soft);">(${total>0?Math.round(sl.value/total*100):0}%)</span></span>
+    </div>`).join('');
+  return `<div style="display:flex; gap:1.6rem; align-items:center; flex-wrap:wrap;">
+    <svg viewBox="0 0 180 180" style="width:150px; height:150px; flex:none;">${arcs}</svg>
+    <div>${legend}</div>
+  </div>`;
+}
 
 /* ================= page renderers ================= */
 const pageTitle = document.getElementById('pageTitle');
@@ -2007,13 +2039,18 @@ const pageBody = document.getElementById('pageBody');
 function renderOverview(){
   const fs = DATA.fundSummary;
   const monthlyTotals = DATA.months.map((_,i)=> DATA.contributions.reduce((s,m)=>s+m.pay[i],0));
+  const loanSum = DATA.activeLoans.reduce((s,l)=>s+l.amount,0);
+  // মোট ব্যালেন্স breaks down into: cash currently in hand, principal out on
+  // active loans, and everything else (accrued interest/fine earnings etc.
+  // already folded into Total Balance but not separately tracked here).
+  const otherBalance = Math.max(0, (fs.totalBalance||0) - (fs.availableBalance||0) - loanSum);
   pageBody.innerHTML = `
     <div class="stat-grid">
       <div class="stat"><div class="k">মোট ব্যালেন্স</div><div class="v gold mono">${money(fs.totalBalance)}</div></div>
       <div class="stat"><div class="k">হাতে থাকা ব্যালেন্স</div><div class="v mono">${money(fs.availableBalance)}</div></div>
       <div class="stat"><div class="k">মোট সদস্য</div><div class="v mono">${DATA.contributions.length}</div></div>
       <div class="stat"><div class="k">${DATA.year}-এ চাঁদা সংগ্রহ</div><div class="v mono">${moneyInt(fs.totalCollectedThisYear)}</div></div>
-      <div class="stat"><div class="k">${DATA.year}-এ চলতি ঋণ</div><div class="v gold mono">${moneyInt(DATA.activeLoans.reduce((s,l)=>s+l.amount,0))}</div></div>
+      <div class="stat"><div class="k">${DATA.year}-এ চলতি ঋণ</div><div class="v gold mono">${moneyInt(loanSum)}</div></div>
       <div class="stat"><div class="k">${DATA.year}-এ সুদ আয়</div><div class="v mono">${moneyInt(fs.earningsInterest)}</div></div>
     </div>
     <div class="two-col">
@@ -2024,6 +2061,14 @@ function renderOverview(){
       <div class="card chart-box">
         <div class="cap">ক্রমসঞ্চিত চাঁদা — ২০২১–${DATA.year}</div>
         ${svgLineChart(DATA.yearlySummary.map(y=>y.year), DATA.yearlySummary.map(y=>y.cumulativeCollection))}
+      </div>
+      <div class="card chart-box">
+        <div class="cap">মোট ব্যালেন্সের বণ্টন</div>
+        ${svgPieChart([
+          {label:'হাতে থাকা ব্যালেন্স', value:fs.availableBalance||0, color:'#2E6B4F'},
+          {label:'চলতি ঋণে বিতরণ করা', value:loanSum, color:'#B8892B'},
+          {label:'অন্যান্য (সুদ/ফাইন আয় ইত্যাদি)', value:otherBalance, color:'#9C8465'}
+        ])}
       </div>
     </div>
     <div class="card">
