@@ -1130,7 +1130,7 @@ function buildApprovalCardHTML(idSuffix, readOnly){
   } else {
     pendBox = `
       <div class="table-scroll" style="max-height:none;"><table>
-        <thead><tr><th>সদস্য</th><th>ধরন</th><th>মাস</th><th>টাকা</th><th>রসিদ</th><th>অবস্থা</th><th>${readOnly?'':'অনুমোদন / বাতিল'}</th></tr></thead>
+        <thead><tr><th>সদস্য</th><th>ধরন</th><th>মাস</th><th>কবে জমা দিয়েছে</th><th>Satyajit অনুমোদন</th><th>Prasun অনুমোদন</th><th>টাকা</th><th>রসিদ</th><th>অবস্থা</th><th>${readOnly?'':'অনুমোদন / বাতিল'}</th></tr></thead>
         <tbody>${pend.map(p=>{
           const stage = p.stage;
           const mine = stage === 'collector' ? isCollector() : isAdminMember();
@@ -1150,7 +1150,9 @@ function buildApprovalCardHTML(idSuffix, readOnly){
           const receipt = p.receiptUrl
             ? `<a href="${p.receiptUrl}" target="_blank" rel="noopener" class="receipt-link">🧾 দেখুন</a>`
             : `<span class="hint-text">নেই</span>`;
-          return `<tr><td>${memberCell(p)}</td><td>${tag(p)}</td><td>${p.monthLabel}</td><td class="mono">${moneyInt(p.amount)}</td><td>${receipt}</td><td>${p.status}</td><td>${btns}</td></tr>`;
+          return `<tr><td>${memberCell(p)}</td><td>${tag(p)}</td><td>${p.monthLabel}</td>`
+               + `<td>${p.askedAt||'—'}</td><td>${p.collectorApprovedAt||'—'}</td><td>${p.adminApprovedAt||'—'}</td>`
+               + `<td class="mono">${moneyInt(p.amount)}</td><td>${receipt}</td><td>${p.status}</td><td>${btns}</td></tr>`;
         }).join('')}</tbody>
       </table></div>`;
   }
