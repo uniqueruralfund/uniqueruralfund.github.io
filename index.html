@@ -1090,7 +1090,8 @@ function fineSubTypeChanged(v){ fineSubType = v; renderPage('payment'); }
 let payForName = null;
 function payForChanged(v){ payForName = v; renderPage('payment'); }
 
-const tag = p => `<span class="pay-tag ${p.typeLabel==='ফাইন'?'fine':(p.typeLabel==='মাসিক জমা'?'':'loan')}">${p.typeLabel}</span>`;
+const tag = p => `<span class="pay-tag ${p.typeLabel==='ফাইন'?'fine':(p.typeLabel==='মাসিক জমা'?'':'loan')}">${p.typeLabel}</span>`
+  + (p.method==='নগদ' ? ' <span class="hint-text">(নগদ)</span>' : '');
 const memberCell = p => p.member + (p.processedBy && p.processedBy.toLowerCase()!==p.member.toLowerCase()
   ? ` <span class="hint-text">(${p.processedBy} জমা দিয়েছেন)</span>` : '');
 
@@ -1169,9 +1170,21 @@ function updateFineAmount(){
 
 // Shared by all three payment types — the mandatory receipt upload and the
 // submit button don't differ between them.
+function payMethodChanged(){
+  const method = document.getElementById('payMethod').value;
+  document.getElementById('payReceiptField').hidden = (method === 'cash');
+}
+
 function paymentFooterHTML(type, required){
   return `
       <div class="pay-field" style="margin-top:1rem;">
+        <label class="field-label" for="payMethod">পেমেন্টের ধরন</label>
+        <select id="payMethod" class="pay-select" onchange="payMethodChanged()">
+          <option value="online" selected>অনলাইন (UPI/ব্যাংক)</option>
+          <option value="cash">নগদ (Cash)</option>
+        </select>
+      </div>
+      <div class="pay-field" id="payReceiptField" style="margin-top:1rem;">
         <label class="field-label" for="payReceiptInput">পেমেন্টের স্ক্রিনশট (আবশ্যক)</label>
         <input type="file" accept="image/*,application/pdf" id="payReceiptInput" class="pay-select">
       </div>
@@ -1180,7 +1193,7 @@ function paymentFooterHTML(type, required){
       </div>
       <div class="msg-err" id="payErr" hidden></div>
       <div class="msg-ok" id="payOk" hidden></div>
-      <p class="hint-text" style="margin-top:.8rem;">টাকা পাঠানোর/জমা দেওয়ার পর তার প্রমাণ (স্ক্রিনশট বা রসিদ) উপরে বেছে নিয়ে <strong>✅ পেমেন্ট করেছি</strong>-তে চাপুন — রসিদ ছাড়া দাবি জমা নেওয়া হবে না। ${DATA.collectorName||'সংগ্রাহক'} রসিদ দেখে অনুমোদন করবেন, তারপর Prasun Jyoti চূড়ান্ত করবেন।</p>`;
+      <p class="hint-text" style="margin-top:.8rem;">অনলাইনে পাঠালে তার প্রমাণ (স্ক্রিনশট বা রসিদ) বেছে নিন — নগদ দিলে প্রমাণ লাগবে না। এরপর <strong>✅ পেমেন্ট করেছি</strong>-তে চাপুন। ${DATA.collectorName||'সংগ্রাহক'} যাচাই করে অনুমোদন করবেন, তারপর Prasun Jyoti চূড়ান্ত করবেন।</p>`;
 }
 
 function renderPayment(){
@@ -1421,9 +1434,10 @@ async function confirmPaymentClaim(ev, type){
       return;
     }
   }
+  const payMethod = document.getElementById('payMethod').value;
   const fileInput = document.getElementById('payReceiptInput');
   const file = fileInput.files && fileInput.files[0];
-  if(!file){
+  if(payMethod !== 'cash' && !file){
     errBox.textContent = 'পেমেন্টের স্ক্রিনশট ছাড়া দাবি জমা নেওয়া হবে না — আগে উপরে থেকে ছবি বেছে নিন।';
     errBox.hidden = false;
     return;
@@ -1442,15 +1456,19 @@ async function confirmPaymentClaim(ev, type){
   const btn = ev.target;
   btn.disabled = true;
   const oldLabel = btn.textContent;
-  btn.textContent = 'রসিদ পাঠানো হচ্ছে...';
+  btn.textContent = file ? 'রসিদ পাঠানো হচ্ছে...' : 'পাঠানো হচ্ছে...';
   try{
-    const receipt = await compressReceiptFile(file);
+    let receiptData = '', receiptMime = '';
+    if(file){
+      const receipt = await compressReceiptFile(file);
+      receiptData = receipt.data; receiptMime = receipt.mime;
+    }
     const res = await fetch(SCRIPT_URL, {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
       body: JSON.stringify({action:'submitPaymentClaim', userId:memberSession.userId, pin:memberSession.pin,
-                            payForMember: payForTarget,
-                            type, monthIndexes, note: monthLabel, amount, receiptData: receipt.data, receiptMime: receipt.mime})
+                            payForMember: payForTarget, paymentMethod: payMethod,
+                            type, monthIndexes, note: monthLabel, amount, receiptData, receiptMime})
     });
     const json = await res.json();
     if(!json.ok){
