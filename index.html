@@ -209,6 +209,14 @@
     background:#B4453A; color:#fff; white-space:nowrap; display:inline-block; text-align:center;}
   .reject-btn:hover{opacity:.88;}
   .btn-pair{display:flex; gap:.4rem; flex-wrap:wrap;}
+  .appr-list{display:flex; flex-direction:column; gap:.9rem;}
+  .appr-card{border:1px solid var(--line); border-radius:12px; padding:.9rem 1.1rem; background:#FBF9F2;}
+  .appr-row{display:flex; justify-content:space-between; align-items:baseline; gap:1rem;
+    padding:.4rem 0; border-bottom:1px dashed var(--line); font-size:.86rem;}
+  .appr-row:last-of-type{border-bottom:none;}
+  .appr-row .k{color:var(--ink-soft); flex:none;}
+  .appr-row .v{text-align:right; font-weight:500; overflow-wrap:anywhere;}
+  .appr-actions{margin-top:.8rem; padding-top:.2rem;}
   .pay-tag{display:inline-block; font-size:.72rem; font-weight:700; padding:.15rem .5rem; border-radius:12px;
     background:#EDF6EA; color:var(--green-dark); border:1px solid #C9E0BF;}
   .pay-tag.loan{background:#FBF1DC; color:#6b4d09; border-color:#E6D3A6;}
@@ -1128,33 +1136,39 @@ function buildApprovalCardHTML(idSuffix, readOnly){
   if(!pend.length){
     pendBox = `<p class="hint-text">এখন কোনো অনুরোধ অপেক্ষায় নেই।</p>`;
   } else {
+    // A wide table forces horizontal scrolling that hides the action buttons
+    // off-screen on a phone — a label/value card per request instead reflows
+    // naturally at any width and keeps the buttons always visible.
     pendBox = `
-      <div class="table-scroll" style="max-height:none;"><table>
-        <thead><tr><th>সদস্য</th><th>ধরন</th><th>মাস</th><th>কবে জমা দিয়েছে</th><th>Satyajit অনুমোদন</th><th>Prasun অনুমোদন</th><th>টাকা</th><th>রসিদ</th><th>অবস্থা</th><th>${readOnly?'':'অনুমোদন / বাতিল'}</th></tr></thead>
-        <tbody>${pend.map(p=>{
-          const stage = p.stage;
-          const mine = stage === 'collector' ? isCollector() : isAdminMember();
-          let btns;
-          if(readOnly){
-            btns = `<span class="hint-text">${stage==='collector' ? (DATA.collectorName||'')+'-এর' : ADMIN_NAME+'-র'} অপেক্ষায়</span>`;
-          } else if(!mine){
-            btns = `<span class="hint-text">${stage==='collector' ? (DATA.collectorName||'')+'-এর' : ADMIN_NAME+'-র'} অপেক্ষায়</span>`;
-          } else if(stage === 'admin' && !isEditing()){
-            btns = `<span class="hint-text">অনুমোদন করতে বাঁদিকে <strong>🔒 এডিট মোড</strong> আনলক করুন</span>`;
-          } else {
-            btns = `<div class="btn-pair">
-              <button class="approve-btn" onclick="approvePaymentClick(event,'${p.token}','${stage}','${idSuffix}')">✅ অনুমোদন</button>
-              <button class="reject-btn" onclick="rejectPaymentClick(event,'${p.token}','${stage}','${idSuffix}')">❌ বাতিল</button>
-            </div>`;
-          }
-          const receipt = p.receiptUrl
-            ? `<a href="${p.receiptUrl}" target="_blank" rel="noopener" class="receipt-link">🧾 দেখুন</a>`
-            : `<span class="hint-text">নেই</span>`;
-          return `<tr><td>${memberCell(p)}</td><td>${tag(p)}</td><td>${p.monthLabel}</td>`
-               + `<td>${p.askedAt||'—'}</td><td>${p.collectorApprovedAt||'—'}</td><td>${p.adminApprovedAt||'—'}</td>`
-               + `<td class="mono">${moneyInt(p.amount)}</td><td>${receipt}</td><td>${p.status}</td><td>${btns}</td></tr>`;
-        }).join('')}</tbody>
-      </table></div>`;
+      <div class="appr-list">${pend.map(p=>{
+        const stage = p.stage;
+        const mine = stage === 'collector' ? isCollector() : isAdminMember();
+        let btns;
+        if(readOnly){
+          btns = `<span class="hint-text">${stage==='collector' ? (DATA.collectorName||'')+'-এর' : ADMIN_NAME+'-র'} অপেক্ষায়</span>`;
+        } else if(!mine){
+          btns = `<span class="hint-text">${stage==='collector' ? (DATA.collectorName||'')+'-এর' : ADMIN_NAME+'-র'} অপেক্ষায়</span>`;
+        } else if(stage === 'admin' && !isEditing()){
+          btns = `<span class="hint-text">অনুমোদন করতে বাঁদিকে <strong>🔒 এডিট মোড</strong> আনলক করুন</span>`;
+        } else {
+          btns = `<div class="btn-pair">
+            <button class="approve-btn" onclick="approvePaymentClick(event,'${p.token}','${stage}','${idSuffix}')">✅ অনুমোদন</button>
+            <button class="reject-btn" onclick="rejectPaymentClick(event,'${p.token}','${stage}','${idSuffix}')">❌ বাতিল</button>
+          </div>`;
+        }
+        const receipt = p.receiptUrl
+          ? `<a href="${p.receiptUrl}" target="_blank" rel="noopener" class="receipt-link">🧾 দেখুন</a>`
+          : `<span class="hint-text">নেই</span>`;
+        const rows = [
+          ['সদস্য', memberCell(p)], ['ধরন', tag(p)], ['মাস', p.monthLabel],
+          ['কবে জমা দিয়েছে', p.askedAt||'—'], ['Satyajit অনুমোদন', p.collectorApprovedAt||'—'], ['Prasun অনুমোদন', p.adminApprovedAt||'—'],
+          ['টাকা', '<span class="mono">'+moneyInt(p.amount)+'</span>'], ['রসিদ', receipt], ['অবস্থা', p.status]
+        ];
+        return `<div class="appr-card">
+          ${rows.map(([k,v])=>`<div class="appr-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
+          <div class="appr-actions">${btns}</div>
+        </div>`;
+      }).join('')}</div>`;
   }
   return `
     <div class="card">
