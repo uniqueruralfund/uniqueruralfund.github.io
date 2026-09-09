@@ -966,6 +966,7 @@ function showMemberView(d){
     <h4 style="margin:.8rem 0 .3rem; color:var(--green-dark);">ঋণের অবস্থা</h4>
     ${loanHtml}
     <p class="hint-text" style="margin:1rem 0 0; border-top:1px solid var(--line); padding-top:.9rem;">💰 টাকা জমা দিতে বাঁদিকের <strong>০৫ পেমেন্ট</strong> পাতায় যান — সেখানে মাসিক জমা ও ঋণের সুদ — দুটোই অনলাইনে দেওয়া যাবে।</p>
+    ${canApprove() ? '<div style="margin-top:1.2rem;">' + buildApprovalCardHTML('2') + '</div>' : ''}
   `;
   document.getElementById('memberViewOverlay').hidden = false;
 }
@@ -1033,6 +1034,59 @@ function fineSubTypeChanged(v){ fineSubType = v; renderPage('payment'); }
 // payment on another member's behalf (cash collected, paid for a relative, …).
 let payForName = null;
 function payForChanged(v){ payForName = v; renderPage('payment'); }
+
+const tag = p => `<span class="pay-tag ${p.typeLabel==='ফাইন'?'fine':(p.typeLabel==='মাসিক জমা'?'':'loan')}">${p.typeLabel}</span>`;
+const memberCell = p => p.member + (p.processedBy && p.processedBy.toLowerCase()!==p.member.toLowerCase()
+  ? ` <span class="hint-text">(${p.processedBy} জমা দিয়েছেন)</span>` : '');
+
+// The approve/reject panel — shared by the পেমেন্ট page's own card AND the
+// প্রোফাইল ("ব্যক্তিগত তথ্য") overlay, so Satyajit Das / Prasun Jyoti can act
+// on pending claims from either place. idSuffix keeps each copy's error/ok
+// message boxes (and any other per-instance ids) from colliding if both
+// happen to be in the DOM at once.
+function buildApprovalCardHTML(idSuffix){
+  idSuffix = idSuffix || '';
+  const reqs = DATA.paymentRequests || [];
+  const pend = reqs.filter(p=>p.stage==='collector' || p.stage==='admin');
+  let pendBox;
+  if(!pend.length){
+    pendBox = `<p class="hint-text">এখন কোনো অনুরোধ অপেক্ষায় নেই।</p>`;
+  } else {
+    pendBox = `
+      <div class="table-scroll" style="max-height:none;"><table>
+        <thead><tr><th>সদস্য</th><th>ধরন</th><th>মাস</th><th>টাকা</th><th>রসিদ</th><th>অবস্থা</th><th>অনুমোদন / বাতিল</th></tr></thead>
+        <tbody>${pend.map(p=>{
+          const stage = p.stage;
+          const mine = stage === 'collector' ? isCollector() : isAdminMember();
+          let btns;
+          if(!mine){
+            btns = `<span class="hint-text">${stage==='collector' ? (DATA.collectorName||'')+'-এর' : ADMIN_NAME+'-র'} অপেক্ষায়</span>`;
+          } else if(stage === 'admin' && !isEditing()){
+            btns = `<span class="hint-text">অনুমোদন করতে বাঁদিকে <strong>🔒 এডিট মোড</strong> আনলক করুন</span>`;
+          } else {
+            btns = `<div class="btn-pair">
+              <button class="approve-btn" onclick="approvePaymentClick(event,'${p.token}','${stage}','${idSuffix}')">✅ অনুমোদন</button>
+              <button class="reject-btn" onclick="rejectPaymentClick(event,'${p.token}','${stage}','${idSuffix}')">❌ বাতিল</button>
+            </div>`;
+          }
+          const receipt = p.receiptUrl
+            ? `<a href="${p.receiptUrl}" target="_blank" rel="noopener" class="receipt-link">🧾 দেখুন</a>`
+            : `<span class="hint-text">নেই</span>`;
+          return `<tr><td>${memberCell(p)}</td><td>${tag(p)}</td><td>${p.monthLabel}</td><td class="mono">${moneyInt(p.amount)}</td><td>${receipt}</td><td>${p.status}</td><td>${btns}</td></tr>`;
+        }).join('')}</tbody>
+      </table></div>`;
+  }
+  return `
+    <div class="card">
+      <div class="card-head">
+        <h2>🛡️ পেমেন্ট অনুমোদন ও বাতিল${pend.length?' ('+pend.length+')':''}</h2>
+        <div class="hint">এই অংশটি শুধু ${DATA.collectorName||''} ও ${ADMIN_NAME}-ই দেখতে পান। ভুল পেমেন্ট হলে <strong>❌ বাতিল</strong> করুন।</div>
+      </div>
+      ${pendBox}
+      <div class="msg-err" id="apprErr${idSuffix}" hidden></div>
+      <div class="msg-ok" id="apprOk${idSuffix}" hidden></div>
+    </div>`;
+}
 
 // Recomputes the fine total from whichever month checkboxes are ticked —
 // (checked months × per-month rate) + one month's rate as the fine itself,
@@ -1226,51 +1280,7 @@ function renderPayment(){
   }
   doneList = doneList.slice(-15).reverse();
 
-  const tag = p => `<span class="pay-tag ${p.typeLabel==='ফাইন'?'fine':(p.typeLabel==='মাসিক জমা'?'':'loan')}">${p.typeLabel}</span>`;
-  const memberCell = p => p.member + (p.processedBy && p.processedBy.toLowerCase()!==p.member.toLowerCase()
-    ? ` <span class="hint-text">(${p.processedBy} জমা দিয়েছেন)</span>` : '');
-
-  let apprCard = '';
-  if(canApprove()){
-    let pendBox;
-    if(!pend.length){
-      pendBox = `<p class="hint-text">এখন কোনো অনুরোধ অপেক্ষায় নেই।</p>`;
-    } else {
-      pendBox = `
-        <div class="table-scroll" style="max-height:none;"><table>
-          <thead><tr><th>সদস্য</th><th>ধরন</th><th>মাস</th><th>টাকা</th><th>রসিদ</th><th>অবস্থা</th><th>অনুমোদন / বাতিল</th></tr></thead>
-          <tbody>${pend.map(p=>{
-            const stage = p.stage;
-            const mine = stage === 'collector' ? isCollector() : isAdminMember();
-            let btns;
-            if(!mine){
-              btns = `<span class="hint-text">${stage==='collector' ? (DATA.collectorName||'')+'-এর' : ADMIN_NAME+'-র'} অপেক্ষায়</span>`;
-            } else if(stage === 'admin' && !isEditing()){
-              btns = `<span class="hint-text">অনুমোদন করতে বাঁদিকে <strong>🔒 এডিট মোড</strong> আনলক করুন</span>`;
-            } else {
-              btns = `<div class="btn-pair">
-                <button class="approve-btn" onclick="approvePaymentClick(event,'${p.token}','${stage}')">✅ অনুমোদন</button>
-                <button class="reject-btn" onclick="rejectPaymentClick(event,'${p.token}','${stage}')">❌ বাতিল</button>
-              </div>`;
-            }
-            const receipt = p.receiptUrl
-              ? `<a href="${p.receiptUrl}" target="_blank" rel="noopener" class="receipt-link">🧾 দেখুন</a>`
-              : `<span class="hint-text">নেই</span>`;
-            return `<tr><td>${memberCell(p)}</td><td>${tag(p)}</td><td>${p.monthLabel}</td><td class="mono">${moneyInt(p.amount)}</td><td>${receipt}</td><td>${p.status}</td><td>${btns}</td></tr>`;
-          }).join('')}</tbody>
-        </table></div>`;
-    }
-    apprCard = `
-      <div class="card">
-        <div class="card-head">
-          <h2>🛡️ অনুমোদন ও বাতিল${pend.length?' ('+pend.length+')':''}</h2>
-          <div class="hint">এই অংশটি শুধু ${DATA.collectorName||''} ও ${ADMIN_NAME}-ই দেখতে পান। ভুল পেমেন্ট হলে <strong>❌ বাতিল</strong> করুন।</div>
-        </div>
-        ${pendBox}
-        <div class="msg-err" id="apprErr" hidden></div>
-        <div class="msg-ok" id="apprOk" hidden></div>
-      </div>`;
-  }
+  let apprCard = canApprove() ? buildApprovalCardHTML('') : '';
 
   let myPendBox = '';
   if(!canApprove() && memberSession){
@@ -1490,14 +1500,14 @@ async function onReceiptFileChosen(ev, token){
   }
 }
 
-async function approvePaymentClick(ev, token, stage){
+async function approvePaymentClick(ev, token, stage, idSuffix){
   const reason = prompt('কোনো মন্তব্য যোগ করতে চাইলে লিখুন (না চাইলে খালি রেখে OK করুন):');
   if(reason === null) return;
   if(!confirm('এই পেমেন্টটি অনুমোদন করবেন?')) return;
-  await postApprovalAction(ev, {action:'approvePayment', token, stage, reason: reason.trim()}, stage, '✅ অনুমোদন', 'অনুমোদন হয়নি।');
+  await postApprovalAction(ev, {action:'approvePayment', token, stage, reason: reason.trim()}, stage, '✅ অনুমোদন', 'অনুমোদন হয়নি।', idSuffix);
 }
 
-async function rejectPaymentClick(ev, token, stage){
+async function rejectPaymentClick(ev, token, stage, idSuffix){
   let reason = '';
   while(!reason){
     const entered = prompt('কেন বাতিল করছেন? কারণ লেখা আবশ্যক।');
@@ -1505,12 +1515,13 @@ async function rejectPaymentClick(ev, token, stage){
     reason = entered.trim();
     if(!reason) alert('কারণ ছাড়া বাতিল করা যাবে না।');
   }
-  await postApprovalAction(ev, {action:'rejectPayment', token, stage, reason}, stage, '❌ বাতিল', 'বাতিল করা যায়নি।');
+  await postApprovalAction(ev, {action:'rejectPayment', token, stage, reason}, stage, '❌ বাতিল', 'বাতিল করা যায়নি।', idSuffix);
 }
 
-async function postApprovalAction(ev, body, stage, btnLabel, failMsg){
-  const errBox = document.getElementById('apprErr');
-  const okBox = document.getElementById('apprOk');
+async function postApprovalAction(ev, body, stage, btnLabel, failMsg, idSuffix){
+  idSuffix = idSuffix || '';
+  const errBox = document.getElementById('apprErr'+idSuffix);
+  const okBox = document.getElementById('apprOk'+idSuffix);
   if(errBox) errBox.hidden = true;
   if(okBox) okBox.hidden = true;
   if(stage === 'collector'){
@@ -1542,6 +1553,11 @@ async function postApprovalAction(ev, body, stage, btnLabel, failMsg){
     if(json.data) DATA = json.data;
     flashSaved(json.message || 'হয়ে গেছে', false);
     renderPage(currentPage);
+    // The approve/reject panel also lives inside the প্রোফাইল overlay — keep
+    // that copy's pending list in sync too when it's the one left open.
+    if(!document.getElementById('memberViewOverlay').hidden && memberViewCache){
+      showMemberView(memberViewCache);
+    }
   }catch(err){
     if(errBox){ errBox.textContent = 'নেটওয়ার্ক সমস্যা, আবার চেষ্টা করুন।'; errBox.hidden = false; }
     btn.disabled = false;
