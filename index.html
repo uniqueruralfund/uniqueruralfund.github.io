@@ -245,9 +245,11 @@
      doesn't stretch loose across space that used to be the hero's column. */
   .welcome-inner{width:min(640px,100%); display:flex; flex-direction:column; align-items:center;}
   .wc-hero{color:#EFE6D2; width:100%;}
+  .wc-top-row{display:flex; align-items:flex-start; justify-content:space-between;
+    gap:1rem; flex-wrap:wrap; margin-bottom:1.5rem;}
   .wc-logo-wrap{display:inline-flex; align-items:center; justify-content:center;
     background:rgba(251,245,231,.96); border-radius:24px; padding:.85rem;
-    box-shadow:0 14px 34px rgba(0,0,0,.30); margin-bottom:1.5rem;}
+    box-shadow:0 14px 34px rgba(0,0,0,.30);}
   .wc-logo-wrap svg{display:block; width:104px; height:104px;}
   .brand-logo{display:block; width:62px; height:62px; margin:0 auto .9rem;
     background:rgba(251,245,231,.95); border-radius:50%; padding:4px;}
@@ -375,8 +377,14 @@
 <div class="welcome" id="welcomeScreen" hidden>
   <div class="welcome-inner" id="wcMainView">
     <div class="wc-hero" id="wcHeroPanel">
-      <div class="wc-logo-wrap">
-        <svg role="img" aria-label="Unique Rural Fund"><use href="#urfMark"/></svg>
+      <div class="wc-top-row">
+        <div class="wc-logo-wrap">
+          <svg role="img" aria-label="Unique Rural Fund"><use href="#urfMark"/></svg>
+        </div>
+        <div class="wc-clock">
+          <span class="wc-clock-time">—</span>
+          <span class="wc-clock-date">—</span>
+        </div>
       </div>
       <p class="wc-eyebrow">Est. 2021 <span class="bn">· সদস্য সঞ্চয় ও ঋণ তহবিল</span></p>
       <h1>Welcome to<br><span class="gold">Unique Rural Fund</span></h1>
@@ -596,18 +604,22 @@ function bnDayPeriod(h){
   return 'রাত';
 }
 function updateWelcomeClock(){
-  const timeEl = document.getElementById('wcClockTime');
-  const dateEl = document.getElementById('wcClockDate');
-  if(!timeEl || !dateEl) return;
+  // Two clock instances now exist (the hero page and the login page) — both
+  // stay in sync by class instead of a single getElementById id pair.
+  const timeEls = document.querySelectorAll('.wc-clock-time');
+  const dateEls = document.querySelectorAll('.wc-clock-date');
+  if(!timeEls.length) return;
   const now = new Date();
-  dateEl.textContent = BN_WEEKDAYS[now.getDay()] + ', ' + toBnDigits(now.getDate()) + ' '
+  const dateStr = BN_WEEKDAYS[now.getDay()] + ', ' + toBnDigits(now.getDate()) + ' '
     + BN_MONTHS[now.getMonth()] + ' ' + toBnDigits(now.getFullYear());
   let h = now.getHours();
   const period = bnDayPeriod(h);
   h = h % 12; if(h === 0) h = 12;
   const mm = toBnDigits(String(now.getMinutes()).padStart(2,'0'));
   const ss = toBnDigits(String(now.getSeconds()).padStart(2,'0'));
-  timeEl.textContent = period + ' ' + toBnDigits(h) + ':' + mm + ':' + ss;
+  const timeStr = period + ' ' + toBnDigits(h) + ':' + mm + ':' + ss;
+  timeEls.forEach(el=>el.textContent = timeStr);
+  dateEls.forEach(el=>el.textContent = dateStr);
 }
 updateWelcomeClock();
 setInterval(updateWelcomeClock, 1000);
