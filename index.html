@@ -239,11 +239,12 @@
       radial-gradient(760px 520px at 92% 92%, rgba(46,107,79,.55), transparent 62%),
       linear-gradient(150deg, #12241B 0%, #16301F 45%, #1E4A35 100%);
     display:flex; align-items:center; justify-content:center; padding:2.4rem 1.4rem;}
-  .welcome-inner{width:min(1040px,100%); display:grid; grid-template-columns:1.15fr .85fr;
-    gap:3.2rem; align-items:center;}
-  .welcome-inner.wc-solo{grid-template-columns:1fr; justify-items:center;}
-  .welcome-inner.wc-solo .wc-col2{width:min(420px,100%);}
-  .wc-hero{color:#EFE6D2;}
+  /* Only one of wc-hero / wc-col2 is ever shown at a time now (see
+     showWcLoginForm/hideWcLoginForm) — a single centered column suits both:
+     the hero's own text keeps its familiar max-width, and the login card
+     doesn't stretch loose across space that used to be the hero's column. */
+  .welcome-inner{width:min(640px,100%); display:flex; flex-direction:column; align-items:center;}
+  .wc-hero{color:#EFE6D2; width:100%;}
   .wc-logo-wrap{display:inline-flex; align-items:center; justify-content:center;
     background:rgba(251,245,231,.96); border-radius:24px; padding:.85rem;
     box-shadow:0 14px 34px rgba(0,0,0,.30); margin-bottom:1.5rem;}
@@ -261,7 +262,7 @@
   .wc-hero h1 .gold{color:var(--active-bg);}
   .wc-rule{width:64px; height:3px; background:var(--active-bg); border-radius:3px; margin:1.1rem 0 1.2rem;}
   .wc-hero p{margin:0 0 .55rem; font-size:.98rem; line-height:1.75; color:#B9CDBD; max-width:44ch;}
-  .wc-col2{display:flex; flex-direction:column;}
+  .wc-col2{display:flex; flex-direction:column; width:100%;}
   .wc-clock{display:flex; align-items:baseline; justify-content:center; gap:.7rem; flex-wrap:wrap;
     margin:0 0 1.1rem; padding:.9rem 1.2rem; background:rgba(255,255,255,.06);
     border:1px solid rgba(239,230,210,.16); border-radius:14px;}
@@ -278,6 +279,8 @@
     font-weight:600; color:#CFE0D2; text-decoration:none; border-bottom:1px dashed rgba(207,224,210,.45);
     padding-bottom:2px;}
   .wc-site:hover{color:var(--active-bg); border-color:var(--active-bg);}
+  .wc-card .wc-site{color:var(--green-dark); border-bottom-color:rgba(30,74,53,.35);}
+  .wc-card .wc-site:hover{color:var(--green);}
   .wc-contact{margin-top:1.8rem; padding-top:1.3rem; border-top:1px solid rgba(239,230,210,.18);
     font-size:.82rem; line-height:1.7; color:#B9CDBD;}
   .wc-contact .t{font-weight:700; color:#EFE6D2; margin:0 0 .3rem;}
@@ -327,7 +330,6 @@
   .wc-guide-col li strong{color:var(--green-dark);}
 
   @media (max-width:860px){
-    .welcome-inner{grid-template-columns:1fr; gap:2rem;}
     .welcome{align-items:flex-start; padding:1.8rem 1.1rem 2.6rem;}
     .wc-card{padding:1.6rem 1.3rem 1.4rem;}
     .wc-guide{padding:1.4rem 1.3rem 1.6rem;}
@@ -382,7 +384,8 @@
       <p>আমাদের নিজেদের গড়া তহবিল — প্রতি মাসে ছোট ছোট জমা থেকে তৈরি হয়েছে সবার ভরসার জায়গা।</p>
       <p>নিজের <strong style="color:#EFE6D2;">User ID ও Password</strong> দিয়ে ঢুকলে নিজের সব হিসাব দেখতে পাবেন এবং অনলাইনে টাকা জমা দিতে পারবেন।</p>
       <div class="wc-stats" id="wcStats"></div>
-      <a class="wc-site" href="https://sites.google.com/view/uniqueruralfund/home" target="_blank" rel="noopener">🔗 আমাদের ওয়েবসাইট দেখুন</a>
+      <a class="wc-site" href="https://sites.google.com/view/uniqueruralfund/home" target="_blank" rel="noopener">🔗 আমাদের ওয়েবসাইট দেখুন</a><br>
+      <a class="wc-site" href="#" onclick="showWcLoginForm(); return false;">🔑 লগইন করুন</a>
       <div class="wc-contact">
         <p class="t">যোগাযোগ — Unique Rural Fund</p>
         <p>Dhwaja, Alipur, Shyampur<br>Howrah – 711315<br>West Bengal, India</p>
@@ -390,19 +393,13 @@
       </div>
     </div>
 
-    <div class="wc-col2">
+    <div class="wc-col2" id="wcCol2" hidden>
     <div class="wc-clock" id="wcClock">
       <span class="wc-clock-time" id="wcClockTime">—</span>
       <span class="wc-clock-date" id="wcClockDate">—</span>
     </div>
     <div class="wc-card">
-      <div id="wcLoginTab">
-        <button class="wc-go" onclick="showWcLoginForm()">🔑 লগইন করুন</button>
-        <p class="sub" style="text-align:center; margin-top:.9rem;">শুধুমাত্র ফান্ডের সদস্যদের জন্য</p>
-        <a class="wc-site" href="#" onclick="showWcGuide(); return false;" style="margin-top:.6rem; justify-content:center; display:flex;">📘 কীভাবে ব্যবহার করবেন</a>
-      </div>
-
-      <div id="wcLoginForm" hidden>
+      <div id="wcLoginForm">
         <h2>লগইন করুন</h2>
         <p class="sub">শুধুমাত্র ফান্ডের সদস্যদের জন্য</p>
         <div class="wc-err" id="wcErr" hidden></div>
@@ -419,6 +416,7 @@
           <strong>User ID</strong> = Sheet-এ লেখা আপনার নিজের নাম (যেমন Satyajit Das)<br>
           <strong>Password</strong> = আপনার মোবাইল নম্বর — নিজের ইমেইলে OTP নিয়ে বদলে নিতে পারবেন।
         </p>
+        <a class="wc-site" href="#" onclick="showWcGuide(); return false;" style="justify-content:center; display:flex; margin:1rem 0 0;">📘 কীভাবে ব্যবহার করবেন</a>
         <button type="button" class="wc-link" onclick="hideWcLoginForm()">← ফিরে যান</button>
       </div>
     </div>
@@ -925,16 +923,12 @@ function hideWcGuide(){
 }
 function showWcLoginForm(){
   document.getElementById('wcHeroPanel').hidden = true;
-  document.getElementById('wcMainView').classList.add('wc-solo');
-  document.getElementById('wcLoginTab').hidden = true;
-  document.getElementById('wcLoginForm').hidden = false;
+  document.getElementById('wcCol2').hidden = false;
   document.getElementById('wcId').focus();
 }
 function hideWcLoginForm(){
-  document.getElementById('wcLoginForm').hidden = true;
-  document.getElementById('wcLoginTab').hidden = false;
+  document.getElementById('wcCol2').hidden = true;
   document.getElementById('wcHeroPanel').hidden = false;
-  document.getElementById('wcMainView').classList.remove('wc-solo');
 }
 document.getElementById('wcId').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('wcPin').focus(); });
 document.getElementById('wcPin').addEventListener('keydown', e=>{ if(e.key==='Enter') welcomeLogin(e); });
