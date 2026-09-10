@@ -259,11 +259,13 @@
   .wc-hero h1 .gold{color:var(--active-bg);}
   .wc-rule{width:64px; height:3px; background:var(--active-bg); border-radius:3px; margin:1.1rem 0 1.2rem;}
   .wc-hero p{margin:0 0 .55rem; font-size:.98rem; line-height:1.75; color:#B9CDBD; max-width:44ch;}
-  .wc-clock{display:flex; align-items:baseline; justify-content:center; gap:.6rem; flex-wrap:wrap;
-    margin:0 0 1.2rem; padding-bottom:1.1rem; border-bottom:1px solid var(--line);}
+  .wc-col2{display:flex; flex-direction:column;}
+  .wc-clock{display:flex; align-items:baseline; justify-content:center; gap:.7rem; flex-wrap:wrap;
+    margin:0 0 1.1rem; padding:.9rem 1.2rem; background:rgba(255,255,255,.06);
+    border:1px solid rgba(239,230,210,.16); border-radius:14px;}
   .wc-clock .wc-clock-time{font-family:'IBM Plex Mono',monospace; font-size:1.3rem; font-weight:600;
-    color:var(--green-dark); letter-spacing:.02em;}
-  .wc-clock .wc-clock-date{font-size:.8rem; color:var(--ink-soft);}
+    color:var(--active-bg); letter-spacing:.02em;}
+  .wc-clock .wc-clock-date{font-size:.8rem; color:#9FB6A4;}
   .wc-stats{display:flex; gap:.6rem; flex-wrap:wrap; margin-top:1.7rem;}
   .wc-stat{background:rgba(255,255,255,.07); border:1px solid rgba(239,230,210,.16);
     border-radius:12px; padding:.7rem 1rem; min-width:104px;}
@@ -386,12 +388,12 @@
       </div>
     </div>
 
+    <div class="wc-col2">
+    <div class="wc-clock" id="wcClock">
+      <span class="wc-clock-time" id="wcClockTime">—</span>
+      <span class="wc-clock-date" id="wcClockDate">—</span>
+    </div>
     <div class="wc-card">
-      <div class="wc-clock" id="wcClock">
-        <span class="wc-clock-time" id="wcClockTime">—</span>
-        <span class="wc-clock-date" id="wcClockDate">—</span>
-      </div>
-
       <div id="wcLoginTab">
         <button class="wc-go" onclick="showWcLoginForm()">🔑 লগইন করুন</button>
         <p class="sub" style="text-align:center; margin-top:.9rem;">শুধুমাত্র ফান্ডের সদস্যদের জন্য</p>
@@ -417,6 +419,7 @@
         </p>
         <button type="button" class="wc-link" onclick="hideWcLoginForm()">← ফিরে যান</button>
       </div>
+    </div>
     </div>
   </div>
 
