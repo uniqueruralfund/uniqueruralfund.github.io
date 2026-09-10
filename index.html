@@ -1324,6 +1324,7 @@ function buildApprovalCardHTML(idSuffix, readOnly){
           : `<span class="hint-text">নেই</span>`;
         const rows = [
           ['সদস্য', memberCell(p)], ['ধরন', tag(p)], ['মাস', p.monthLabel],
+          ['পেমেন্টের তারিখ', p.paymentDate||'—'],
           ['কবে জমা দিয়েছে', p.askedAt||'—'], ['Satyajit অনুমোদন', p.collectorApprovedAt||'—'], ['Prasun অনুমোদন', p.adminApprovedAt||'—'],
           ['টাকা', '<span class="mono">'+moneyInt(p.amount)+'</span>'], ['রসিদ', receipt], ['অবস্থা', p.status]
         ];
@@ -1380,6 +1381,7 @@ function payMethodChanged(){
 }
 
 function paymentFooterHTML(type, required){
+  const todayStr = new Date().toISOString().slice(0,10);
   return `
       <div class="pay-field" style="margin-top:1rem;">
         <label class="field-label" for="payMethod">পেমেন্টের ধরন</label>
@@ -1387,6 +1389,10 @@ function paymentFooterHTML(type, required){
           <option value="online" selected>অনলাইন (UPI/ব্যাংক)</option>
           <option value="cash">নগদ (Cash)</option>
         </select>
+      </div>
+      <div class="pay-field" style="margin-top:1rem;">
+        <label class="field-label" for="payDate">কবে টাকা দিয়েছেন?</label>
+        <input type="date" id="payDate" class="pay-select" value="${todayStr}" max="${todayStr}">
       </div>
       <div class="pay-field" id="payReceiptField" style="margin-top:1rem;">
         <label class="field-label" for="payReceiptInput">পেমেন্টের স্ক্রিনশট (আবশ্যক)</label>
@@ -1642,6 +1648,8 @@ async function confirmPaymentClaim(ev, type){
     }
   }
   const payMethod = document.getElementById('payMethod').value;
+  const payDateEl = document.getElementById('payDate');
+  const payDate = payDateEl && payDateEl.value ? payDateEl.value : new Date().toISOString().slice(0,10);
   const fileInput = document.getElementById('payReceiptInput');
   const file = fileInput.files && fileInput.files[0];
   if(payMethod !== 'cash' && !file){
@@ -1674,7 +1682,7 @@ async function confirmPaymentClaim(ev, type){
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
       body: JSON.stringify({action:'submitPaymentClaim', userId:memberSession.userId, pin:memberSession.pin,
-                            payForMember: payForTarget, paymentMethod: payMethod,
+                            payForMember: payForTarget, paymentMethod: payMethod, paymentDate: payDate,
                             type, monthIndexes, note: monthLabel, amount, receiptData, receiptMime})
     });
     const json = await res.json();
