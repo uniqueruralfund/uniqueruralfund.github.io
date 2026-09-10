@@ -415,9 +415,8 @@
       <p>নিজের <strong style="color:#EFE6D2;">User ID ও Password</strong> দিয়ে ঢুকলে নিজের সব হিসাব দেখতে পাবেন এবং অনলাইনে টাকা জমা দিতে পারবেন।</p>
       <div class="wc-stats" id="wcStats"></div>
       <a class="wc-site" href="https://sites.google.com/view/uniqueruralfund/home" target="_blank" rel="noopener">🔗 আমাদের ওয়েবসাইট দেখুন</a><br>
-      <a class="wc-site" href="#" onclick="showWcLoginForm(); return false;">🔑 লগইন করুন</a><br>
-      <a class="wc-site" href="#" onclick="toggleWcContact(); return false;" id="wcContactToggle">📍 যোগাযোগের ঠিকানা দেখুন</a>
-      <div class="wc-contact" id="wcContact" hidden>
+      <a class="wc-site" href="#" onclick="showWcLoginForm(); return false;">🔑 লগইন করুন</a>
+      <div class="wc-contact">
         <p class="t">যোগাযোগ — Unique Rural Fund</p>
         <p>Dhwaja, Alipur, Shyampur<br>Howrah – 711315<br>West Bengal, India</p>
         <p>📧 E-mail: <a href="mailto:uniqueruralfund21@gmail.com">uniqueruralfund21@gmail.com</a></p>
@@ -964,12 +963,6 @@ function showWcLoginForm(){
 function hideWcLoginForm(){
   document.getElementById('wcCol2').hidden = true;
   document.getElementById('wcHeroPanel').hidden = false;
-}
-function toggleWcContact(){
-  const box = document.getElementById('wcContact');
-  const link = document.getElementById('wcContactToggle');
-  box.hidden = !box.hidden;
-  link.textContent = box.hidden ? '📍 যোগাযোগের ঠিকানা দেখুন' : '📍 ঠিকানা লুকান';
 }
 document.getElementById('wcId').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('wcPin').focus(); });
 document.getElementById('wcPin').addEventListener('keydown', e=>{ if(e.key==='Enter') welcomeLogin(e); });
