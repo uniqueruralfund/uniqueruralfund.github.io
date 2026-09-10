@@ -58,6 +58,10 @@
     padding:.7rem .8rem; border-radius:10px; font-size:.85rem; font-weight:600; cursor:pointer;
     background:var(--sidebar-bg-2); color:var(--sidebar-text); box-sizing:border-box; text-align:center;}
   .edit-btn.unlocked{background:var(--active-bg); color:#fff;}
+  .edit-btn{position:relative;}
+  .pending-badge{position:absolute; top:-6px; right:-6px; background:#D9453A; color:#fff;
+    font-size:.68rem; font-weight:700; min-width:18px; height:18px; border-radius:9px;
+    display:flex; align-items:center; justify-content:center; padding:0 4px; box-shadow:0 0 0 2px var(--sidebar-bg);}
 
   .main{flex:1; min-width:0; padding:1.6rem 2.2rem 3rem;}
   .topbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:1.2rem; gap:1rem; flex-wrap:wrap;}
@@ -255,10 +259,11 @@
   .wc-hero h1 .gold{color:var(--active-bg);}
   .wc-rule{width:64px; height:3px; background:var(--active-bg); border-radius:3px; margin:1.1rem 0 1.2rem;}
   .wc-hero p{margin:0 0 .55rem; font-size:.98rem; line-height:1.75; color:#B9CDBD; max-width:44ch;}
-  .wc-clock{display:flex; align-items:baseline; gap:.7rem; flex-wrap:wrap; margin:0 0 1.1rem;}
-  .wc-clock .wc-clock-time{font-family:'IBM Plex Mono',monospace; font-size:1.35rem; font-weight:600;
-    color:var(--active-bg); letter-spacing:.02em;}
-  .wc-clock .wc-clock-date{font-size:.82rem; color:#9FB6A4;}
+  .wc-clock{display:flex; align-items:baseline; justify-content:center; gap:.6rem; flex-wrap:wrap;
+    margin:0 0 1.2rem; padding-bottom:1.1rem; border-bottom:1px solid var(--line);}
+  .wc-clock .wc-clock-time{font-family:'IBM Plex Mono',monospace; font-size:1.3rem; font-weight:600;
+    color:var(--green-dark); letter-spacing:.02em;}
+  .wc-clock .wc-clock-date{font-size:.8rem; color:var(--ink-soft);}
   .wc-stats{display:flex; gap:.6rem; flex-wrap:wrap; margin-top:1.7rem;}
   .wc-stat{background:rgba(255,255,255,.07); border:1px solid rgba(239,230,210,.16);
     border-radius:12px; padding:.7rem 1rem; min-width:104px;}
@@ -310,7 +315,7 @@
   .wc-guide-back:hover{text-decoration:underline;}
   .wc-guide h2{font-family:'Tiro Bangla',serif; font-weight:400; margin:0 0 1.2rem;
     font-size:1.5rem; color:var(--green-dark); text-align:center;}
-  .wc-guide-cols{display:grid; grid-template-columns:1fr 1fr; gap:2rem;}
+  .wc-guide-cols{display:grid; grid-template-columns:1fr; gap:2rem; max-width:44rem; margin:0 auto;}
   .wc-guide-col h3{margin:0 0 .8rem; font-size:1.05rem; color:var(--green-dark); font-weight:700;
     font-family:'Hind Siliguri',sans-serif;}
   .wc-guide-col ol{margin:0; padding-left:1.3rem; color:var(--ink); font-size:.88rem; line-height:1.7;}
@@ -370,15 +375,10 @@
       <p class="wc-eyebrow">Est. 2021 <span class="bn">· সদস্য সঞ্চয় ও ঋণ তহবিল</span></p>
       <h1>Welcome to<br><span class="gold">Unique Rural Fund</span></h1>
       <div class="wc-rule"></div>
-      <div class="wc-clock" id="wcClock">
-        <span class="wc-clock-time" id="wcClockTime">—</span>
-        <span class="wc-clock-date" id="wcClockDate">—</span>
-      </div>
       <p>আমাদের নিজেদের গড়া তহবিল — প্রতি মাসে ছোট ছোট জমা থেকে তৈরি হয়েছে সবার ভরসার জায়গা।</p>
       <p>নিজের <strong style="color:#EFE6D2;">User ID ও Password</strong> দিয়ে ঢুকলে নিজের সব হিসাব দেখতে পাবেন এবং অনলাইনে টাকা জমা দিতে পারবেন।</p>
       <div class="wc-stats" id="wcStats"></div>
-      <a class="wc-site" href="https://sites.google.com/view/uniqueruralfund/home" target="_blank" rel="noopener">🔗 আমাদের ওয়েবসাইট দেখুন</a><br>
-      <a class="wc-site" href="#" onclick="showWcGuide(); return false;">📘 কীভাবে ব্যবহার করবেন</a>
+      <a class="wc-site" href="https://sites.google.com/view/uniqueruralfund/home" target="_blank" rel="noopener">🔗 আমাদের ওয়েবসাইট দেখুন</a>
       <div class="wc-contact">
         <p class="t">যোগাযোগ — Unique Rural Fund</p>
         <p>Dhwaja, Alipur, Shyampur<br>Howrah – 711315<br>West Bengal, India</p>
@@ -387,22 +387,36 @@
     </div>
 
     <div class="wc-card">
-      <h2>লগইন করুন</h2>
-      <p class="sub">শুধুমাত্র ফান্ডের সদস্যদের জন্য</p>
-      <div class="wc-err" id="wcErr" hidden></div>
-      <label for="wcId">User ID (আপনার নাম)</label>
-      <input type="text" id="wcId" placeholder="যেমন: Satyajit Das" autocomplete="username">
-      <label for="wcPin">Password</label>
-      <div class="wc-pin-wrap">
-        <input type="password" id="wcPin" placeholder="ডিফল্ট: আপনার মোবাইল নম্বর" autocomplete="current-password">
-        <button type="button" class="wc-pin-toggle" id="wcPinToggle" onclick="toggleWcPinVisibility()" aria-label="পাসওয়ার্ড দেখুন">👁</button>
+      <div class="wc-clock" id="wcClock">
+        <span class="wc-clock-time" id="wcClockTime">—</span>
+        <span class="wc-clock-date" id="wcClockDate">—</span>
       </div>
-      <button class="wc-go" id="wcGo" onclick="welcomeLogin(event)">প্রবেশ করুন</button>
-      <button type="button" class="wc-link" onclick="welcomeForgot()">Password ভুলে গেছেন?</button>
-      <p class="wc-note">
-        <strong>User ID</strong> = Sheet-এ লেখা আপনার নিজের নাম (যেমন Satyajit Das)<br>
-        <strong>Password</strong> = আপনার মোবাইল নম্বর — নিজের ইমেইলে OTP নিয়ে বদলে নিতে পারবেন।
-      </p>
+
+      <div id="wcLoginTab">
+        <button class="wc-go" onclick="showWcLoginForm()">🔑 লগইন করুন</button>
+        <p class="sub" style="text-align:center; margin-top:.9rem;">শুধুমাত্র ফান্ডের সদস্যদের জন্য</p>
+        <a class="wc-site" href="#" onclick="showWcGuide(); return false;" style="margin-top:.6rem; justify-content:center; display:flex;">📘 কীভাবে ব্যবহার করবেন</a>
+      </div>
+
+      <div id="wcLoginForm" hidden>
+        <h2>লগইন করুন</h2>
+        <p class="sub">শুধুমাত্র ফান্ডের সদস্যদের জন্য</p>
+        <div class="wc-err" id="wcErr" hidden></div>
+        <label for="wcId">User ID (আপনার নাম)</label>
+        <input type="text" id="wcId" placeholder="যেমন: Satyajit Das" autocomplete="username">
+        <label for="wcPin">Password</label>
+        <div class="wc-pin-wrap">
+          <input type="password" id="wcPin" placeholder="ডিফল্ট: আপনার মোবাইল নম্বর" autocomplete="current-password">
+          <button type="button" class="wc-pin-toggle" id="wcPinToggle" onclick="toggleWcPinVisibility()" aria-label="পাসওয়ার্ড দেখুন">👁</button>
+        </div>
+        <button class="wc-go" id="wcGo" onclick="welcomeLogin(event)">প্রবেশ করুন</button>
+        <button type="button" class="wc-link" onclick="welcomeForgot()">Password ভুলে গেছেন?</button>
+        <p class="wc-note">
+          <strong>User ID</strong> = Sheet-এ লেখা আপনার নিজের নাম (যেমন Satyajit Das)<br>
+          <strong>Password</strong> = আপনার মোবাইল নম্বর — নিজের ইমেইলে OTP নিয়ে বদলে নিতে পারবেন।
+        </p>
+        <button type="button" class="wc-link" onclick="hideWcLoginForm()">← ফিরে যান</button>
+      </div>
     </div>
   </div>
 
@@ -423,16 +437,6 @@
           <li>পাসওয়ার্ড ভুলে গেলে "Password ভুলে গেছেন?"-এ ক্লিক করে OTP দিয়ে নতুন পাসওয়ার্ড দিন।</li>
         </ol>
       </div>
-      <div class="wc-guide-col">
-        <h3>🛡️ অনুমোদনকারীর জন্য (Satyajit Das ও Prasun Jyoti)</h3>
-        <ol>
-          <li>পেমেন্ট পাতায় বা প্রোফাইলে <strong>"🛡️ পেমেন্ট অনুমোদন ও বাতিল"</strong> অংশ দেখুন।</li>
-          <li>রসিদ দেখে টাকার অঙ্ক মিলিয়ে নিন।</li>
-          <li>ঠিক থাকলে <strong>✅ অনুমোদন</strong> (Prasun-এর ক্ষেত্রে আগে 🔒 এডিট মোড আনলক করতে হবে)।</li>
-          <li>ভুল হলে <strong>❌ বাতিল</strong> — কারণ লেখা বাধ্যতামূলক।</li>
-          <li>অনুমোদন/বাতিল দুই ক্ষেত্রেই সবাইকে ইমেইলে জানানো হয়ে যায়।</li>
-        </ol>
-      </div>
     </div>
   </div>
 </div>
@@ -447,6 +451,8 @@
   <div class="edit-toggle">
     <button class="edit-btn" id="memberBtn" style="margin-bottom:.5rem;">👤 ব্যক্তিগত তথ্য দেখুন</button>
     <button class="edit-btn" id="approveBtn" style="margin-bottom:.5rem;" hidden onclick="openApprovalOverlay()">🧾 পেমেন্ট Receipt</button>
+    <button class="edit-btn" id="sheetOpenBtn" style="margin-bottom:.5rem;" hidden onclick="window.open('https://docs.google.com/spreadsheets/d/1C-BdlaRHCjyAARCzKwGTstwvro2sKpPSH1FLZs_3XQo/edit','_blank')">📊 Google Sheet খুলুন</button>
+    <button class="edit-btn" id="loginLogBtn" style="margin-bottom:.5rem;" hidden onclick="openLoginLogOverlay()">🕓 লগইন লগ</button>
     <button class="edit-btn" id="editBtn">🔒 এডিট মোড</button>
   </div>
 </div>
@@ -549,6 +555,16 @@
   </div>
 </div>
 
+<!-- Prasun Jyoti only — who logged in when, kept out of the shared Payment
+     Receipt overlay so it stays a genuinely private audit trail. -->
+<div class="pin-overlay" id="loginLogOverlay" hidden>
+  <div class="pin-box" style="width:min(90vw,520px); max-height:85vh; overflow-y:auto;">
+    <h3>🕓 লগইন লগ</h3>
+    <div id="loginLogOverlayBody"></div>
+    <button type="button" class="linklike" onclick="closeLoginLogOverlay()">বন্ধ করুন</button>
+  </div>
+</div>
+
 <script>
 /* ================= CONFIG — deploy Code.gs then paste the exec URL here ================= */
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPGv8Pr1IU3jhnAehKGJQ9XVTtUjRtYQh9eUsJOY6FwuvSY48ApETkz59MKlr5dsoR5w/exec";
@@ -601,6 +617,7 @@ async function loadData(silent){
     if(json.error) throw new Error(json.error);
     DATA = json;
     document.getElementById('loadingScreen').classList.add('hidden');
+    updatePendingBadge();
     if(!memberSession){ showWelcome(); return; }
     renderPage(currentPage);
     if(!silent) flashSaved('লাইভ ডেটা লোড হয়েছে', false);
@@ -665,6 +682,39 @@ function updateEditBtn(){
   b.hidden = !isAdminMember();   // only Prasun Jyoti ever sees the edit-mode button
   const apprBtn = document.getElementById('approveBtn');
   if(apprBtn) apprBtn.hidden = !canApprove();   // only the collector + admin see this
+  const sheetBtn = document.getElementById('sheetOpenBtn');
+  if(sheetBtn) sheetBtn.hidden = !isAdminMember();   // only Prasun Jyoti
+  const logBtn = document.getElementById('loginLogBtn');
+  if(logBtn) logBtn.hidden = !isAdminMember();       // only Prasun Jyoti
+}
+
+// A visible badge on পেমেন্ট Receipt so Satyajit Das / Prasun Jyoti notice a
+// fresh approval waiting even if they're on some other page — plus a one-off
+// toast the moment the pending count actually goes UP, so a new request
+// doesn't just sit there unnoticed until someone happens to check.
+let lastKnownPendingCount = null;
+function updatePendingBadge(){
+  const apprBtn = document.getElementById('approveBtn');
+  if(!apprBtn) return;
+  const existingBadge = apprBtn.querySelector('.pending-badge');
+  if(existingBadge) existingBadge.remove();
+  if(!memberSession || !canApprove() || !DATA){
+    lastKnownPendingCount = null;
+    return;
+  }
+  const payPend = (DATA.paymentRequests||[]).filter(p=>p.stage==='collector'||p.stage==='admin').length;
+  const loanPend = (DATA.loanRequests||[]).filter(l=>l.stage==='collector'||l.stage==='admin').length;
+  const total = payPend + loanPend;
+  if(total>0){
+    const b = document.createElement('span');
+    b.className = 'pending-badge';
+    b.textContent = total;
+    apprBtn.appendChild(b);
+  }
+  if(lastKnownPendingCount !== null && total > lastKnownPendingCount){
+    flashSaved('🔔 নতুন অনুমোদনের অনুরোধ এসেছে — পেমেন্ট Receipt দেখুন', false);
+  }
+  lastKnownPendingCount = total;
 }
 document.getElementById('editBtn').addEventListener('click', ()=>{
   if(isEditing()){ editPin=null; sessionStorage.removeItem('urf_edit_pin'); updateEditBtn(); renderPage(currentPage); }
@@ -868,6 +918,15 @@ function hideWcGuide(){
   document.getElementById('wcGuideView').hidden = true;
   document.getElementById('wcMainView').hidden = false;
 }
+function showWcLoginForm(){
+  document.getElementById('wcLoginTab').hidden = true;
+  document.getElementById('wcLoginForm').hidden = false;
+  document.getElementById('wcId').focus();
+}
+function hideWcLoginForm(){
+  document.getElementById('wcLoginForm').hidden = true;
+  document.getElementById('wcLoginTab').hidden = false;
+}
 document.getElementById('wcId').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('wcPin').focus(); });
 document.getElementById('wcPin').addEventListener('keydown', e=>{ if(e.key==='Enter') welcomeLogin(e); });
 function welcomeForgot(){
@@ -888,7 +947,7 @@ async function refreshMemberView(){
     const res = await fetch(SCRIPT_URL, {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({action:'memberLogin', userId: memberSession.userId, pin: memberSession.pin})
+      body: JSON.stringify({action:'memberLogin', userId: memberSession.userId, pin: memberSession.pin, isRefresh: true})
     });
     const json = await res.json();
     if(json.ok){
@@ -1048,11 +1107,49 @@ function showMemberView(d){
 // Satyajit Das / Prasun Jyoti's approve/reject panel — its own wide overlay
 // (see approvalOverlay in the markup) so the table never has to squeeze into
 // the narrow প্রোফাইল popup above.
+// This short how-to only ever renders here — the approve/reject overlay is
+// itself only reachable by Satyajit Das / Prasun Jyoti (see updateEditBtn),
+// which is exactly how it stays hidden from everyone else instead of sitting
+// on the public pre-login guide where anyone could read it.
+const APPROVER_GUIDE_HTML = `
+  <div class="card" style="margin-bottom:1rem;">
+    <div class="card-head"><h2>🛡️ কীভাবে অনুমোদন করবেন</h2></div>
+    <ol style="margin:0; padding-left:1.2rem; font-size:.88rem; line-height:1.8;">
+      <li>নিচের তালিকায় রসিদ দেখে টাকার অঙ্ক মিলিয়ে নিন।</li>
+      <li>ঠিক থাকলে <strong>✅ অনুমোদন</strong> (Prasun-এর ক্ষেত্রে আগে 🔒 এডিট মোড আনলক করতে হবে)।</li>
+      <li>ভুল হলে <strong>❌ বাতিল</strong> — কারণ লেখা বাধ্যতামূলক।</li>
+      <li>অনুমোদন/বাতিল দুই ক্ষেত্রেই সবাইকে ইমেইলে জানানো হয়ে যায়।</li>
+    </ol>
+  </div>`;
 function openApprovalOverlay(){
-  document.getElementById('approvalOverlayBody').innerHTML = buildApprovalCardHTML('3', false);
+  document.getElementById('approvalOverlayBody').innerHTML = APPROVER_GUIDE_HTML + buildApprovalCardHTML('3', false);
   document.getElementById('approvalOverlay').hidden = false;
 }
 function closeApprovalOverlay(){ document.getElementById('approvalOverlay').hidden = true; }
+
+async function openLoginLogOverlay(){
+  if(!editPin){ openPinBox(); return; }   // needs the real EDIT_PIN, same as edit mode
+  const body = document.getElementById('loginLogOverlayBody');
+  body.innerHTML = '<p class="hint-text">লোড হচ্ছে...</p>';
+  document.getElementById('loginLogOverlay').hidden = false;
+  try{
+    const res = await fetch(SCRIPT_URL, {
+      method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action:'getLoginLog', pin: editPin})
+    });
+    const json = await res.json();
+    if(!json.ok){ body.innerHTML = '<p class="hint-text">'+(json.error||'লোড করা যায়নি।')+'</p>'; return; }
+    if(!json.rows.length){ body.innerHTML = '<p class="hint-text">এখনো কোনো লগইন রেকর্ড হয়নি।</p>'; return; }
+    body.innerHTML = `<div class="appr-list">${json.rows.map(r=>`
+      <div class="appr-card">
+        <div class="appr-row"><span class="k">সদস্য</span><span class="v">${r.name}</span></div>
+        <div class="appr-row"><span class="k">সময়</span><span class="v">${r.at}</span></div>
+      </div>`).join('')}</div>`;
+  }catch(err){
+    body.innerHTML = '<p class="hint-text">নেটওয়ার্ক সমস্যা, আবার চেষ্টা করুন।</p>';
+  }
+}
+function closeLoginLogOverlay(){ document.getElementById('loginLogOverlay').hidden = true; }
 function closeMemberView(){ document.getElementById('memberViewOverlay').hidden = true; }
 
 /* ================= online payment (পেমেন্ট page) ================= */
@@ -1079,6 +1176,7 @@ function memberLogout(){
   document.getElementById('wcId').value = '';
   document.getElementById('wcPin').value = '';
   document.getElementById('wcErr').hidden = true;
+  hideWcLoginForm();
   showWelcome();
 }
 function contribRowByName(name){
@@ -1594,7 +1692,7 @@ async function onReceiptFileChosen(ev, token){
       if(errBox){ errBox.textContent = json.error || 'রসিদ যুক্ত করা যায়নি।'; errBox.hidden = false; }
       return;
     }
-    if(json.data) DATA = json.data;
+    if(json.data){ DATA = json.data; updatePendingBadge(); }
     flashSaved('রসিদ যুক্ত হয়েছে', false);
     renderPage(currentPage);
   }catch(err){
@@ -1655,7 +1753,7 @@ async function postApprovalAction(ev, body, stage, btnLabel, failMsg, idSuffix){
       btn.textContent = btnLabel;
       return;
     }
-    if(json.data) DATA = json.data;
+    if(json.data){ DATA = json.data; updatePendingBadge(); }
     flashSaved(json.message || 'হয়ে গেছে', false);
     renderPage(currentPage);
     // The approve/reject panel also lives inside its own wide overlay — keep
@@ -1910,7 +2008,7 @@ async function postLoanAction(ev, body, btnLabel, failMsg){
       btn.textContent = btnLabel;
       return;
     }
-    if(json.data) DATA = json.data;
+    if(json.data){ DATA = json.data; updatePendingBadge(); }
     flashSaved(json.message || 'হয়ে গেছে', false);
     renderPage(currentPage);
   }catch(err){
@@ -2157,7 +2255,7 @@ function renderContrib(){
       const paid = p>0;
       return `<td><span class="cell-pill ${paid?'paid':'unpaid'} ${editing?'editable':''}" data-row="${m.row}" data-col="${m.monthStartCol1+pi}" data-cur="${p}">${paid?('₹'+p):'বাকি'}</span></td>`;
     }).join('');
-    return `<tr><td>${m.name}</td>${cells}<td class="mono" style="font-weight:700;">${moneyInt(rowTotal(m))}</td></tr>`;
+    return `<tr data-name="${m.name.toLowerCase()}"><td>${m.name}</td>${cells}<td class="mono" style="font-weight:700;">${moneyInt(rowTotal(m))}</td></tr>`;
   }).join('');
   pageBody.innerHTML = `
     <div class="card">
@@ -2165,11 +2263,17 @@ function renderContrib(){
         <h2>মাসিক জমার হিসাব — ${DATA.year}</h2>
         <div class="hint">${editing ? 'ঘরে ক্লিক করে ১০০ ও বাকির মধ্যে টগল করুন — সরাসরি Google Sheet-এ সংরক্ষিত হবে।' : 'দেখতে এডিট মোড চালু করার দরকার নেই; পরিবর্তন করতে সাইডবারের 🔒 বাটনে ক্লিক করুন।'}</div>
       </div>
+      <div class="search-row"><input type="text" id="contribSearch" placeholder="সদস্যের নাম লিখে খুঁজুন..."></div>
       <div class="table-scroll"><table>
         <thead><tr><th>সদস্য</th>${DATA.months.map(mo=>`<th>${mo}</th>`).join('')}<th>মোট</th></tr></thead>
         <tbody id="contribBody">${rows}</tbody>
       </table></div>
     </div>`;
+  const contribSearchInp = document.getElementById('contribSearch');
+  contribSearchInp.addEventListener('input', ()=>{
+    const q = contribSearchInp.value.trim().toLowerCase();
+    document.querySelectorAll('#contribBody tr').forEach(r=>{ if(r.dataset.name) r.style.display = r.dataset.name.includes(q) ? '' : 'none'; });
+  });
   document.getElementById('contribBody').addEventListener('click', async e=>{
     const pill = e.target.closest('.cell-pill.editable');
     if(!pill) return;
