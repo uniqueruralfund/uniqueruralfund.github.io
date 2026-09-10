@@ -65,7 +65,12 @@
 
   .main{flex:1; min-width:0; padding:1.6rem 2.2rem 3rem;}
   .topbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:1.2rem; gap:1rem; flex-wrap:wrap;}
+  .topbar-left{display:flex; align-items:center; gap:.7rem;}
   .page-title{font-size:1.7rem; font-weight:400; color:var(--green-dark); margin:0;}
+  .back-menu-btn{all:unset; display:none; cursor:pointer; align-items:center; gap:.3rem;
+    font-size:.85rem; font-weight:600; color:var(--green-dark); background:var(--card-bg);
+    border:1px solid var(--line); border-radius:20px; padding:.4rem .9rem; white-space:nowrap;}
+  .back-menu-btn:hover{background:#F7F4EA;}
   .topbar-right{display:flex; align-items:center; gap:1rem; flex-wrap:wrap;}
   .user-chip{display:flex; align-items:center; gap:.45rem; font-size:.82rem; font-weight:700;
     color:var(--green-dark); background:#EDF6EA; border:1px solid #C9E0BF; border-radius:20px;
@@ -282,6 +287,12 @@
     padding-bottom:2px;}
   .wc-site:hover{color:var(--active-bg); border-color:var(--active-bg);}
   .wc-card .wc-site{color:var(--green-dark); border-bottom-color:rgba(30,74,53,.35);}
+  .wc-links-row{display:flex; align-items:center; gap:1rem; flex-wrap:wrap; margin-top:1.6rem;}
+  .wc-links-row .wc-site{margin-top:0;}
+  .wc-login-pill{display:inline-flex; align-items:center; gap:.4rem; font-size:.82rem; font-weight:700;
+    color:#1B2A20; background:var(--active-bg); text-decoration:none; border-radius:20px;
+    padding:.5rem 1.1rem; box-shadow:0 6px 16px rgba(0,0,0,.25);}
+  .wc-login-pill:hover{filter:brightness(1.08);}
   .wc-card .wc-site:hover{color:var(--green);}
   .wc-contact{margin-top:1.8rem; padding-top:1.3rem; border-top:1px solid rgba(239,230,210,.18);
     font-size:.82rem; line-height:1.7; color:#B9CDBD;}
@@ -357,6 +368,9 @@
     .wc-stat{padding:.5rem .7rem; min-width:84px;}
     .wc-stat .v{font-size:1rem;}
     .wc-site{margin-top:.6rem; font-size:.76rem;}
+    .wc-links-row{margin-top:.9rem; gap:.7rem;}
+    .wc-links-row .wc-site{margin-top:0;}
+    .wc-login-pill{font-size:.76rem; padding:.42rem .9rem;}
     .wc-contact{margin-top:.9rem; padding-top:.7rem; font-size:.7rem;}
   }
 
@@ -366,6 +380,14 @@
     body{flex-direction:column;}
     .sidebar{width:100%; height:auto; position:relative;}
     .main{padding:1.2rem;}
+
+    /* Banking-app style drill-down: the menu (sidebar) is its own screen on a
+       phone, tapping an item swaps to a full-screen detail view with a Back
+       button — instead of stacking the whole menu above the content and
+       forcing a scroll past it just to reach what was tapped. */
+    body.mv-content .sidebar{display:none;}
+    body:not(.mv-content) .main{display:none;}
+    .back-menu-btn{display:inline-flex;}
   }
 </style>
 </head>
@@ -414,8 +436,10 @@
       <p>আমাদের নিজেদের গড়া তহবিল — প্রতি মাসে ছোট ছোট জমা থেকে তৈরি হয়েছে সবার ভরসার জায়গা।</p>
       <p>নিজের <strong style="color:#EFE6D2;">User ID ও Password</strong> দিয়ে ঢুকলে নিজের সব হিসাব দেখতে পাবেন এবং অনলাইনে টাকা জমা দিতে পারবেন।</p>
       <div class="wc-stats" id="wcStats"></div>
-      <a class="wc-site" href="https://sites.google.com/view/uniqueruralfund/home" target="_blank" rel="noopener">🔗 আমাদের ওয়েবসাইট দেখুন</a><br>
-      <a class="wc-site" href="#" onclick="showWcLoginForm(); return false;">🔑 লগইন করুন</a>
+      <div class="wc-links-row">
+        <a class="wc-site" href="https://sites.google.com/view/uniqueruralfund/home" target="_blank" rel="noopener">🔗 আমাদের ওয়েবসাইট দেখুন</a>
+        <a class="wc-login-pill" href="#" onclick="showWcLoginForm(); return false;">🔑 লগইন করুন</a>
+      </div>
       <div class="wc-contact">
         <p class="t">যোগাযোগ — Unique Rural Fund</p>
         <p>Dhwaja, Alipur, Shyampur<br>Howrah – 711315<br>West Bengal, India</p>
@@ -492,7 +516,10 @@
 
 <div class="main" id="mainArea" hidden>
   <div class="topbar">
-    <h2 class="page-title serif" id="pageTitle"></h2>
+    <div class="topbar-left">
+      <button class="back-menu-btn" id="backToMenuBtn" onclick="showMobileMenu()">← মেনু</button>
+      <h2 class="page-title serif" id="pageTitle"></h2>
+    </div>
     <div class="topbar-right">
       <div class="user-chip" id="userChip" hidden><span class="uc-ico">👤</span> <span id="userChipName"></span> <button type="button" class="uc-out" onclick="memberLogout()" title="লগআউট">লগআউট</button></div>
       <button class="refresh-btn" id="refreshBtn" title="সর্বশেষ ডেটা লোড করুন"><span class="ic">⟳</span> রিফ্রেশ</button>
@@ -1207,6 +1234,7 @@ function memberLogout(){
   payType = 'contribution';
   payForName = null;
   currentPage = 'overview';
+  document.body.classList.remove('mv-content');
   updateUserChip();
   updateEditBtn();
   document.getElementById('memberViewOverlay').hidden = true;
@@ -2118,7 +2146,9 @@ navlist.addEventListener('click', e=>{
   btn.classList.add('active');
   currentPage = btn.dataset.page;
   renderPage(currentPage);
+  document.body.classList.add('mv-content');   // on a phone: drill into this page's own screen
 });
+function showMobileMenu(){ document.body.classList.remove('mv-content'); }
 
 /* ================= charts ================= */
 function svgBarChart(labels, series){
