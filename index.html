@@ -338,6 +338,28 @@
     .wc-guide-cols{grid-template-columns:1fr; gap:1.6rem;}
   }
 
+  /* A phone screen (especially the wrapped mobile app, which has no browser
+     chrome to scroll past) needs the whole welcome page to fit without
+     scrolling — every rule below only trims spacing/size, never content. */
+  @media (max-width:480px), (max-height:720px){
+    .welcome{padding:1rem .9rem 1.2rem;}
+    .wc-top-row{margin-bottom:.7rem;}
+    .wc-logo-wrap{padding:.5rem;}
+    .wc-logo-wrap svg{width:56px; height:56px;}
+    .wc-clock{padding:.5rem .7rem;}
+    .wc-clock .wc-clock-time{font-size:1rem;}
+    .wc-clock .wc-clock-date{font-size:.68rem;}
+    .wc-eyebrow{margin:0 0 .4rem; font-size:.62rem;}
+    .wc-hero h1{font-size:1.5rem; margin:0 0 .2rem;}
+    .wc-rule{margin:.5rem 0 .6rem;}
+    .wc-hero p{font-size:.82rem; line-height:1.45; margin:0 0 .35rem;}
+    .wc-stats{margin-top:.7rem; gap:.4rem;}
+    .wc-stat{padding:.5rem .7rem; min-width:84px;}
+    .wc-stat .v{font-size:1rem;}
+    .wc-site{margin-top:.6rem; font-size:.76rem;}
+    .wc-contact{margin-top:.9rem; padding-top:.7rem; font-size:.7rem;}
+  }
+
   [hidden]{display:none!important;}
 
   @media (max-width:760px){
@@ -393,8 +415,9 @@
       <p>নিজের <strong style="color:#EFE6D2;">User ID ও Password</strong> দিয়ে ঢুকলে নিজের সব হিসাব দেখতে পাবেন এবং অনলাইনে টাকা জমা দিতে পারবেন।</p>
       <div class="wc-stats" id="wcStats"></div>
       <a class="wc-site" href="https://sites.google.com/view/uniqueruralfund/home" target="_blank" rel="noopener">🔗 আমাদের ওয়েবসাইট দেখুন</a><br>
-      <a class="wc-site" href="#" onclick="showWcLoginForm(); return false;">🔑 লগইন করুন</a>
-      <div class="wc-contact">
+      <a class="wc-site" href="#" onclick="showWcLoginForm(); return false;">🔑 লগইন করুন</a><br>
+      <a class="wc-site" href="#" onclick="toggleWcContact(); return false;" id="wcContactToggle">📍 যোগাযোগের ঠিকানা দেখুন</a>
+      <div class="wc-contact" id="wcContact" hidden>
         <p class="t">যোগাযোগ — Unique Rural Fund</p>
         <p>Dhwaja, Alipur, Shyampur<br>Howrah – 711315<br>West Bengal, India</p>
         <p>📧 E-mail: <a href="mailto:uniqueruralfund21@gmail.com">uniqueruralfund21@gmail.com</a></p>
@@ -941,6 +964,12 @@ function showWcLoginForm(){
 function hideWcLoginForm(){
   document.getElementById('wcCol2').hidden = true;
   document.getElementById('wcHeroPanel').hidden = false;
+}
+function toggleWcContact(){
+  const box = document.getElementById('wcContact');
+  const link = document.getElementById('wcContactToggle');
+  box.hidden = !box.hidden;
+  link.textContent = box.hidden ? '📍 যোগাযোগের ঠিকানা দেখুন' : '📍 ঠিকানা লুকান';
 }
 document.getElementById('wcId').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('wcPin').focus(); });
 document.getElementById('wcPin').addEventListener('keydown', e=>{ if(e.key==='Enter') welcomeLogin(e); });
