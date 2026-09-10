@@ -241,6 +241,8 @@
     display:flex; align-items:center; justify-content:center; padding:2.4rem 1.4rem;}
   .welcome-inner{width:min(1040px,100%); display:grid; grid-template-columns:1.15fr .85fr;
     gap:3.2rem; align-items:center;}
+  .welcome-inner.wc-solo{grid-template-columns:1fr; justify-items:center;}
+  .welcome-inner.wc-solo .wc-col2{width:min(420px,100%);}
   .wc-hero{color:#EFE6D2;}
   .wc-logo-wrap{display:inline-flex; align-items:center; justify-content:center;
     background:rgba(251,245,231,.96); border-radius:24px; padding:.85rem;
@@ -370,7 +372,7 @@
 
 <div class="welcome" id="welcomeScreen" hidden>
   <div class="welcome-inner" id="wcMainView">
-    <div class="wc-hero">
+    <div class="wc-hero" id="wcHeroPanel">
       <div class="wc-logo-wrap">
         <svg role="img" aria-label="Unique Rural Fund"><use href="#urfMark"/></svg>
       </div>
@@ -922,6 +924,8 @@ function hideWcGuide(){
   document.getElementById('wcMainView').hidden = false;
 }
 function showWcLoginForm(){
+  document.getElementById('wcHeroPanel').hidden = true;
+  document.getElementById('wcMainView').classList.add('wc-solo');
   document.getElementById('wcLoginTab').hidden = true;
   document.getElementById('wcLoginForm').hidden = false;
   document.getElementById('wcId').focus();
@@ -929,6 +933,8 @@ function showWcLoginForm(){
 function hideWcLoginForm(){
   document.getElementById('wcLoginForm').hidden = true;
   document.getElementById('wcLoginTab').hidden = false;
+  document.getElementById('wcHeroPanel').hidden = false;
+  document.getElementById('wcMainView').classList.remove('wc-solo');
 }
 document.getElementById('wcId').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('wcPin').focus(); });
 document.getElementById('wcPin').addEventListener('keydown', e=>{ if(e.key==='Enter') welcomeLogin(e); });
