@@ -517,6 +517,7 @@
     <button class="edit-btn" id="memberBtn" style="margin-bottom:.5rem;">👤 ব্যক্তিগত তথ্য দেখুন</button>
     <button class="edit-btn" id="approveBtn" style="margin-bottom:.5rem;" hidden onclick="openApprovalOverlay()">🧾 পেমেন্ট অনুমোদন</button>
     <button class="edit-btn" id="loanApproveBtn" style="margin-bottom:.5rem;" hidden onclick="openLoanApprovalOverlay()">🏦 ঋণ অনুমোদন</button>
+    <button class="edit-btn" id="loanRepayApproveBtn" style="margin-bottom:.5rem;" hidden onclick="openLoanRepayApprovalOverlay()">💵 ঋণ পরিশোধ অনুমোদন</button>
     <button class="edit-btn" id="sheetOpenBtn" style="margin-bottom:.5rem;" hidden onclick="window.open('https://docs.google.com/spreadsheets/d/1C-BdlaRHCjyAARCzKwGTstwvro2sKpPSH1FLZs_3XQo/edit','_blank')">📊 Google Sheet খুলুন</button>
     <button class="edit-btn" id="loginLogBtn" style="margin-bottom:.5rem;" hidden onclick="openLoginLogOverlay()">🕓 লগইন লগ</button>
     <button class="edit-btn" id="editBtn">🔒 এডিট মোড</button>
@@ -628,6 +629,13 @@
   <div class="pin-box" style="width:min(94vw,880px); max-height:88vh; overflow-y:auto;">
     <div id="loanApprovalOverlayBody"></div>
     <button type="button" class="linklike" onclick="closeLoanApprovalOverlay()">বন্ধ করুন</button>
+  </div>
+</div>
+
+<div class="pin-overlay" id="loanRepayApprovalOverlay" hidden>
+  <div class="pin-box" style="width:min(94vw,880px); max-height:88vh; overflow-y:auto;">
+    <div id="loanRepayApprovalOverlayBody"></div>
+    <button type="button" class="linklike" onclick="closeLoanRepayApprovalOverlay()">বন্ধ করুন</button>
   </div>
 </div>
 
@@ -800,6 +808,8 @@ function updateEditBtn(){
   if(apprBtn) apprBtn.hidden = !canApprove();   // only the collector + admin see this
   const loanApprBtn = document.getElementById('loanApproveBtn');
   if(loanApprBtn) loanApprBtn.hidden = !canApprove();   // only the collector + admin see this
+  const loanRepayApprBtn = document.getElementById('loanRepayApproveBtn');
+  if(loanRepayApprBtn) loanRepayApprBtn.hidden = !canApprove();   // only the collector + admin see this
   const sheetBtn = document.getElementById('sheetOpenBtn');
   if(sheetBtn) sheetBtn.hidden = !isAdminMember();   // only Prasun Jyoti
   const logBtn = document.getElementById('loginLogBtn');
@@ -814,30 +824,30 @@ let lastKnownPendingCount = null;
 function updatePendingBadge(){
   const apprBtn = document.getElementById('approveBtn');
   const loanApprBtn = document.getElementById('loanApproveBtn');
+  const loanRepayApprBtn = document.getElementById('loanRepayApproveBtn');
   if(!apprBtn) return;
-  const existingBadge = apprBtn.querySelector('.pending-badge');
-  if(existingBadge) existingBadge.remove();
-  const existingLoanBadge = loanApprBtn && loanApprBtn.querySelector('.pending-badge');
-  if(existingLoanBadge) existingLoanBadge.remove();
+  [apprBtn, loanApprBtn, loanRepayApprBtn].forEach(btn=>{
+    const existing = btn && btn.querySelector('.pending-badge');
+    if(existing) existing.remove();
+  });
   if(!memberSession || !canApprove() || !DATA){
     lastKnownPendingCount = null;
     return;
   }
   const payPend = (DATA.paymentRequests||[]).filter(p=>p.stage==='collector'||p.stage==='admin').length;
   const loanPend = (DATA.loanRequests||[]).filter(l=>l.stage==='collector'||l.stage==='admin').length;
-  const total = payPend + loanPend;
-  if(payPend>0){
+  const loanRepayPend = (DATA.loanRepayments||[]).filter(l=>l.stage==='collector'||l.stage==='admin').length;
+  const total = payPend + loanPend + loanRepayPend;
+  const addBadge = (btn, count)=>{
+    if(!btn || !count) return;
     const b = document.createElement('span');
     b.className = 'pending-badge';
-    b.textContent = payPend;
-    apprBtn.appendChild(b);
-  }
-  if(loanApprBtn && loanPend>0){
-    const b = document.createElement('span');
-    b.className = 'pending-badge';
-    b.textContent = loanPend;
-    loanApprBtn.appendChild(b);
-  }
+    b.textContent = count;
+    btn.appendChild(b);
+  };
+  addBadge(apprBtn, payPend);
+  addBadge(loanApprBtn, loanPend);
+  addBadge(loanRepayApprBtn, loanRepayPend);
   if(lastKnownPendingCount !== null && total > lastKnownPendingCount){
     flashSaved('🔔 নতুন অনুমোদনের অনুরোধ এসেছে', false);
   }
@@ -1261,6 +1271,11 @@ function openLoanApprovalOverlay(){
   document.getElementById('loanApprovalOverlay').hidden = false;
 }
 function closeLoanApprovalOverlay(){ document.getElementById('loanApprovalOverlay').hidden = true; }
+function openLoanRepayApprovalOverlay(){
+  document.getElementById('loanRepayApprovalOverlayBody').innerHTML = buildLoanRepayApprovalCardHTML('3', false);
+  document.getElementById('loanRepayApprovalOverlay').hidden = false;
+}
+function closeLoanRepayApprovalOverlay(){ document.getElementById('loanRepayApprovalOverlay').hidden = true; }
 
 async function openLoginLogOverlay(){
   if(!isPrasunOnly()) return;             // only Prasun Jyoti's own login may open this
@@ -1318,6 +1333,7 @@ function memberLogout(){
   payType = 'contribution';
   payForName = null;
   loanForName = null;
+  loanRepayForName = null;
   currentPage = 'overview';
   document.body.classList.remove('mv-content');
   updateUserChip();
@@ -1345,6 +1361,8 @@ function myActiveLoan(){
 }
 let loanForName = null;   // who a loan application is actually FOR — set via the "কার হয়ে আবেদন করছেন?" select
 function loanForChanged(v){ loanForName = v; renderPage('loanrequest'); }
+let loanRepayForName = null;   // who a loan repayment is actually FOR — set via the "কার হয়ে পরিশোধ করছেন?" select
+function loanRepayForChanged(v){ loanRepayForName = v; renderPage('loanrepay'); }
 function isCollector(){
   return !!(memberSession && DATA && DATA.collectorName &&
             memberSession.userId.toLowerCase() === DATA.collectorName.toLowerCase());
@@ -1505,6 +1523,60 @@ function buildLoanApprovalCardHTML(idSuffix, readOnly){
       ${pendBox}
       ${readOnly ? '' : `
       <div class="msg-err" id="loanApprErr" hidden></div>`}
+    </div>`;
+}
+
+// Same card layout again, for ঋণ পরিশোধ (a member paying down some of their
+// loan's PRINCIPAL, separate from the fixed monthly interest above).
+function buildLoanRepayApprovalCardHTML(idSuffix, readOnly){
+  idSuffix = idSuffix || '';
+  const reqs = DATA.loanRepayments || [];
+  const pend = reqs.filter(r=>r.stage==='collector' || r.stage==='admin');
+  let pendBox;
+  if(!pend.length){
+    pendBox = `<p class="hint-text">এখন কোনো ঋণ পরিশোধের অনুরোধ অপেক্ষায় নেই।</p>`;
+  } else {
+    pendBox = `
+      <div class="appr-list">${pend.map(r=>{
+        const stage = r.stage;
+        const mine = stage === 'collector' ? isCollector() : isAdminMember();
+        let btns;
+        if(readOnly || !mine){
+          btns = `<span class="hint-text">${stage==='collector' ? (DATA.collectorName||'')+'-এর' : ADMIN_NAME+'-র'} অপেক্ষায়</span>`;
+        } else if(stage === 'admin' && !isEditing()){
+          btns = `<span class="hint-text">অনুমোদন করতে বাঁদিকে <strong>🔒 এডিট মোড</strong> আনলক করুন</span>`;
+        } else {
+          btns = `<div class="btn-pair">
+            <button class="approve-btn" onclick="approveLoanRepayClick(event,'${r.token}','${stage}','${idSuffix}')">✅ অনুমোদন</button>
+            <button class="reject-btn" onclick="rejectLoanRepayClick(event,'${r.token}','${stage}','${idSuffix}')">❌ বাতিল</button>
+          </div>`;
+        }
+        const receipt = r.receiptUrl
+          ? `<a href="${r.receiptUrl}" target="_blank" rel="noopener" class="receipt-link">🧾 দেখুন</a>`
+          : `<span class="hint-text">নেই</span>`;
+        const rows = [
+          ['সদস্য', r.member], ['টাকা (আসল থেকে)', '<span class="mono">'+moneyInt(r.amount)+'</span>'],
+          ['পরিশোধের তারিখ', r.paymentDate||'—'], ['মাধ্যম', r.method], ['রসিদ', receipt],
+          ['কবে জমা দিয়েছে', r.askedAt||'—'], ['Satyajit অনুমোদন', r.collectorApprovedAt||'—'], ['Prasun অনুমোদন', r.adminApprovedAt||'—'],
+          ['অবস্থা', r.status]
+        ];
+        return `<div class="appr-card">
+          ${rows.map(([k,v])=>`<div class="appr-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
+          <div class="appr-actions">${btns}</div>
+        </div>`;
+      }).join('')}</div>`;
+  }
+  return `
+    <div class="card">
+      <div class="card-head">
+        <h2>💵 ঋণ পরিশোধ অনুমোদন ও বাতিল${pend.length?' ('+pend.length+')':''}</h2>
+        <div class="hint">${readOnly
+          ? 'এই অংশটি শুধু তথ্যের জন্য — অনুমোদন/বাতিল করতে বাঁদিকের <strong>💵 ঋণ পরিশোধ অনুমোদন</strong>-এ যান।'
+          : 'এই অংশটি শুধু ' + (DATA.collectorName||'') + ' ও ' + ADMIN_NAME + '-ই দেখতে পান। অনুমোদন হলেই ঋণের ব্যালেন্স কমে যাবে।'}</div>
+      </div>
+      ${pendBox}
+      ${readOnly ? '' : `
+      <div class="msg-err" id="loanRepayApprErr${idSuffix}" hidden></div>`}
     </div>`;
 }
 
@@ -2006,6 +2078,66 @@ async function postApprovalAction(ev, body, stage, btnLabel, failMsg, idSuffix){
   }
 }
 
+async function approveLoanRepayClick(ev, token, stage, idSuffix){
+  const reason = prompt('কোনো মন্তব্য যোগ করতে চাইলে লিখুন (না চাইলে খালি রেখে OK করুন):');
+  if(reason === null) return;
+  if(!confirm('এই ঋণ পরিশোধ অনুমোদন করবেন? অনুমোদনের সাথে সাথেই ঋণের ব্যালেন্স কমে যাবে।')) return;
+  await postLoanRepayApprovalAction(ev, {action:'approveLoanRepayment', token, stage, reason: reason.trim()}, stage, '✅ অনুমোদন', 'অনুমোদন হয়নি।', idSuffix);
+}
+
+async function rejectLoanRepayClick(ev, token, stage, idSuffix){
+  let reason = '';
+  while(!reason){
+    const entered = prompt('কেন বাতিল করছেন? কারণ লেখা আবশ্যক।');
+    if(entered === null) return;
+    reason = entered.trim();
+    if(!reason) alert('কারণ ছাড়া বাতিল করা যাবে না।');
+  }
+  await postLoanRepayApprovalAction(ev, {action:'rejectLoanRepayment', token, stage, reason}, stage, '❌ বাতিল', 'বাতিল করা যায়নি।', idSuffix);
+}
+
+async function postLoanRepayApprovalAction(ev, body, stage, btnLabel, failMsg, idSuffix){
+  idSuffix = idSuffix || '';
+  const errBox = document.getElementById('loanRepayApprErr'+idSuffix);
+  if(errBox) errBox.hidden = true;
+  if(stage === 'collector'){
+    if(!memberSession){
+      if(errBox){ errBox.textContent = 'আগে নিজের ID দিয়ে লগইন করুন।'; errBox.hidden = false; }
+      return;
+    }
+    body.userId = memberSession.userId;
+    body.pin = memberSession.pin;
+  } else {
+    body.pin = editPin;
+  }
+  const btn = ev.target;
+  btn.disabled = true;
+  btn.textContent = 'হচ্ছে...';
+  try{
+    const res = await fetch(SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify(body)
+    });
+    const json = await res.json();
+    if(!json.ok){
+      if(errBox){ errBox.textContent = json.error || failMsg; errBox.hidden = false; }
+      btn.disabled = false;
+      btn.textContent = btnLabel;
+      return;
+    }
+    if(json.data){ DATA = json.data; updatePendingBadge(); }
+    flashSaved(json.message || 'হয়ে গেছে', false);
+    renderPage(currentPage);
+    const repayOv = document.getElementById('loanRepayApprovalOverlay');
+    if(repayOv && !repayOv.hidden) openLoanRepayApprovalOverlay();
+  }catch(err){
+    if(errBox){ errBox.textContent = 'নেটওয়ার্ক সমস্যা, আবার চেষ্টা করুন।'; errBox.hidden = false; }
+    btn.disabled = false;
+    btn.textContent = btnLabel;
+  }
+}
+
 /* ================= new loan request (ঋণের আবেদন page) ================= */
 // A pending request = one already in flight for this member (any of the three
 // approval stages) — used both to block a second simultaneous request and to
@@ -2127,6 +2259,167 @@ function renderLoanRequest(){
     </div>
     ${apprCard}
     ${histBox}`;
+}
+
+/* ================= ঋণ পরিশোধ page — paying down loan PRINCIPAL early ================= */
+function loanRepayFooterHTML(){
+  const todayStr = new Date().toISOString().slice(0,10);
+  return `
+      <div class="pay-field" style="margin-top:1rem;">
+        <label class="field-label" for="loanRepayMethod">পরিশোধের ধরন</label>
+        <select id="loanRepayMethod" class="pay-select" onchange="document.getElementById('loanRepayReceiptField').hidden = (this.value==='cash')">
+          <option value="online" selected>অনলাইন (UPI/ব্যাংক)</option>
+          <option value="cash">নগদ (Cash)</option>
+        </select>
+      </div>
+      <div class="pay-field" style="margin-top:1rem;">
+        <label class="field-label" for="loanRepayDate">কবে টাকা দিয়েছেন?</label>
+        <input type="date" id="loanRepayDate" class="pay-select" value="${todayStr}" max="${todayStr}">
+      </div>
+      <div class="pay-field" id="loanRepayReceiptField" style="margin-top:1rem;">
+        <label class="field-label" for="loanRepayReceiptInput">পেমেন্টের স্ক্রিনশট (আবশ্যক)</label>
+        <input type="file" accept="image/*,application/pdf" id="loanRepayReceiptInput" class="pay-select">
+      </div>
+      <div class="pay-actions">
+        <button class="pay-btn claim" onclick="confirmLoanRepayClaim(event)">✅ পরিশোধ করেছি</button>
+      </div>
+      <div class="msg-err" id="loanRepayErr" hidden></div>
+      <div class="msg-ok" id="loanRepayOk" hidden></div>
+      <p class="hint-text" style="margin-top:.8rem;">অনলাইনে পাঠালে তার প্রমাণ (স্ক্রিনশট বা রসিদ) বেছে নিন — নগদ দিলে প্রমাণ লাগবে না। ${DATA.collectorName||'সংগ্রাহক'} যাচাই করে অনুমোদন করবেন, তারপর Prasun Jyoti চূড়ান্ত করবেন।</p>`;
+}
+
+function renderLoanRepay(){
+  const targetName = memberSession ? (loanRepayForName || memberSession.userId) : '';
+  const loan = activeLoanByName(targetName);
+
+  const repayForSelect = memberSession ? `
+    <div class="pay-field">
+      <label class="field-label" for="loanRepayForWhom">কার হয়ে পরিশোধ করছেন?</label>
+      <select id="loanRepayForWhom" class="pay-select" onchange="loanRepayForChanged(this.value)">
+        ${(DATA.contributions||[]).slice().sort((a,b)=>a.name.localeCompare(b.name,'bn'))
+          .map(c=>`<option value="${c.name}" ${c.name.toLowerCase()===targetName.toLowerCase()?'selected':''}>${c.name}${c.name.toLowerCase()===memberSession.userId.toLowerCase()?' (নিজে)':''}</option>`).join('')}
+      </select>
+    </div>` : '';
+
+  let formBox;
+  if(!memberSession){
+    formBox = `<p class="hint-text">ঋণ পরিশোধ করতে সাইডবারের <strong>👤 ব্যক্তিগত তথ্য দেখুন</strong>-এ নিজের User ID ও Password দিয়ে লগইন করুন।</p>`;
+  } else if(!loan){
+    formBox = `<div class="pay-row">${repayForSelect}</div><p class="hint-text" style="margin-top:.9rem;">${targetName===memberSession.userId?'আপনার':targetName+'-এর'} কোনো চলতি ঋণ নেই।</p>`;
+  } else if(loan.amount <= 1){
+    formBox = `<div class="pay-row">${repayForSelect}</div><p class="hint-text" style="margin-top:.9rem;">${targetName===memberSession.userId?'আপনার':targetName+'-এর'} ঋণের ব্যালেন্স এতটাই কম যে এখান থেকে আংশিক পরিশোধ করা যাবে না।</p>`;
+  } else {
+    const maxRepay = loan.amount - 1; // strictly less than the full balance — full payoff/closing stays a manual step
+    formBox = `
+      <div class="pay-row">
+        ${repayForSelect}
+        <div class="pay-field">
+          <label class="field-label" for="loanRepayAmountInput">কত টাকা পরিশোধ করছেন?</label>
+          <input type="number" id="loanRepayAmountInput" class="pay-select" min="1" max="${maxRepay}" step="1"
+                 oninput="if(Number(this.value)>${maxRepay}) this.value=${maxRepay};">
+        </div>
+      </div>
+      <p class="hint-text" style="margin:.3rem 0 1rem;">${targetName===memberSession.userId?'আপনার':targetName+'-এর'} বর্তমান ঋণ ব্যালেন্স <strong>${moneyInt(loan.amount)}</strong>। এখান থেকে সর্বোচ্চ ${moneyInt(maxRepay)} পর্যন্ত আংশিক পরিশোধ করা যাবে — পুরো ঋণ শোধ করে একেবারে বন্ধ করতে চাইলে সরাসরি Prasun Jyoti-র সাথে যোগাযোগ করুন। অনুমোদন হয়ে গেলে বাকি থাকা ঋণের উপরই পরের মাস থেকে সুদ হিসাব হবে।</p>
+      ${loanRepayFooterHTML()}`;
+  }
+
+  const reqs = DATA.loanRepayments || [];
+  let myBox = '';
+  if(memberSession){
+    const mine = reqs.filter(r=>r.member.toLowerCase()===memberSession.userId.toLowerCase()
+      || (r.processedBy && r.processedBy.toLowerCase()===memberSession.userId.toLowerCase()));
+    if(mine.length){
+      myBox = `
+        <h4 class="pay-subhead">আপনার ঋণ পরিশোধের ইতিহাস</h4>
+        <div class="table-scroll" style="max-height:none;"><table>
+          <thead><tr><th>সদস্য</th><th>টাকা</th><th>তারিখ</th><th>অবস্থা</th></tr></thead>
+          <tbody>${mine.map(r=>`<tr><td>${r.member}</td><td class="mono">${moneyInt(r.amount)}</td><td>${r.askedAt}</td><td>${r.status}</td></tr>`).join('')}</tbody>
+        </table></div>`;
+    }
+  }
+
+  // Read-only here on purpose — the actionable version lives only in the
+  // ঋণ পরিশোধ অনুমোদন overlay, matching পেমেন্ট অনুমোদন / ঋণ অনুমোদন.
+  let apprCard = canApprove() ? buildLoanRepayApprovalCardHTML('', true) : '';
+
+  pageBody.innerHTML = `
+    <div class="card">
+      <div class="card-head">
+        <h2>💵 ঋণ পরিশোধ (আসল টাকা)</h2>
+        <div class="hint">মাসিক সুদ নয় — ঋণের মূল টাকার (Principal) কিছু অংশ আগেভাগে শোধ করতে চাইলে এখানে করুন।</div>
+      </div>
+      ${formBox}
+      ${myBox}
+    </div>
+    ${apprCard}`;
+}
+
+async function confirmLoanRepayClaim(ev){
+  const errBox = document.getElementById('loanRepayErr');
+  const okBox = document.getElementById('loanRepayOk');
+  errBox.hidden = true; okBox.hidden = true;
+
+  const forWhomEl = document.getElementById('loanRepayForWhom');
+  const forMember = forWhomEl && forWhomEl.value ? forWhomEl.value : memberSession.userId;
+  const amountEl = document.getElementById('loanRepayAmountInput');
+  const amount = Number(amountEl.value);
+  const maxAllowed = Number(amountEl.max);
+  if(!amount || amount <= 0){
+    errBox.textContent = 'সঠিক পরিমাণ দিন।';
+    errBox.hidden = false;
+    return;
+  }
+  if(maxAllowed && amount > maxAllowed){
+    errBox.textContent = 'সর্বোচ্চ ' + moneyInt(maxAllowed) + ' পর্যন্ত পরিশোধ করা যাবে।';
+    errBox.hidden = false;
+    return;
+  }
+  const method = document.getElementById('loanRepayMethod').value;
+  const dateEl = document.getElementById('loanRepayDate');
+  const paymentDate = dateEl && dateEl.value ? dateEl.value : new Date().toISOString().slice(0,10);
+  const fileInput = document.getElementById('loanRepayReceiptInput');
+  const file = fileInput.files && fileInput.files[0];
+  if(method !== 'cash' && !file){
+    errBox.textContent = 'পেমেন্টের স্ক্রিনশট ছাড়া দাবি জমা নেওয়া হবে না — আগে উপরে থেকে ছবি বেছে নিন।';
+    errBox.hidden = false;
+    return;
+  }
+  const confirmWho = forMember.toLowerCase()===memberSession.userId.toLowerCase() ? 'আপনি' : forMember;
+  if(!confirm(confirmWho + ' নিশ্চিতভাবে ঋণের আসল থেকে ' + moneyInt(amount) + ' পাঠিয়েছেন? রসিদসহ অনুমোদনের জন্য অনুরোধ যাবে।')) return;
+
+  const btn = ev.target;
+  btn.disabled = true;
+  const oldLabel = btn.textContent;
+  btn.textContent = file ? 'রসিদ পাঠানো হচ্ছে...' : 'পাঠানো হচ্ছে...';
+  try{
+    let receiptData = '', receiptMime = '';
+    if(file){
+      const receipt = await compressReceiptFile(file);
+      receiptData = receipt.data; receiptMime = receipt.mime;
+    }
+    const res = await fetch(SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action:'submitLoanRepayment', userId:memberSession.userId, pin:memberSession.pin,
+                            forMember, amount, paymentMethod: method, paymentDate, receiptData, receiptMime})
+    });
+    const json = await res.json();
+    if(!json.ok){
+      errBox.textContent = json.error || 'পাঠানো যায়নি, আবার চেষ্টা করুন।';
+      errBox.hidden = false;
+      return;
+    }
+    okBox.textContent = json.message || 'জানানো হয়েছে!';
+    okBox.hidden = false;
+    fileInput.value = '';
+    await loadData(true);
+  }catch(err){
+    errBox.textContent = 'নেটওয়ার্ক সমস্যা, আবার চেষ্টা করুন।';
+    errBox.hidden = false;
+  }finally{
+    btn.disabled = false;
+    btn.textContent = oldLabel;
+  }
 }
 
 async function submitLoanRequestClick(ev){
@@ -2286,13 +2579,14 @@ const pages = [
   {id:"loans",    label:"ঋণ হিসাব"},
   {id:"payment",  label:"পেমেন্ট"},
   {id:"loanrequest", label:"ঋণের আবেদন"},
+  {id:"loanrepay", label:"ঋণ পরিশোধ"},
   {id:"fine",     label:"ফাইন"},
   {id:"rules",    label:"নিয়মাবলী"},
   {id:"birthdays",label:"জন্মদিন"},
   {id:"history",  label:"বছরের ইতিহাস"}
 ];
-const bnNum = ["০১","০২","০৩","০৪","০৫","০৬","০৭","০৮","০৯","১০"];
-const pageTitles = {overview:"Overview", members:"সদস্য তালিকা", contrib:"মাসিক জমা", loans:"ঋণ হিসাব", payment:"পেমেন্ট", loanrequest:"ঋণের আবেদন", fine:"ফাইন", rules:"নিয়মাবলী", birthdays:"জন্মদিন", history:"বছরের ইতিহাস"};
+const bnNum = ["০১","০২","০৩","০৪","০৫","০৬","০৭","০৮","০৯","১০","১১"];
+const pageTitles = {overview:"Overview", members:"সদস্য তালিকা", contrib:"মাসিক জমা", loans:"ঋণ হিসাব", payment:"পেমেন্ট", loanrequest:"ঋণের আবেদন", loanrepay:"ঋণ পরিশোধ", fine:"ফাইন", rules:"নিয়মাবলী", birthdays:"জন্মদিন", history:"বছরের ইতিহাস"};
 const navlist = document.getElementById('navlist');
 navlist.innerHTML = pages.map((p,i)=> `<button data-page="${p.id}" class="${i===0?'active':''}"><span class="n">${bnNum[i]}</span>${p.label}</button>`).join('');
 navlist.addEventListener('click', e=>{
@@ -2689,7 +2983,7 @@ function renderHistory(){
     </div>`;
 }
 
-const renderers = {overview:renderOverview, members:renderMembers, contrib:renderContrib, loans:renderLoans, payment:renderPayment, loanrequest:renderLoanRequest, fine:renderFine, rules:renderRules, birthdays:renderBirthdays, history:renderHistory};
+const renderers = {overview:renderOverview, members:renderMembers, contrib:renderContrib, loans:renderLoans, payment:renderPayment, loanrequest:renderLoanRequest, loanrepay:renderLoanRepay, fine:renderFine, rules:renderRules, birthdays:renderBirthdays, history:renderHistory};
 function renderPage(id){
   if(!DATA) return;
   pageTitle.textContent = (bnNum[pages.findIndex(p=>p.id===id)]) + " " + pageTitles[id];
