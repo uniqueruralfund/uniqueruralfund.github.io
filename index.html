@@ -2406,7 +2406,7 @@ function renderLoans(){
       <div class="table-scroll"><table>
         <thead><tr>
           <th>সদস্য</th><th>পরিমাণ</th><th>নেওয়ার তারিখ</th><th>মাসিক সুদ</th>
-          ${MONTH_ORDINALS.map(m=>`<th>${m} মাস</th>`).join('')}
+          ${MONTH_ORDINALS.map(()=>`<th>মাস</th>`).join('')}
           <th>মোট সুদ</th>${editing?'<th></th>':''}
         </tr></thead>
         <tbody id="loanBody">${rows || '<tr><td colspan="18">কোনো চলতি ঋণ নেই।</td></tr>'}</tbody>
