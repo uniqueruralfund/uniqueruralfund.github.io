@@ -628,6 +628,12 @@
 <script>
 /* ================= CONFIG — deploy Code.gs then paste the exec URL here ================= */
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPGv8Pr1IU3jhnAehKGJQ9XVTtUjRtYQh9eUsJOY6FwuvSY48ApETkz59MKlr5dsoR5w/exec";
+// Capacitor auto-injects window.Capacitor into the WebView only when this
+// page is running inside the wrapped Android app — a plain mobile/desktop
+// browser never sees it — so this is how a login tells the two apart.
+function getClientPlatform(){
+  try{ return (typeof window.Capacitor !== 'undefined') ? 'app' : 'web'; }catch(e){ return 'web'; }
+}
 const AUTO_REFRESH_SEC = 90;
 const ADMIN_NAME = 'Prasun Jyoti';   // only this member + the collector see the approve/reject panel
 
@@ -944,7 +950,7 @@ async function welcomeLogin(ev){
     const res = await fetch(SCRIPT_URL, {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({action:'memberLogin', userId, pin: val})
+      body: JSON.stringify({action:'memberLogin', userId, pin: val, platform: getClientPlatform()})
     });
     const json = await res.json();
     if(!json.ok){
@@ -1033,7 +1039,7 @@ async function submitMemberPin(){
     const res = await fetch(SCRIPT_URL, {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({action:'memberLogin', userId, pin: val})
+      body: JSON.stringify({action:'memberLogin', userId, pin: val, platform: getClientPlatform()})
     });
     const json = await res.json();
     if(!json.ok){
@@ -1208,6 +1214,7 @@ async function openLoginLogOverlay(){
       <div class="appr-card">
         <div class="appr-row"><span class="k">সদস্য</span><span class="v">${r.name}</span></div>
         <div class="appr-row"><span class="k">সময়</span><span class="v">${r.at}</span></div>
+        <div class="appr-row"><span class="k">মাধ্যম</span><span class="v">${r.medium==='Mobile App' ? '📱 মোবাইল অ্যাপ' : '🌐 ওয়েবসাইট'}</span></div>
       </div>`).join('')}</div>`;
   }catch(err){
     body.innerHTML = '<p class="hint-text">নেটওয়ার্ক সমস্যা, আবার চেষ্টা করুন।</p>';
