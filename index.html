@@ -1293,6 +1293,7 @@ function memberLogout(){
   sessionStorage.removeItem('urf_edit_pin');
   payType = 'contribution';
   payForName = null;
+  loanForName = null;
   currentPage = 'overview';
   document.body.classList.remove('mv-content');
   updateUserChip();
@@ -1318,6 +1319,8 @@ function myContribRow(){
 function myActiveLoan(){
   return memberSession ? activeLoanByName(memberSession.userId) : null;
 }
+let loanForName = null;   // who a loan application is actually FOR — set via the "কার হয়ে আবেদন করছেন?" select
+function loanForChanged(v){ loanForName = v; renderPage('loanrequest'); }
 function isCollector(){
   return !!(memberSession && DATA && DATA.collectorName &&
             memberSession.userId.toLowerCase() === DATA.collectorName.toLowerCase());
@@ -1919,10 +1922,10 @@ async function postApprovalAction(ev, body, stage, btnLabel, failMsg, idSuffix){
 // A pending request = one already in flight for this member (any of the three
 // approval stages) — used both to block a second simultaneous request and to
 // show that request's own status/action row.
-function myActiveLoanRequest(){
-  if(!memberSession || !DATA) return null;
+function activeLoanRequestByName(name){
+  if(!DATA || !name) return null;
   return (DATA.loanRequests||[]).find(r=>
-    r.member.toLowerCase()===memberSession.userId.toLowerCase() &&
+    r.member.toLowerCase()===name.toLowerCase() &&
     ['collector','ack','admin'].includes(r.stage)) || null;
 }
 
@@ -1930,25 +1933,44 @@ function renderLoanRequest(){
   const rules = DATA.loanRules || {percent:60, cap:25000, interestPercent:1};
   const availableBalance = (DATA.fundSummary && DATA.fundSummary.availableBalance) || 0;
   const maxEligible = Math.max(0, Math.floor(Math.min(availableBalance * rules.percent/100, rules.cap)));
-  const hasActiveLoan = !!myActiveLoan();
-  const myPending = myActiveLoanRequest();
+  const targetName = memberSession ? (loanForName || memberSession.userId) : '';
+  const hasActiveLoan = !!activeLoanByName(targetName);
+  const myPending = activeLoanRequestByName(targetName);
+  const todayStr = new Date().toISOString().slice(0,10);
+
+  // Anyone applying on behalf of another member (an elderly relative, someone
+  // less comfortable with the form, etc.) picks that member here — eligibility
+  // and active-loan checks then follow THAT member, not the submitter.
+  const loanForSelect = memberSession ? `
+    <div class="pay-field">
+      <label class="field-label" for="loanForWhom">কার হয়ে আবেদন করছেন?</label>
+      <select id="loanForWhom" class="pay-select" onchange="loanForChanged(this.value)">
+        ${(DATA.contributions||[]).slice().sort((a,b)=>a.name.localeCompare(b.name,'bn'))
+          .map(c=>`<option value="${c.name}" ${c.name.toLowerCase()===targetName.toLowerCase()?'selected':''}>${c.name}${c.name.toLowerCase()===memberSession.userId.toLowerCase()?' (নিজে)':''}</option>`).join('')}
+      </select>
+    </div>` : '';
 
   let formBox;
   if(!memberSession){
     formBox = `<p class="hint-text">ঋণের আবেদন করতে সাইডবারের <strong>👤 ব্যক্তিগত তথ্য দেখুন</strong>-এ নিজের User ID ও Password দিয়ে লগইন করুন।</p>`;
   } else if(hasActiveLoan){
-    formBox = `<p class="hint-text">আপনার একটি চলতি ঋণ চলছে — সেটি শেষ না হওয়া পর্যন্ত নতুন আবেদন করা যাবে না।</p>`;
+    formBox = `<div class="pay-row">${loanForSelect}</div><p class="hint-text">${targetName===memberSession.userId?'আপনার':targetName+'-এর'} একটি চলতি ঋণ চলছে — সেটি শেষ না হওয়া পর্যন্ত নতুন আবেদন করা যাবে না।</p>`;
   } else if(myPending){
-    formBox = `<p class="hint-text">আপনার একটি ঋণের আবেদন প্রক্রিয়াধীন আছে — নিচে "আপনার ঋণের আবেদন"-এ দেখুন।</p>`;
+    formBox = `<div class="pay-row">${loanForSelect}</div><p class="hint-text">${targetName===memberSession.userId?'আপনার':targetName+'-এর'} একটি ঋণের আবেদন প্রক্রিয়াধীন আছে — নিচে "আপনার ঋণের আবেদন"-এ দেখুন।</p>`;
   } else if(maxEligible <= 0){
     formBox = `<p class="hint-text">এই মুহূর্তে তহবিলে যথেষ্ট Available Balance না থাকায় নতুন ঋণ দেওয়া সম্ভব নয়।</p>`;
   } else {
     formBox = `
       <div class="pay-row">
+        ${loanForSelect}
         <div class="pay-field">
           <label class="field-label" for="loanAmountInput">চাওয়া টাকার পরিমাণ</label>
           <input type="number" id="loanAmountInput" class="pay-select" value="${maxEligible}" min="1" max="${maxEligible}" step="1"
                  oninput="if(Number(this.value)>${maxEligible}) this.value=${maxEligible};">
+        </div>
+        <div class="pay-field">
+          <label class="field-label" for="loanNeededByInput">কবে টাকা লাগবে?</label>
+          <input type="date" id="loanNeededByInput" class="pay-select" value="${todayStr}" min="${todayStr}">
         </div>
       </div>
       <p class="hint-text" style="margin:.3rem 0 1rem;">সর্বোচ্চ <strong>${moneyInt(maxEligible)}</strong> — Available Balance ${moneyInt(availableBalance)}-এর ${rules.percent}%, সর্বোচ্চ ${moneyInt(rules.cap)}। কম নিতে চাইলে বক্সের সংখ্যাটা বদলে দিন।</p>
@@ -1962,12 +1984,13 @@ function renderLoanRequest(){
 
   let myBox = '';
   if(memberSession){
-    const mine = reqs.filter(r=>r.member.toLowerCase()===memberSession.userId.toLowerCase());
+    const mine = reqs.filter(r=>r.member.toLowerCase()===memberSession.userId.toLowerCase()
+      || (r.processedBy && r.processedBy.toLowerCase()===memberSession.userId.toLowerCase()));
     if(mine.length){
       myBox = `
         <h4 class="pay-subhead">আপনার ঋণের আবেদন</h4>
         <div class="table-scroll" style="max-height:none;"><table>
-          <thead><tr><th>টাকা</th><th>তারিখ</th><th>অবস্থা</th><th>কাজ</th></tr></thead>
+          <thead><tr><th>সদস্য</th><th>টাকা</th><th>কবে লাগবে</th><th>তারিখ</th><th>অবস্থা</th><th>কাজ</th></tr></thead>
           <tbody>${mine.map(r=>{
             const action = r.stage === 'ack'
               ? `<div class="btn-pair">
@@ -1975,7 +1998,7 @@ function renderLoanRequest(){
                   <button class="reject-btn" onclick="loanDisputeClick(event,'${r.token}')">❌ এখনো পাইনি</button>
                 </div>`
               : `<span class="hint-text">—</span>`;
-            return `<tr><td class="mono">${moneyInt(r.amount)}</td><td>${r.askedAt}</td><td>${r.status}</td><td>${action}</td></tr>`;
+            return `<tr><td>${r.member}</td><td class="mono">${moneyInt(r.amount)}</td><td>${r.neededByDate||'—'}</td><td>${r.askedAt}</td><td>${r.status}</td><td>${action}</td></tr>`;
           }).join('')}</tbody>
         </table></div>`;
     }
@@ -1990,7 +2013,7 @@ function renderLoanRequest(){
     } else {
       pendBox = `
         <div class="table-scroll" style="max-height:none;"><table>
-          <thead><tr><th>সদস্য</th><th>টাকা</th><th>তারিখ</th><th>অবস্থা</th><th>কাজ</th></tr></thead>
+          <thead><tr><th>সদস্য</th><th>টাকা</th><th>কবে লাগবে</th><th>তারিখ</th><th>অবস্থা</th><th>কাজ</th></tr></thead>
           <tbody>${pend.map(r=>{
             let btns;
             if(r.stage === 'collector'){
@@ -2017,7 +2040,7 @@ function renderLoanRequest(){
               }
             }
             const disputed = /বিরোধ/.test(r.status);
-            return `<tr${disputed?' style="background:#FBEFE0;"':''}><td>${r.member}</td><td class="mono">${moneyInt(r.amount)}</td><td>${r.askedAt}</td><td>${r.status}</td><td>${btns}</td></tr>`;
+            return `<tr${disputed?' style="background:#FBEFE0;"':''}><td>${r.member}</td><td class="mono">${moneyInt(r.amount)}</td><td>${r.neededByDate||'—'}</td><td>${r.askedAt}</td><td>${r.status}</td><td>${btns}</td></tr>`;
           }).join('')}</tbody>
         </table></div>`;
     }
@@ -2080,7 +2103,12 @@ async function submitLoanRequestClick(ev){
     errBox.hidden = false;
     return;
   }
-  if(!confirm('আপনি কি নিশ্চিত ' + moneyInt(amount) + ' ঋণের আবেদন পাঠাতে চান?')) return;
+  const forWhomEl = document.getElementById('loanForWhom');
+  const forMember = forWhomEl && forWhomEl.value ? forWhomEl.value : memberSession.userId;
+  const neededByEl = document.getElementById('loanNeededByInput');
+  const neededByDate = neededByEl && neededByEl.value ? neededByEl.value : '';
+  const confirmWho = forMember.toLowerCase()===memberSession.userId.toLowerCase() ? '' : (forMember + '-এর হয়ে ');
+  if(!confirm('আপনি কি নিশ্চিত ' + confirmWho + moneyInt(amount) + ' ঋণের আবেদন পাঠাতে চান?')) return;
   const btn = ev.target;
   btn.disabled = true;
   const oldLabel = btn.textContent;
@@ -2088,7 +2116,7 @@ async function submitLoanRequestClick(ev){
   try{
     const res = await fetch(SCRIPT_URL, {
       method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({action:'submitLoanRequest', userId:memberSession.userId, pin:memberSession.pin, amount})
+      body: JSON.stringify({action:'submitLoanRequest', userId:memberSession.userId, pin:memberSession.pin, amount, forMember, neededByDate})
     });
     const json = await res.json();
     if(!json.ok){
