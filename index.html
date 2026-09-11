@@ -2308,10 +2308,8 @@ function renderLoanRepay(){
     formBox = `<div class="pay-row">${repayForSelect}</div><p class="hint-text" style="margin-top:.9rem;">${targetName===memberSession.userId?'আপনার':targetName+'-এর'} কোনো চলতি ঋণ নেই।</p>`;
   } else if(loan.interestOverdue){
     formBox = `<div class="pay-row">${repayForSelect}</div><p class="hint-text" style="margin-top:.9rem;">${targetName===memberSession.userId?'আপনার':targetName+'-এর'} মাসিক সুদ এখন বকেয়া আছে — আগে <a href="#" onclick="payType='loan'; renderPage('payment'); return false;">চলতি ঋণের সুদ</a> থেকে বকেয়া সুদ পরিশোধ করুন, তারপর এখান থেকে আসল টাকা পরিশোধ করা যাবে।</p>`;
-  } else if(loan.amount <= 1){
-    formBox = `<div class="pay-row">${repayForSelect}</div><p class="hint-text" style="margin-top:.9rem;">${targetName===memberSession.userId?'আপনার':targetName+'-এর'} ঋণের ব্যালেন্স এতটাই কম যে এখান থেকে আংশিক পরিশোধ করা যাবে না।</p>`;
   } else {
-    const maxRepay = loan.amount - 1; // strictly less than the full balance — full payoff/closing stays a manual step
+    const maxRepay = loan.amount; // full balance is allowed — repaying it all closes the loan
     formBox = `
       <div class="pay-row">
         ${repayForSelect}
@@ -2321,7 +2319,7 @@ function renderLoanRepay(){
                  oninput="if(Number(this.value)>${maxRepay}) this.value=${maxRepay};">
         </div>
       </div>
-      <p class="hint-text" style="margin:.3rem 0 1rem;">${targetName===memberSession.userId?'আপনার':targetName+'-এর'} বর্তমান ঋণ ব্যালেন্স <strong>${moneyInt(loan.amount)}</strong>। এখান থেকে সর্বোচ্চ ${moneyInt(maxRepay)} পর্যন্ত আংশিক পরিশোধ করা যাবে — পুরো ঋণ শোধ করে একেবারে বন্ধ করতে চাইলে সরাসরি Prasun Jyoti-র সাথে যোগাযোগ করুন। অনুমোদন হয়ে গেলে বাকি থাকা ঋণের উপরই পরের মাস থেকে সুদ হিসাব হবে।</p>
+      <p class="hint-text" style="margin:.3rem 0 1rem;">${targetName===memberSession.userId?'আপনার':targetName+'-এর'} বর্তমান ঋণ ব্যালেন্স <strong>${moneyInt(loan.amount)}</strong>। আংশিক পরিশোধ করলে বাকি থাকা ঋণের উপর পরের মাস থেকে সুদ হিসাব হবে — আর পুরো ${moneyInt(loan.amount)} একসাথে পরিশোধ করলে অনুমোদনের সাথে সাথেই ঋণটা সম্পূর্ণ বন্ধ (Closed) হয়ে যাবে।</p>
       ${loanRepayFooterHTML()}`;
   }
 
