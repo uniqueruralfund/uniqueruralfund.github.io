@@ -1459,7 +1459,7 @@ function renderPayment(){
       </div>`;
 
     const perMonthRate = isLoanFine ? (loanMine ? loanMine.monthlyInterest : 0) : (DATA.monthlyContribution || 100);
-    let monthsBox, initialTotal = 0;
+    let monthsBox, initialTotal = 0, fineDue = false;
     if(isLoanFine && !loanMine){
       monthsBox = `<p class="hint-text" style="margin-top:.9rem;">আপনার কোনো চলতি ঋণ নেই, তাই ঋণের সুদের ফাইন প্রযোজ্য নয়।</p>`;
     } else {
@@ -1478,6 +1478,7 @@ function renderPayment(){
       } else {
         // All overdue months start checked — "কোন মাসগুলো বাকি" is already
         // known from the sheet, members shouldn't have to re-figure it out.
+        fineDue = true;
         initialTotal = overdue.length * perMonthRate + perMonthRate; // + one month's worth as the fine itself
         monthsBox = `
           <div class="pay-field">
@@ -1489,6 +1490,10 @@ function renderPayment(){
       }
     }
 
+    // The amount field (and the whole submit form below it) only appears once
+    // the person being paid for actually has a fine due — otherwise there is
+    // nothing valid to submit, so the field stays out rather than sitting
+    // there editable with no real fine behind it.
     claimBox = `
       <div class="pay-row">
         ${typeSelect}
@@ -1496,6 +1501,7 @@ function renderPayment(){
         ${subTypeSelect}
       </div>
       ${monthsBox}
+      ${fineDue ? `
       <div class="pay-row" style="margin-top:.8rem;">
         <div class="pay-field" style="flex:0 0 auto;">
           <label class="field-label" for="payAmount">মোট টাকা (বাকি মাস + ১ মাসের ফাইন)</label>
@@ -1505,7 +1511,7 @@ function renderPayment(){
         </div>
       </div>
       <p class="hint-text" style="margin:.3rem 0 1rem;">উপরের মাসগুলোর টিক অনুযায়ী টাকাটা নিজে থেকেই হিসাব হয় — নিয়মটা <a href="#" onclick="document.querySelector('[data-page=fine]').click(); return false;">এখানে দেখুন</a>। প্রয়োজনে টাকার অঙ্ক নিজে বদলেও দিতে পারেন।</p>
-      ${paymentFooterHTML('fine', 0)}`;
+      ${paymentFooterHTML('fine', 0)}` : ''}`;
   } else {
     // One or several months can be picked in one go — the amount scales with
     // how many are ticked. Only the single earliest unpaid one starts
