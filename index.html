@@ -2306,6 +2306,8 @@ function renderLoanRepay(){
     formBox = `<p class="hint-text">ঋণ পরিশোধ করতে সাইডবারের <strong>👤 ব্যক্তিগত তথ্য দেখুন</strong>-এ নিজের User ID ও Password দিয়ে লগইন করুন।</p>`;
   } else if(!loan){
     formBox = `<div class="pay-row">${repayForSelect}</div><p class="hint-text" style="margin-top:.9rem;">${targetName===memberSession.userId?'আপনার':targetName+'-এর'} কোনো চলতি ঋণ নেই।</p>`;
+  } else if(!loan.monthsPaid){
+    formBox = `<div class="pay-row">${repayForSelect}</div><p class="hint-text" style="margin-top:.9rem;">${targetName===memberSession.userId?'আপনার':targetName+'-এর'} এখনো কোনো মাসিক সুদ পরিশোধ করা হয়নি — আগে অন্তত একটা মাসের <a href="#" onclick="payType='loan'; renderPage('payment'); return false;">সুদ পরিশোধ</a> করুন, তারপর এখান থেকে আসল টাকা পরিশোধ করা যাবে।</p>`;
   } else if(loan.interestOverdue){
     formBox = `<div class="pay-row">${repayForSelect}</div><p class="hint-text" style="margin-top:.9rem;">${targetName===memberSession.userId?'আপনার':targetName+'-এর'} মাসিক সুদ এখন বকেয়া আছে — আগে <a href="#" onclick="payType='loan'; renderPage('payment'); return false;">চলতি ঋণের সুদ</a> থেকে বকেয়া সুদ পরিশোধ করুন, তারপর এখান থেকে আসল টাকা পরিশোধ করা যাবে।</p>`;
   } else {
