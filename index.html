@@ -2180,7 +2180,7 @@ async function submitLoanRequestClick(ev){
 async function loanAckClick(ev, token){
   // Shown verbatim so the member reads and knowingly agrees to it before
   // it gets written into the sheet and broadcast to the whole group.
-  const pledge = 'হ্যাঁ, আমি আমার চাহিদামতো টাকা লোন পেয়েছি। আমি কথা দিচ্ছি, আমি এই টাকা গ্রুপের নিয়ম অনুযায়ী সুদ দিতে বাধ্য থাকব।';
+  const pledge = 'হ্যাঁ, আমি আমার চাহিদামতো টাকা লোন পেয়েছি। আমি কথা দিচ্ছি, আমি এই টাকা গ্রুপের নিয়ম অনুযায়ী পরিশোধ করতে বাধ্য থাকব।';
   if(!confirm(pledge + '\n\n— এই কথাটা কি আপনি নিশ্চিত করছেন? OK চাপলে এই স্বীকৃতি সবার কাছে জানানো হবে।')) return;
   await postLoanAction(ev, {action:'acknowledgeLoan', token, userId:memberSession.userId, pin:memberSession.pin}, '✅ টাকা পেয়েছি', 'স্বীকৃতি দেওয়া যায়নি।');
 }
