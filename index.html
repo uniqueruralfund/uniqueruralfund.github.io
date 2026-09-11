@@ -516,6 +516,7 @@
   <div class="edit-toggle">
     <button class="edit-btn" id="memberBtn" style="margin-bottom:.5rem;">👤 ব্যক্তিগত তথ্য দেখুন</button>
     <button class="edit-btn" id="approveBtn" style="margin-bottom:.5rem;" hidden onclick="openApprovalOverlay()">🧾 পেমেন্ট অনুমোদন</button>
+    <button class="edit-btn" id="loanApproveBtn" style="margin-bottom:.5rem;" hidden onclick="openLoanApprovalOverlay()">🏦 ঋণ অনুমোদন</button>
     <button class="edit-btn" id="sheetOpenBtn" style="margin-bottom:.5rem;" hidden onclick="window.open('https://docs.google.com/spreadsheets/d/1C-BdlaRHCjyAARCzKwGTstwvro2sKpPSH1FLZs_3XQo/edit','_blank')">📊 Google Sheet খুলুন</button>
     <button class="edit-btn" id="loginLogBtn" style="margin-bottom:.5rem;" hidden onclick="openLoginLogOverlay()">🕓 লগইন লগ</button>
     <button class="edit-btn" id="editBtn">🔒 এডিট মোড</button>
@@ -620,6 +621,13 @@
   <div class="pin-box" style="width:min(94vw,880px); max-height:88vh; overflow-y:auto;">
     <div id="approvalOverlayBody"></div>
     <button type="button" class="linklike" onclick="closeApprovalOverlay()">বন্ধ করুন</button>
+  </div>
+</div>
+
+<div class="pin-overlay" id="loanApprovalOverlay" hidden>
+  <div class="pin-box" style="width:min(94vw,880px); max-height:88vh; overflow-y:auto;">
+    <div id="loanApprovalOverlayBody"></div>
+    <button type="button" class="linklike" onclick="closeLoanApprovalOverlay()">বন্ধ করুন</button>
   </div>
 </div>
 
@@ -790,6 +798,8 @@ function updateEditBtn(){
   b.hidden = !isAdminMember();   // only Prasun Jyoti ever sees the edit-mode button
   const apprBtn = document.getElementById('approveBtn');
   if(apprBtn) apprBtn.hidden = !canApprove();   // only the collector + admin see this
+  const loanApprBtn = document.getElementById('loanApproveBtn');
+  if(loanApprBtn) loanApprBtn.hidden = !canApprove();   // only the collector + admin see this
   const sheetBtn = document.getElementById('sheetOpenBtn');
   if(sheetBtn) sheetBtn.hidden = !isAdminMember();   // only Prasun Jyoti
   const logBtn = document.getElementById('loginLogBtn');
@@ -803,9 +813,12 @@ function updateEditBtn(){
 let lastKnownPendingCount = null;
 function updatePendingBadge(){
   const apprBtn = document.getElementById('approveBtn');
+  const loanApprBtn = document.getElementById('loanApproveBtn');
   if(!apprBtn) return;
   const existingBadge = apprBtn.querySelector('.pending-badge');
   if(existingBadge) existingBadge.remove();
+  const existingLoanBadge = loanApprBtn && loanApprBtn.querySelector('.pending-badge');
+  if(existingLoanBadge) existingLoanBadge.remove();
   if(!memberSession || !canApprove() || !DATA){
     lastKnownPendingCount = null;
     return;
@@ -813,14 +826,20 @@ function updatePendingBadge(){
   const payPend = (DATA.paymentRequests||[]).filter(p=>p.stage==='collector'||p.stage==='admin').length;
   const loanPend = (DATA.loanRequests||[]).filter(l=>l.stage==='collector'||l.stage==='admin').length;
   const total = payPend + loanPend;
-  if(total>0){
+  if(payPend>0){
     const b = document.createElement('span');
     b.className = 'pending-badge';
-    b.textContent = total;
+    b.textContent = payPend;
     apprBtn.appendChild(b);
   }
+  if(loanApprBtn && loanPend>0){
+    const b = document.createElement('span');
+    b.className = 'pending-badge';
+    b.textContent = loanPend;
+    loanApprBtn.appendChild(b);
+  }
   if(lastKnownPendingCount !== null && total > lastKnownPendingCount){
-    flashSaved('🔔 নতুন অনুমোদনের অনুরোধ এসেছে — পেমেন্ট অনুমোদন দেখুন', false);
+    flashSaved('🔔 নতুন অনুমোদনের অনুরোধ এসেছে', false);
   }
   lastKnownPendingCount = total;
 }
@@ -1237,6 +1256,11 @@ function openApprovalOverlay(){
   document.getElementById('approvalOverlay').hidden = false;
 }
 function closeApprovalOverlay(){ document.getElementById('approvalOverlay').hidden = true; }
+function openLoanApprovalOverlay(){
+  document.getElementById('loanApprovalOverlayBody').innerHTML = buildLoanApprovalCardHTML('3', false);
+  document.getElementById('loanApprovalOverlay').hidden = false;
+}
+function closeLoanApprovalOverlay(){ document.getElementById('loanApprovalOverlay').hidden = true; }
 
 async function openLoginLogOverlay(){
   if(!isPrasunOnly()) return;             // only Prasun Jyoti's own login may open this
@@ -1417,6 +1441,70 @@ function buildApprovalCardHTML(idSuffix, readOnly){
       ${readOnly ? '' : `
       <div class="msg-err" id="apprErr${idSuffix}" hidden></div>
       <div class="msg-ok" id="apprOk${idSuffix}" hidden></div>`}
+    </div>`;
+}
+
+// Same card-per-request layout as buildApprovalCardHTML, for loan requests —
+// so approving loans works exactly like approving payments (stacked cards,
+// no horizontal scroll hiding the buttons on a phone).
+function buildLoanApprovalCardHTML(idSuffix, readOnly){
+  idSuffix = idSuffix || '';
+  const reqs = DATA.loanRequests || [];
+  const pend = reqs.filter(r=>['collector','ack','admin'].includes(r.stage));
+  let pendBox;
+  if(!pend.length){
+    pendBox = `<p class="hint-text">এখন কোনো ঋণের আবেদন অপেক্ষায় নেই।</p>`;
+  } else {
+    pendBox = `
+      <div class="appr-list">${pend.map(r=>{
+        let btns;
+        if(readOnly){
+          btns = `<span class="hint-text">${r.stage==='ack' ? 'সদস্যের স্বীকৃতির' : (r.stage==='collector' ? (DATA.collectorName||'') : ADMIN_NAME)+'-র'} অপেক্ষায়</span>`;
+        } else if(r.stage === 'collector'){
+          btns = isCollector()
+            ? `<div class="btn-pair">
+                <button class="approve-btn" onclick="loanDisburseClick(event,'${r.token}')">✅ টাকা দেওয়া হয়েছে</button>
+                <button class="reject-btn" onclick="loanRejectClick(event,'${r.token}')">❌ বাতিল</button>
+              </div>`
+            : `<span class="hint-text">${DATA.collectorName||''}-এর অপেক্ষায়</span>`;
+        } else if(r.stage === 'ack'){
+          btns = (isAdminMember() && isEditing())
+            ? `<div class="btn-pair"><span class="hint-text">স্বীকৃতির অপেক্ষায়</span><button class="reject-btn" onclick="loanRejectClick(event,'${r.token}')">❌ বাতিল</button></div>`
+            : `<span class="hint-text">সদস্যের স্বীকৃতির অপেক্ষায়</span>`;
+        } else { // 'admin' stage — also covers a dispute flagged by the member
+          if(!isAdminMember()){
+            btns = `<span class="hint-text">${ADMIN_NAME}-র অপেক্ষায়</span>`;
+          } else if(!isEditing()){
+            btns = `<span class="hint-text">চূড়ান্ত করতে বাঁদিকে <strong>🔒 এডিট মোড</strong> আনলক করুন</span>`;
+          } else {
+            btns = `<div class="btn-pair">
+              <button class="approve-btn" onclick="loanFinalizeClick(event,'${r.token}')">✅ চূড়ান্ত করুন</button>
+              <button class="reject-btn" onclick="loanRejectClick(event,'${r.token}')">❌ বাতিল</button>
+            </div>`;
+          }
+        }
+        const disputed = /বিরোধ/.test(r.status);
+        const rows = [
+          ['সদস্য', r.member], ['টাকা', '<span class="mono">'+moneyInt(r.amount)+'</span>'],
+          ['কবে লাগবে', r.neededByDate||'—'], ['কবে আবেদন করেছেন', r.askedAt], ['অবস্থা', r.status]
+        ];
+        return `<div class="appr-card"${disputed?' style="background:#FBEFE0;"':''}>
+          ${rows.map(([k,v])=>`<div class="appr-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
+          <div class="appr-actions">${btns}</div>
+        </div>`;
+      }).join('')}</div>`;
+  }
+  return `
+    <div class="card">
+      <div class="card-head">
+        <h2>🏦 ঋণ অনুমোদন ও বাতিল${pend.length?' ('+pend.length+')':''}</h2>
+        <div class="hint">${readOnly
+          ? 'এই অংশটি শুধু তথ্যের জন্য — অনুমোদন/বাতিল করতে বাঁদিকের <strong>🏦 ঋণ অনুমোদন</strong>-এ যান।'
+          : 'এই অংশটি শুধু ' + (DATA.collectorName||'') + ' ও ' + ADMIN_NAME + '-ই দেখতে পান।'}</div>
+      </div>
+      ${pendBox}
+      ${readOnly ? '' : `
+      <div class="msg-err" id="loanApprErr" hidden></div>`}
     </div>`;
 }
 
@@ -2004,56 +2092,10 @@ function renderLoanRequest(){
     }
   }
 
-  const pend = reqs.filter(r=>['collector','ack','admin'].includes(r.stage));
-  let apprCard = '';
-  if(canApprove()){
-    let pendBox;
-    if(!pend.length){
-      pendBox = `<p class="hint-text">এখন কোনো ঋণের আবেদন অপেক্ষায় নেই।</p>`;
-    } else {
-      pendBox = `
-        <div class="table-scroll" style="max-height:none;"><table>
-          <thead><tr><th>সদস্য</th><th>টাকা</th><th>কবে লাগবে</th><th>তারিখ</th><th>অবস্থা</th><th>কাজ</th></tr></thead>
-          <tbody>${pend.map(r=>{
-            let btns;
-            if(r.stage === 'collector'){
-              btns = isCollector()
-                ? `<div class="btn-pair">
-                    <button class="approve-btn" onclick="loanDisburseClick(event,'${r.token}')">✅ টাকা দেওয়া হয়েছে</button>
-                    <button class="reject-btn" onclick="loanRejectClick(event,'${r.token}')">❌ বাতিল</button>
-                  </div>`
-                : `<span class="hint-text">${DATA.collectorName||''}-এর অপেক্ষায়</span>`;
-            } else if(r.stage === 'ack'){
-              btns = (isAdminMember() && isEditing())
-                ? `<div class="btn-pair"><span class="hint-text">স্বীকৃতির অপেক্ষায়</span><button class="reject-btn" onclick="loanRejectClick(event,'${r.token}')">❌ বাতিল</button></div>`
-                : `<span class="hint-text">সদস্যের স্বীকৃতির অপেক্ষায়</span>`;
-            } else { // 'admin' stage — also covers a dispute flagged by the member
-              if(!isAdminMember()){
-                btns = `<span class="hint-text">${ADMIN_NAME}-র অপেক্ষায়</span>`;
-              } else if(!isEditing()){
-                btns = `<span class="hint-text">চূড়ান্ত করতে বাঁদিকে <strong>🔒 এডিট মোড</strong> আনলক করুন</span>`;
-              } else {
-                btns = `<div class="btn-pair">
-                  <button class="approve-btn" onclick="loanFinalizeClick(event,'${r.token}')">✅ চূড়ান্ত করুন</button>
-                  <button class="reject-btn" onclick="loanRejectClick(event,'${r.token}')">❌ বাতিল</button>
-                </div>`;
-              }
-            }
-            const disputed = /বিরোধ/.test(r.status);
-            return `<tr${disputed?' style="background:#FBEFE0;"':''}><td>${r.member}</td><td class="mono">${moneyInt(r.amount)}</td><td>${r.neededByDate||'—'}</td><td>${r.askedAt}</td><td>${r.status}</td><td>${btns}</td></tr>`;
-          }).join('')}</tbody>
-        </table></div>`;
-    }
-    apprCard = `
-      <div class="card">
-        <div class="card-head">
-          <h2>🏦 ঋণ অনুমোদন${pend.length?' ('+pend.length+')':''}</h2>
-          <div class="hint">এই অংশটি শুধু ${DATA.collectorName||''} ও ${ADMIN_NAME}-ই দেখতে পান।</div>
-        </div>
-        ${pendBox}
-        <div class="msg-err" id="loanApprErr" hidden></div>
-      </div>`;
-  }
+  // Read-only here on purpose — the actionable version (with real Approve/
+  // Reject buttons) lives only in the ঋণ অনুমোদন overlay now, matching how
+  // পেমেন্ট অনুমোদন already works.
+  let apprCard = canApprove() ? buildLoanApprovalCardHTML('', true) : '';
 
   let doneList = reqs.filter(r=>r.stage==='done' || r.stage==='rejected');
   if(!canApprove() && memberSession){
@@ -2186,6 +2228,10 @@ async function postLoanAction(ev, body, btnLabel, failMsg){
     if(json.data){ DATA = json.data; updatePendingBadge(); }
     flashSaved(json.message || 'হয়ে গেছে', false);
     renderPage(currentPage);
+    // The loan approve/reject panel also lives inside its own overlay — keep
+    // that copy's pending list in sync too when it's the one left open.
+    const loanOv = document.getElementById('loanApprovalOverlay');
+    if(loanOv && !loanOv.hidden) openLoanApprovalOverlay();
   }catch(err){
     if(errBox){ errBox.textContent = 'নেটওয়ার্ক সমস্যা, আবার চেষ্টা করুন।'; errBox.hidden = false; }
     btn.disabled = false;
