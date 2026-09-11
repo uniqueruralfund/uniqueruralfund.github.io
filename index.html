@@ -507,7 +507,7 @@
   <nav class="navlist" id="navlist"></nav>
   <div class="edit-toggle">
     <button class="edit-btn" id="memberBtn" style="margin-bottom:.5rem;">👤 ব্যক্তিগত তথ্য দেখুন</button>
-    <button class="edit-btn" id="approveBtn" style="margin-bottom:.5rem;" hidden onclick="openApprovalOverlay()">🧾 পেমেন্ট Receipt</button>
+    <button class="edit-btn" id="approveBtn" style="margin-bottom:.5rem;" hidden onclick="openApprovalOverlay()">🧾 পেমেন্ট অনুমোদন</button>
     <button class="edit-btn" id="sheetOpenBtn" style="margin-bottom:.5rem;" hidden onclick="window.open('https://docs.google.com/spreadsheets/d/1C-BdlaRHCjyAARCzKwGTstwvro2sKpPSH1FLZs_3XQo/edit','_blank')">📊 Google Sheet খুলুন</button>
     <button class="edit-btn" id="loginLogBtn" style="margin-bottom:.5rem;" hidden onclick="openLoginLogOverlay()">🕓 লগইন লগ</button>
     <button class="edit-btn" id="editBtn">🔒 এডিট মোড</button>
@@ -752,7 +752,7 @@ function updateEditBtn(){
   if(logBtn) logBtn.hidden = !isAdminMember();       // only Prasun Jyoti
 }
 
-// A visible badge on পেমেন্ট Receipt so Satyajit Das / Prasun Jyoti notice a
+// A visible badge on পেমেন্ট অনুমোদন so Satyajit Das / Prasun Jyoti notice a
 // fresh approval waiting even if they're on some other page — plus a one-off
 // toast the moment the pending count actually goes UP, so a new request
 // doesn't just sit there unnoticed until someone happens to check.
@@ -776,7 +776,7 @@ function updatePendingBadge(){
     apprBtn.appendChild(b);
   }
   if(lastKnownPendingCount !== null && total > lastKnownPendingCount){
-    flashSaved('🔔 নতুন অনুমোদনের অনুরোধ এসেছে — পেমেন্ট Receipt দেখুন', false);
+    flashSaved('🔔 নতুন অনুমোদনের অনুরোধ এসেছে — পেমেন্ট অনুমোদন দেখুন', false);
   }
   lastKnownPendingCount = total;
 }
@@ -1339,7 +1339,7 @@ function buildApprovalCardHTML(idSuffix, readOnly){
       <div class="card-head">
         <h2>🛡️ পেমেন্ট অনুমোদন ও বাতিল${pend.length?' ('+pend.length+')':''}</h2>
         <div class="hint">${readOnly
-          ? 'এই অংশটি শুধু তথ্যের জন্য — অনুমোদন/বাতিল করতে বাঁদিকের <strong>🧾 পেমেন্ট Receipt</strong>-এ যান।'
+          ? 'এই অংশটি শুধু তথ্যের জন্য — অনুমোদন/বাতিল করতে বাঁদিকের <strong>🧾 পেমেন্ট অনুমোদন</strong>-এ যান।'
           : 'এই অংশটি শুধু ' + (DATA.collectorName||'') + ' ও ' + ADMIN_NAME + '-ই দেখতে পান। ভুল পেমেন্ট হলে <strong>❌ বাতিল</strong> করুন।'}</div>
       </div>
       ${pendBox}
@@ -1561,7 +1561,7 @@ function renderPayment(){
   doneList = doneList.slice(-15).reverse();
 
   // Read-only here on purpose — the actionable version (with real Approve/
-  // Reject buttons) lives only in the পেমেন্ট Receipt overlay now, so there's
+  // Reject buttons) lives only in the পেমেন্ট অনুমোদন overlay now, so there's
   // exactly one place to click and Prasun Jyoti stops hitting the wrong copy.
   let apprCard = canApprove() ? buildApprovalCardHTML('', true) : '';
 
