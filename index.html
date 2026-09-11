@@ -755,7 +755,7 @@ function updateEditBtn(){
   const sheetBtn = document.getElementById('sheetOpenBtn');
   if(sheetBtn) sheetBtn.hidden = !isAdminMember();   // only Prasun Jyoti
   const logBtn = document.getElementById('loginLogBtn');
-  if(logBtn) logBtn.hidden = !isAdminMember();       // only Prasun Jyoti
+  if(logBtn) logBtn.hidden = !isPrasunOnly();       // only Prasun Jyoti
 }
 
 // A visible badge on পেমেন্ট অনুমোদন so Satyajit Das / Prasun Jyoti notice a
@@ -1198,6 +1198,7 @@ function openApprovalOverlay(){
 function closeApprovalOverlay(){ document.getElementById('approvalOverlay').hidden = true; }
 
 async function openLoginLogOverlay(){
+  if(!isPrasunOnly()) return;             // only Prasun Jyoti's own login may open this
   if(!editPin){ openPinBox(); return; }   // needs the real EDIT_PIN, same as edit mode
   const body = document.getElementById('loginLogOverlayBody');
   body.innerHTML = '<p class="hint-text">লোড হচ্ছে...</p>';
@@ -1278,6 +1279,14 @@ function isAdminMember(){
 }
 // only the collector (Satyajit Das) and the admin (Prasun Jyoti) ever see the approve/reject panel
 function canApprove(){ return isCollector() || isAdminMember(); }
+// Login Log is stricter than isAdminMember() — it must stay hidden even if
+// someone else unlocks এডিট মোড with the admin PIN; only the logged-in
+// member actually named Prasun Jyoti may see it.
+function isPrasunOnly(){
+  if(!memberSession) return false;
+  const n = memberSession.userId.toLowerCase();
+  return n === ADMIN_NAME.toLowerCase() || n.indexOf('prasun') > -1;
+}
 
 let payType = 'contribution';
 function payTypeChanged(v){ payType = v; renderPage('payment'); }
