@@ -1480,9 +1480,22 @@ function buildLoanApprovalCardHTML(idSuffix, readOnly){
           btns = `<span class="hint-text">${r.stage==='ack' ? 'সদস্যের স্বীকৃতির' : (r.stage==='collector' ? (DATA.collectorName||'') : ADMIN_NAME)+'-র'} অপেক্ষায়</span>`;
         } else if(r.stage === 'collector'){
           btns = isCollector()
-            ? `<div class="btn-pair">
-                <button class="approve-btn" onclick="loanDisburseClick(event,'${r.token}')">✅ টাকা দেওয়া হয়েছে</button>
-                <button class="reject-btn" onclick="loanRejectClick(event,'${r.token}')">❌ বাতিল</button>
+            ? `<div style="text-align:left;">
+                <div class="pay-field" style="margin-bottom:.5rem;">
+                  <label class="field-label" for="disburseMethod-${r.token}">পেমেন্টের ধরন</label>
+                  <select id="disburseMethod-${r.token}" class="pay-select" onchange="document.getElementById('disburseReceiptField-${r.token}').hidden = (this.value==='cash')">
+                    <option value="online" selected>অনলাইন (UPI/ব্যাংক)</option>
+                    <option value="cash">নগদ (Cash)</option>
+                  </select>
+                </div>
+                <div class="pay-field" id="disburseReceiptField-${r.token}" style="margin-bottom:.5rem;">
+                  <label class="field-label" for="disburseReceipt-${r.token}">পেমেন্টের স্ক্রিনশট (আবশ্যক)</label>
+                  <input type="file" accept="image/*,application/pdf" id="disburseReceipt-${r.token}" class="pay-select">
+                </div>
+                <div class="btn-pair">
+                  <button class="approve-btn" onclick="loanDisburseClick(event,'${r.token}')">✅ টাকা দেওয়া হয়েছে</button>
+                  <button class="reject-btn" onclick="loanRejectClick(event,'${r.token}')">❌ বাতিল</button>
+                </div>
               </div>`
             : `<span class="hint-text">${DATA.collectorName||''}-এর অপেক্ষায়</span>`;
         } else if(r.stage === 'ack'){
@@ -1502,9 +1515,14 @@ function buildLoanApprovalCardHTML(idSuffix, readOnly){
           }
         }
         const disputed = /বিরোধ/.test(r.status);
+        const disburseReceipt = r.receiptUrl
+          ? `<a href="${r.receiptUrl}" target="_blank" rel="noopener" class="receipt-link">🧾 দেখুন</a>`
+          : `<span class="hint-text">নেই</span>`;
         const rows = [
           ['সদস্য', r.member], ['টাকা', '<span class="mono">'+moneyInt(r.amount)+'</span>'],
-          ['কবে লাগবে', r.neededByDate||'—'], ['কবে আবেদন করেছেন', r.askedAt], ['অবস্থা', r.status]
+          ['কবে লাগবে', r.neededByDate||'—'], ['কবে আবেদন করেছেন', r.askedAt],
+          ['প্রদানের মাধ্যম', r.method||'—'], ['রসিদ', disburseReceipt],
+          ['অবস্থা', r.status]
         ];
         return `<div class="appr-card"${disputed?' style="background:#FBEFE0;"':''}>
           ${rows.map(([k,v])=>`<div class="appr-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
@@ -2484,8 +2502,33 @@ async function loanDisputeClick(ev, token){
   await postLoanAction(ev, {action:'disputeLoan', token, userId:memberSession.userId, pin:memberSession.pin}, '❌ এখনো পাইনি', 'জানানো যায়নি।');
 }
 async function loanDisburseClick(ev, token){
+  const methodEl = document.getElementById('disburseMethod-'+token);
+  const method = methodEl ? methodEl.value : 'online';
+  const fileInput = document.getElementById('disburseReceipt-'+token);
+  const file = fileInput && fileInput.files && fileInput.files[0];
+  if(method !== 'cash' && !file){
+    alert('অনলাইনে টাকা পাঠালে তার স্ক্রিনশট/রসিদ আবশ্যক — আগে বেছে নিন।');
+    return;
+  }
   if(!confirm('আপনি কি সদস্যকে টাকা দিয়ে দিয়েছেন?')) return;
-  await postLoanAction(ev, {action:'disburseLoan', token, userId:memberSession.userId, pin:memberSession.pin}, '✅ টাকা দেওয়া হয়েছে', 'নিশ্চিত করা যায়নি।');
+  const body = {action:'disburseLoan', token, userId:memberSession.userId, pin:memberSession.pin, paymentMethod: method};
+  if(file){
+    const btn = ev.target;
+    const oldLabel = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'রসিদ পাঠানো হচ্ছে...';
+    try{
+      const receipt = await compressReceiptFile(file);
+      body.receiptData = receipt.data;
+      body.receiptMime = receipt.mime;
+    }catch(err){
+      alert('ছবি প্রসেস করা যায়নি, আবার চেষ্টা করুন।');
+      btn.disabled = false;
+      btn.textContent = oldLabel;
+      return;
+    }
+  }
+  await postLoanAction(ev, body, '✅ টাকা দেওয়া হয়েছে', 'নিশ্চিত করা যায়নি।');
 }
 async function loanFinalizeClick(ev, token){
   if(!confirm('এই ঋণটি এখন সরাসরি Google Sheet-এ বসিয়ে দেওয়া হবে। নিশ্চিত?')) return;
