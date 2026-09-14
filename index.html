@@ -642,7 +642,6 @@ function getClientPlatform(){
 }
 const AUTO_REFRESH_SEC = 90;
 const ADMIN_NAME = 'Prasun Jyoti';   // only this member + the collector see the approve/reject panel
-const COLLECTOR_UPI_ID = 'satyajit.dhwaja@okaxis';   // for the "UPI-তে পাঠান" shortcut button
 
 
 let DATA = null;
@@ -1646,28 +1645,8 @@ function updatePayAmount(rate){
 function payMethodChanged(){
   const method = document.getElementById('payMethod').value;
   document.getElementById('payReceiptField').hidden = (method === 'cash');
-  const upiField = document.getElementById('payUpiField');
-  if(upiField) upiField.hidden = (method === 'cash');
   const cashField = document.getElementById('payCashRecipientField');
   if(cashField) cashField.hidden = (method !== 'cash');
-}
-
-// Opens the member's own UPI app (GPay/PhonePe/…) with the collector's UPI ID
-// and the currently computed amount pre-filled — the website itself still has
-// no way to confirm a upi:// payment actually succeeded, so this only speeds
-// up sending the money; the member still uploads a screenshot and submits the
-// claim as usual for Satyajit Das / Prasun Jyoti to approve.
-function openUpiPay(noteText){
-  const amountEl = document.getElementById('payAmount') || document.getElementById('loanRepayAmountInput');
-  const amount = amountEl ? Number(amountEl.dataset.amount || amountEl.value || 0) : 0;
-  if(!amount || amount <= 0){
-    alert('আগে টাকার পরিমাণ ঠিক করুন।');
-    return;
-  }
-  const uri = 'upi://pay?pa=' + encodeURIComponent(COLLECTOR_UPI_ID)
-    + '&pn=' + encodeURIComponent(DATA.collectorName || 'Satyajit Das')
-    + '&am=' + amount + '&cu=INR&tn=' + encodeURIComponent(noteText || 'Unique Rural Fund');
-  window.location.href = uri;
 }
 
 function paymentFooterHTML(type, required){
@@ -1679,10 +1658,6 @@ function paymentFooterHTML(type, required){
           <option value="online" selected>অনলাইন (UPI/ব্যাংক)</option>
           <option value="cash">নগদ (Cash)</option>
         </select>
-      </div>
-      <div class="pay-field" id="payUpiField" style="margin-top:1rem;">
-        <button type="button" class="pay-btn claim" style="width:100%;" onclick="openUpiPay('${type==='fine'?'ফাইন':(type==='loan'?'ঋণের সুদ':'মাসিক জমা')} — Unique Rural Fund')">📲 UPI-তে পাঠান</button>
-        <p class="hint-text" style="margin:.4rem 0 0;">এতে সরাসরি আপনার UPI অ্যাপ (GPay/PhonePe ইত্যাদি) খুলে যাবে, ${DATA.collectorName||'সংগ্রাহক'}-এর UPI ID ও টাকার অঙ্ক আগে থেকে ভরা থাকবে। পাঠানোর পর স্ক্রিনশট দিয়ে নিচে থেকে দাবি জমা দিন।</p>
       </div>
       <div class="pay-field" id="payCashRecipientField" style="margin-top:1rem;" hidden>
         <label class="field-label" for="payCashRecipient">কাকে টাকা দিচ্ছেন?</label>
@@ -2456,10 +2431,6 @@ function loanRepayFooterHTML(){
           <option value="cash">নগদ (Cash)</option>
         </select>
       </div>
-      <div class="pay-field" id="loanRepayUpiField" style="margin-top:1rem;">
-        <button type="button" class="pay-btn claim" style="width:100%;" onclick="openUpiPay('ঋণ পরিশোধ — Unique Rural Fund')">📲 UPI-তে পাঠান</button>
-        <p class="hint-text" style="margin:.4rem 0 0;">এতে সরাসরি আপনার UPI অ্যাপ (GPay/PhonePe ইত্যাদি) খুলে যাবে, ${DATA.collectorName||'সংগ্রাহক'}-এর UPI ID ও টাকার অঙ্ক আগে থেকে ভরা থাকবে। পাঠানোর পর স্ক্রিনশট দিয়ে নিচে থেকে দাবি জমা দিন।</p>
-      </div>
       <div class="pay-field" id="loanRepayCashRecipientField" style="margin-top:1rem;" hidden>
         <label class="field-label" for="loanRepayCashRecipient">কাকে টাকা দিচ্ছেন?</label>
         <select id="loanRepayCashRecipient" class="pay-select">
@@ -2486,8 +2457,6 @@ function loanRepayFooterHTML(){
 function loanRepayMethodChanged(){
   const method = document.getElementById('loanRepayMethod').value;
   document.getElementById('loanRepayReceiptField').hidden = (method === 'cash');
-  const upiField = document.getElementById('loanRepayUpiField');
-  if(upiField) upiField.hidden = (method === 'cash');
   const cashField = document.getElementById('loanRepayCashRecipientField');
   if(cashField) cashField.hidden = (method !== 'cash');
 }
