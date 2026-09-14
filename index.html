@@ -445,7 +445,6 @@
       <div class="wc-stats" id="wcStats"></div>
       <div class="wc-links-row">
         <a class="wc-site" href="https://uniqueruralfund.github.io/view/uniqueruralfund/home" target="_blank" rel="noopener">🔗 আমাদের ওয়েবসাইট দেখুন</a>
-        <a class="wc-site" href="#" onclick="openUsageGuideFromWelcome(); return false;">📘 কীভাবে ব্যবহার করবেন</a>
         <a class="wc-login-pill" href="#" onclick="showWcLoginForm(); return false;">🔑 লগইন করুন</a>
       </div>
       <div class="wc-contact">
@@ -501,7 +500,6 @@
     <button class="edit-btn" id="loanRepayApproveBtn" style="margin-bottom:.5rem;" hidden onclick="openLoanRepayApprovalOverlay()">💵 ঋণ পরিশোধ অনুমোদন</button>
     <button class="edit-btn" id="sheetOpenBtn" style="margin-bottom:.5rem;" hidden onclick="window.open('https://docs.google.com/spreadsheets/d/1C-BdlaRHCjyAARCzKwGTstwvro2sKpPSH1FLZs_3XQo/edit','_blank')">📊 Google Sheet খুলুন</button>
     <button class="edit-btn" id="loginLogBtn" style="margin-bottom:.5rem;" hidden onclick="openLoginLogOverlay()">🕓 লগইন লগ</button>
-    <button class="edit-btn" id="usageGuideBtn" style="margin-bottom:.5rem;" hidden onclick="openUsageGuidePage()">📘 কীভাবে ব্যবহার করবেন</button>
     <button class="edit-btn" id="editBtn">🔒 এডিট মোড</button>
   </div>
 </div>
@@ -796,8 +794,6 @@ function updateEditBtn(){
   if(sheetBtn) sheetBtn.hidden = !isAdminMember();   // only Prasun Jyoti
   const logBtn = document.getElementById('loginLogBtn');
   if(logBtn) logBtn.hidden = !isPrasunOnly();       // only Prasun Jyoti
-  const guideBtn = document.getElementById('usageGuideBtn');
-  if(guideBtn) guideBtn.hidden = !memberSession;    // any logged-in member, never the public
 }
 
 // A visible badge on পেমেন্ট অনুমোদন so Satyajit Das / Prasun Jyoti notice a
@@ -1027,12 +1023,7 @@ async function welcomeLogin(ev){
     else{ clearRememberedLogin(); }
     if(!DATA){ await loadData(true); }
     enterApp();
-    if(pendingGuideAfterLogin){
-      pendingGuideAfterLogin = false;
-      openUsageGuidePage();
-    } else {
-      flashSaved('স্বাগতম, ' + memberSession.userId, false);
-    }
+    flashSaved('স্বাগতম, ' + memberSession.userId, false);
   }catch(err){
     errBox.textContent = 'নেটওয়ার্ক সমস্যা, আবার চেষ্টা করুন।';
     errBox.hidden = false;
@@ -1049,28 +1040,14 @@ function toggleWcPinVisibility(){
   btn.textContent = showing ? '👁' : '🙈';
   btn.setAttribute('aria-label', showing ? 'পাসওয়ার্ড দেখুন' : 'পাসওয়ার্ড লুকান');
 }
-// A full page (not a popup) so it reads like the app's own welcome/onboarding
-// page — restricted to actual logged-in members (any of the 24), never the
-// public pre-login visitor, and not part of the numbered nav so it stays a
-// members-only shortcut. currentPage is left untouched, so "← ফিরে যান" just
-// re-renders whatever page was showing.
-// Clicked from the public Welcome (pre-login) screen — the guide itself is
-// members-only, so this just opens the same member-login form and remembers
-// to jump straight to the guide once that login succeeds.
-let pendingGuideAfterLogin = false;
-function openUsageGuideFromWelcome(){
-  if(memberSession){ openUsageGuidePage(); return; }
-  pendingGuideAfterLogin = true;
-  showWcLoginForm();
-}
-function openUsageGuidePage(){
-  if(!memberSession) return;
-  pageTitle.textContent = '📘 কীভাবে ব্যবহার করবেন';
+// Plain numbered nav page (১৩) now — the sidebar itself only ever shows
+// after a successful member login, so being in the nav already means it's
+// members-only; no separate gate or Welcome-screen shortcut needed.
+function renderUsageGuide(){
   pageBody.innerHTML = `
     <div class="card">
       <div class="card-head">
         <h2>📘 কীভাবে ব্যবহার করবেন</h2>
-        <button type="button" class="linklike" onclick="renderPage(currentPage)">← ফিরে যান</button>
       </div>
       <div class="wc-guide-cols" style="max-width:none;">
         <div class="wc-guide-col">
@@ -1088,7 +1065,6 @@ function openUsageGuidePage(){
         </div>
       </div>
     </div>`;
-  document.body.classList.add('mv-content');   // on a phone: drill into this page's own screen
 }
 function showWcLoginForm(){
   document.getElementById('wcHeroPanel').hidden = true;
@@ -1098,7 +1074,6 @@ function showWcLoginForm(){
 function hideWcLoginForm(){
   document.getElementById('wcCol2').hidden = true;
   document.getElementById('wcHeroPanel').hidden = false;
-  pendingGuideAfterLogin = false;   // backed out — don't jump to the guide on some later, unrelated login
 }
 document.getElementById('wcId').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('wcPin').focus(); });
 document.getElementById('wcPin').addEventListener('keydown', e=>{ if(e.key==='Enter') welcomeLogin(e); });
@@ -2815,10 +2790,11 @@ const pages = [
   {id:"rules",    label:"নিয়মাবলী"},
   {id:"birthdays",label:"জন্মদিন"},
   {id:"history",  label:"বছরের ইতিহাস"},
-  {id:"cashconfirm", label:"নগদ প্রাপ্তি নিশ্চিতকরণ"}
+  {id:"cashconfirm", label:"নগদ প্রাপ্তি নিশ্চিতকরণ"},
+  {id:"usageguide", label:"কীভাবে ব্যবহার করবেন"}
 ];
-const bnNum = ["০১","০২","০৩","০৪","০৫","০৬","০৭","০৮","০৯","১০","১১","১২"];
-const pageTitles = {overview:"Overview", members:"সদস্য তালিকা", contrib:"মাসিক জমা", loans:"ঋণ হিসাব", payment:"পেমেন্ট", loanrequest:"ঋণের আবেদন", loanrepay:"ঋণ পরিশোধ", fine:"ফাইন", rules:"নিয়মাবলী", birthdays:"জন্মদিন", history:"বছরের ইতিহাস", cashconfirm:"নগদ প্রাপ্তি নিশ্চিতকরণ"};
+const bnNum = ["০১","০২","০৩","০৪","০৫","০৬","০৭","০৮","০৯","১০","১১","১২","১৩"];
+const pageTitles = {overview:"Overview", members:"সদস্য তালিকা", contrib:"মাসিক জমা", loans:"ঋণ হিসাব", payment:"পেমেন্ট", loanrequest:"ঋণের আবেদন", loanrepay:"ঋণ পরিশোধ", fine:"ফাইন", rules:"নিয়মাবলী", birthdays:"জন্মদিন", history:"বছরের ইতিহাস", cashconfirm:"নগদ প্রাপ্তি নিশ্চিতকরণ", usageguide:"কীভাবে ব্যবহার করবেন"};
 const navlist = document.getElementById('navlist');
 navlist.innerHTML = pages.map((p,i)=> `<button data-page="${p.id}" class="${i===0?'active':''}"><span class="n">${bnNum[i]}</span>${p.label}</button>`).join('');
 navlist.addEventListener('click', e=>{
@@ -3215,7 +3191,7 @@ function renderHistory(){
     </div>`;
 }
 
-const renderers = {overview:renderOverview, members:renderMembers, contrib:renderContrib, loans:renderLoans, payment:renderPayment, loanrequest:renderLoanRequest, loanrepay:renderLoanRepay, fine:renderFine, rules:renderRules, birthdays:renderBirthdays, history:renderHistory, cashconfirm:renderCashConfirm};
+const renderers = {overview:renderOverview, members:renderMembers, contrib:renderContrib, loans:renderLoans, payment:renderPayment, loanrequest:renderLoanRequest, loanrepay:renderLoanRepay, fine:renderFine, rules:renderRules, birthdays:renderBirthdays, history:renderHistory, cashconfirm:renderCashConfirm, usageguide:renderUsageGuide};
 function renderPage(id){
   if(!DATA) return;
   pageTitle.textContent = (bnNum[pages.findIndex(p=>p.id===id)]) + " " + pageTitles[id];
