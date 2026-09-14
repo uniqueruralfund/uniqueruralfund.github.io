@@ -478,32 +478,12 @@
           <strong>User ID</strong> = Sheet-এ লেখা আপনার নিজের নাম (যেমন Satyajit Das)<br>
           <strong>Password</strong> = আপনার মোবাইল নম্বর — নিজের ইমেইলে OTP নিয়ে বদলে নিতে পারবেন।
         </p>
-        <a class="wc-site" href="#" onclick="showWcGuide(); return false;" style="justify-content:center; display:flex; margin:1rem 0 0;">📘 কীভাবে ব্যবহার করবেন</a>
         <button type="button" class="wc-link" onclick="hideWcLoginForm()">← ফিরে যান</button>
       </div>
     </div>
     </div>
   </div>
 
-  <div class="wc-guide" id="wcGuideView" hidden>
-    <button type="button" class="wc-guide-back" onclick="hideWcGuide()">← লগইন-এ ফিরুন</button>
-    <h2>কীভাবে ব্যবহার করবেন</h2>
-    <div class="wc-guide-cols">
-      <div class="wc-guide-col">
-        <h3>👤 সাধারণ সদস্যের জন্য</h3>
-        <ol>
-          <li>বাঁদিকের <strong>"👤 ব্যক্তিগত তথ্য দেখুন"</strong>-এ ক্লিক করুন — User ID-তে নিজের নাম, Password-এ মোবাইল নম্বর (ডিফল্ট) দিন।</li>
-          <li>লগইন করলেই নিজের জমা/ঋণের হিসাব দেখা যাবে।</li>
-          <li>মাসিক জমা/ঋণের সুদ দিতে <strong>০৫ পেমেন্ট</strong> পাতায় গিয়ে ধরন ও মাস বেছে নিন।</li>
-          <li>অন্য কারো পক্ষে (ক্যাশ নিয়ে) জমা দিলে "কার হয়ে জমা দিচ্ছেন"-এ তাঁর নাম বেছে নিন।</li>
-          <li>টাকা পাঠানোর প্রমাণ (স্ক্রিনশট/PDF) আপলোড করে <strong>✅ পেমেন্ট করেছি</strong>-তে চাপুন।</li>
-          <li>ফাইন দিতে "ফাইন" বেছে নিন, কোন মাসের তা টিক দিন — টাকা নিজে থেকেই হিসাব হবে।</li>
-          <li>নতুন ঋণ চাইতে <strong>০৬ ঋণের আবেদন</strong> পাতায় পরিমাণ লিখে পাঠান; টাকা পেলে সেখানেই স্বীকৃতি দিন।</li>
-          <li>পাসওয়ার্ড ভুলে গেলে "Password ভুলে গেছেন?"-এ ক্লিক করে OTP দিয়ে নতুন পাসওয়ার্ড দিন।</li>
-        </ol>
-      </div>
-    </div>
-  </div>
 </div>
 
 <div class="sidebar" id="sidebar" hidden>
@@ -515,11 +495,12 @@
   <nav class="navlist" id="navlist"></nav>
   <div class="edit-toggle">
     <button class="edit-btn" id="memberBtn" style="margin-bottom:.5rem;">👤 ব্যক্তিগত তথ্য দেখুন</button>
-    <button class="edit-btn" id="approveBtn" style="margin-bottom:.5rem;" hidden onclick="openApprovalOverlay()">🧾 পেমেন্ট অনুমোদন</button>
+    <button class="edit-btn" id="approveBtn" style="margin-bottom:.5rem;" hidden onclick="openApprovalOverlay()">🧾 মাসিক জমার অনুমোদন</button>
     <button class="edit-btn" id="loanApproveBtn" style="margin-bottom:.5rem;" hidden onclick="openLoanApprovalOverlay()">🏦 ঋণ অনুমোদন</button>
     <button class="edit-btn" id="loanRepayApproveBtn" style="margin-bottom:.5rem;" hidden onclick="openLoanRepayApprovalOverlay()">💵 ঋণ পরিশোধ অনুমোদন</button>
     <button class="edit-btn" id="sheetOpenBtn" style="margin-bottom:.5rem;" hidden onclick="window.open('https://docs.google.com/spreadsheets/d/1C-BdlaRHCjyAARCzKwGTstwvro2sKpPSH1FLZs_3XQo/edit','_blank')">📊 Google Sheet খুলুন</button>
     <button class="edit-btn" id="loginLogBtn" style="margin-bottom:.5rem;" hidden onclick="openLoginLogOverlay()">🕓 লগইন লগ</button>
+    <button class="edit-btn" id="usageGuideBtn" style="margin-bottom:.5rem;" hidden onclick="openUsageGuideOverlay()">📘 কীভাবে ব্যবহার করবেন</button>
     <button class="edit-btn" id="editBtn">🔒 এডিট মোড</button>
   </div>
 </div>
@@ -648,6 +629,33 @@
       <button type="button" class="overlay-close" onclick="closeLoginLogOverlay()" aria-label="বন্ধ করুন">✕</button>
     </div>
     <div id="loginLogOverlayBody"></div>
+  </div>
+</div>
+
+<!-- Satyajit Das ও Prasun Jyoti ছাড়া আর কেউ যেন "কীভাবে ব্যবহার করবেন" গাইড না
+     দেখতে পান — তাই লগইনের আগে সবার জন্য খোলা এই পেজটা এখন এখানে, লগইন করা এবং
+     canApprove()-গেটেড একটা overlay হিসেবে। -->
+<div class="pin-overlay" id="usageGuideOverlay" hidden>
+  <div class="pin-box" style="width:min(94vw,720px); max-height:88vh; overflow-y:auto;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:.8rem;">
+      <h3 style="margin:0;">📘 কীভাবে ব্যবহার করবেন</h3>
+      <button type="button" class="overlay-close" onclick="closeUsageGuideOverlay()" aria-label="বন্ধ করুন">✕</button>
+    </div>
+    <div class="wc-guide-cols" style="max-width:none;">
+      <div class="wc-guide-col">
+        <h3>👤 সাধারণ সদস্যের জন্য</h3>
+        <ol>
+          <li>বাঁদিকের <strong>"👤 ব্যক্তিগত তথ্য দেখুন"</strong>-এ ক্লিক করুন — User ID-তে নিজের নাম, Password-এ মোবাইল নম্বর (ডিফল্ট) দিন।</li>
+          <li>লগইন করলেই নিজের জমা/ঋণের হিসাব দেখা যাবে।</li>
+          <li>মাসিক জমা/ঋণের সুদ দিতে <strong>০৫ পেমেন্ট</strong> পাতায় গিয়ে ধরন ও মাস বেছে নিন।</li>
+          <li>অন্য কারো পক্ষে (ক্যাশ নিয়ে) জমা দিলে "কার হয়ে জমা দিচ্ছেন"-এ তাঁর নাম বেছে নিন।</li>
+          <li>টাকা পাঠানোর প্রমাণ (স্ক্রিনশট/PDF) আপলোড করে <strong>✅ পেমেন্ট করেছি</strong>-তে চাপুন।</li>
+          <li>ফাইন দিতে "ফাইন" বেছে নিন, কোন মাসের তা টিক দিন — টাকা নিজে থেকেই হিসাব হবে।</li>
+          <li>নতুন ঋণ চাইতে <strong>০৬ ঋণের আবেদন</strong> পাতায় পরিমাণ লিখে পাঠান; টাকা পেলে সেখানেই স্বীকৃতি দিন।</li>
+          <li>পাসওয়ার্ড ভুলে গেলে "Password ভুলে গেছেন?"-এ ক্লিক করে OTP দিয়ে নতুন পাসওয়ার্ড দিন।</li>
+        </ol>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -814,6 +822,8 @@ function updateEditBtn(){
   if(sheetBtn) sheetBtn.hidden = !isAdminMember();   // only Prasun Jyoti
   const logBtn = document.getElementById('loginLogBtn');
   if(logBtn) logBtn.hidden = !isPrasunOnly();       // only Prasun Jyoti
+  const guideBtn = document.getElementById('usageGuideBtn');
+  if(guideBtn) guideBtn.hidden = !canApprove();     // only Satyajit Das / Prasun Jyoti
 }
 
 // A visible badge on পেমেন্ট অনুমোদন so Satyajit Das / Prasun Jyoti notice a
@@ -1050,14 +1060,11 @@ function toggleWcPinVisibility(){
   btn.textContent = showing ? '👁' : '🙈';
   btn.setAttribute('aria-label', showing ? 'পাসওয়ার্ড দেখুন' : 'পাসওয়ার্ড লুকান');
 }
-function showWcGuide(){
-  document.getElementById('wcMainView').hidden = true;
-  document.getElementById('wcGuideView').hidden = false;
+function openUsageGuideOverlay(){
+  if(!canApprove()) return;   // only Satyajit Das / Prasun Jyoti ever see this
+  document.getElementById('usageGuideOverlay').hidden = false;
 }
-function hideWcGuide(){
-  document.getElementById('wcGuideView').hidden = true;
-  document.getElementById('wcMainView').hidden = false;
-}
+function closeUsageGuideOverlay(){ document.getElementById('usageGuideOverlay').hidden = true; }
 function showWcLoginForm(){
   document.getElementById('wcHeroPanel').hidden = true;
   document.getElementById('wcCol2').hidden = false;
@@ -1279,14 +1286,13 @@ function closeLoanRepayApprovalOverlay(){ document.getElementById('loanRepayAppr
 
 async function openLoginLogOverlay(){
   if(!isPrasunOnly()) return;             // only Prasun Jyoti's own login may open this
-  if(!editPin){ openPinBox(); return; }   // needs the real EDIT_PIN, same as edit mode
   const body = document.getElementById('loginLogOverlayBody');
   body.innerHTML = '<p class="hint-text">লোড হচ্ছে...</p>';
   document.getElementById('loginLogOverlay').hidden = false;
   try{
     const res = await fetch(SCRIPT_URL, {
       method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({action:'getLoginLog', pin: editPin})
+      body: JSON.stringify({action:'getLoginLog', userId: memberSession.userId, pin: memberSession.pin})
     });
     const json = await res.json();
     if(!json.ok){ body.innerHTML = '<p class="hint-text">'+(json.error||'লোড করা যায়নি।')+'</p>'; return; }
