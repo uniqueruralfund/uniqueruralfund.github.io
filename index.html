@@ -500,7 +500,7 @@
     <button class="edit-btn" id="loanRepayApproveBtn" style="margin-bottom:.5rem;" hidden onclick="openLoanRepayApprovalOverlay()">💵 ঋণ পরিশোধ অনুমোদন</button>
     <button class="edit-btn" id="sheetOpenBtn" style="margin-bottom:.5rem;" hidden onclick="window.open('https://docs.google.com/spreadsheets/d/1C-BdlaRHCjyAARCzKwGTstwvro2sKpPSH1FLZs_3XQo/edit','_blank')">📊 Google Sheet খুলুন</button>
     <button class="edit-btn" id="loginLogBtn" style="margin-bottom:.5rem;" hidden onclick="openLoginLogOverlay()">🕓 লগইন লগ</button>
-    <button class="edit-btn" id="usageGuideBtn" style="margin-bottom:.5rem;" hidden onclick="openUsageGuideOverlay()">📘 কীভাবে ব্যবহার করবেন</button>
+    <button class="edit-btn" id="usageGuideBtn" style="margin-bottom:.5rem;" hidden onclick="openUsageGuidePage()">📘 কীভাবে ব্যবহার করবেন</button>
     <button class="edit-btn" id="editBtn">🔒 এডিট মোড</button>
   </div>
 </div>
@@ -629,33 +629,6 @@
       <button type="button" class="overlay-close" onclick="closeLoginLogOverlay()" aria-label="বন্ধ করুন">✕</button>
     </div>
     <div id="loginLogOverlayBody"></div>
-  </div>
-</div>
-
-<!-- Satyajit Das ও Prasun Jyoti ছাড়া আর কেউ যেন "কীভাবে ব্যবহার করবেন" গাইড না
-     দেখতে পান — তাই লগইনের আগে সবার জন্য খোলা এই পেজটা এখন এখানে, লগইন করা এবং
-     canApprove()-গেটেড একটা overlay হিসেবে। -->
-<div class="pin-overlay" id="usageGuideOverlay" hidden>
-  <div class="pin-box" style="width:min(94vw,720px); max-height:88vh; overflow-y:auto;">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:.8rem;">
-      <h3 style="margin:0;">📘 কীভাবে ব্যবহার করবেন</h3>
-      <button type="button" class="overlay-close" onclick="closeUsageGuideOverlay()" aria-label="বন্ধ করুন">✕</button>
-    </div>
-    <div class="wc-guide-cols" style="max-width:none;">
-      <div class="wc-guide-col">
-        <h3>👤 সাধারণ সদস্যের জন্য</h3>
-        <ol>
-          <li>বাঁদিকের <strong>"👤 ব্যক্তিগত তথ্য দেখুন"</strong>-এ ক্লিক করুন — User ID-তে নিজের নাম, Password-এ মোবাইল নম্বর (ডিফল্ট) দিন।</li>
-          <li>লগইন করলেই নিজের জমা/ঋণের হিসাব দেখা যাবে।</li>
-          <li>মাসিক জমা/ঋণের সুদ দিতে <strong>০৫ পেমেন্ট</strong> পাতায় গিয়ে ধরন ও মাস বেছে নিন।</li>
-          <li>অন্য কারো পক্ষে (ক্যাশ নিয়ে) জমা দিলে "কার হয়ে জমা দিচ্ছেন"-এ তাঁর নাম বেছে নিন।</li>
-          <li>টাকা পাঠানোর প্রমাণ (স্ক্রিনশট/PDF) আপলোড করে <strong>✅ পেমেন্ট করেছি</strong>-তে চাপুন।</li>
-          <li>ফাইন দিতে "ফাইন" বেছে নিন, কোন মাসের তা টিক দিন — টাকা নিজে থেকেই হিসাব হবে।</li>
-          <li>নতুন ঋণ চাইতে <strong>০৬ ঋণের আবেদন</strong> পাতায় পরিমাণ লিখে পাঠান; টাকা পেলে সেখানেই স্বীকৃতি দিন।</li>
-          <li>পাসওয়ার্ড ভুলে গেলে "Password ভুলে গেছেন?"-এ ক্লিক করে OTP দিয়ে নতুন পাসওয়ার্ড দিন।</li>
-        </ol>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -1070,11 +1043,37 @@ function toggleWcPinVisibility(){
   btn.textContent = showing ? '👁' : '🙈';
   btn.setAttribute('aria-label', showing ? 'পাসওয়ার্ড দেখুন' : 'পাসওয়ার্ড লুকান');
 }
-function openUsageGuideOverlay(){
-  if(!canApprove()) return;   // only Satyajit Das / Prasun Jyoti ever see this
-  document.getElementById('usageGuideOverlay').hidden = false;
+// A full page (not a popup) so it reads like the app's own welcome/onboarding
+// page — restricted to Satyajit Das / Prasun Jyoti via canApprove(), and not
+// part of the numbered nav so no one else ever sees it listed. currentPage is
+// left untouched, so "← ফিরে যান" just re-renders whatever page was showing.
+function openUsageGuidePage(){
+  if(!canApprove()) return;
+  pageTitle.textContent = '📘 কীভাবে ব্যবহার করবেন';
+  pageBody.innerHTML = `
+    <div class="card">
+      <div class="card-head">
+        <h2>📘 কীভাবে ব্যবহার করবেন</h2>
+        <button type="button" class="linklike" onclick="renderPage(currentPage)">← ফিরে যান</button>
+      </div>
+      <div class="wc-guide-cols" style="max-width:none;">
+        <div class="wc-guide-col">
+          <h3>👤 সাধারণ সদস্যের জন্য</h3>
+          <ol>
+            <li>বাঁদিকের <strong>"👤 ব্যক্তিগত তথ্য দেখুন"</strong>-এ ক্লিক করুন — User ID-তে নিজের নাম, Password-এ মোবাইল নম্বর (ডিফল্ট) দিন।</li>
+            <li>লগইন করলেই নিজের জমা/ঋণের হিসাব দেখা যাবে।</li>
+            <li>মাসিক জমা/ঋণের সুদ দিতে <strong>০৫ পেমেন্ট</strong> পাতায় গিয়ে ধরন ও মাস বেছে নিন।</li>
+            <li>অন্য কারো পক্ষে (ক্যাশ নিয়ে) জমা দিলে "কার হয়ে জমা দিচ্ছেন"-এ তাঁর নাম বেছে নিন।</li>
+            <li>টাকা পাঠানোর প্রমাণ (স্ক্রিনশট/PDF) আপলোড করে <strong>✅ পেমেন্ট করেছি</strong>-তে চাপুন।</li>
+            <li>ফাইন দিতে "ফাইন" বেছে নিন, কোন মাসের তা টিক দিন — টাকা নিজে থেকেই হিসাব হবে।</li>
+            <li>নতুন ঋণ চাইতে <strong>০৬ ঋণের আবেদন</strong> পাতায় পরিমাণ লিখে পাঠান; টাকা পেলে সেখানেই স্বীকৃতি দিন।</li>
+            <li>পাসওয়ার্ড ভুলে গেলে "Password ভুলে গেছেন?"-এ ক্লিক করে OTP দিয়ে নতুন পাসওয়ার্ড দিন।</li>
+          </ol>
+        </div>
+      </div>
+    </div>`;
+  document.body.classList.add('mv-content');   // on a phone: drill into this page's own screen
 }
-function closeUsageGuideOverlay(){ document.getElementById('usageGuideOverlay').hidden = true; }
 function showWcLoginForm(){
   document.getElementById('wcHeroPanel').hidden = true;
   document.getElementById('wcCol2').hidden = false;
