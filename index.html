@@ -835,11 +835,28 @@ function updatePendingBadge(){
   const apprBtn = document.getElementById('approveBtn');
   const loanApprBtn = document.getElementById('loanApproveBtn');
   const loanRepayApprBtn = document.getElementById('loanRepayApproveBtn');
-  if(!apprBtn) return;
-  [apprBtn, loanApprBtn, loanRepayApprBtn].forEach(btn=>{
+  const cashConfirmNavBtn = document.querySelector('#navlist button[data-page="cashconfirm"]');
+  const addBadge = (btn, count)=>{
+    if(!btn || !count) return;
+    const b = document.createElement('span');
+    b.className = 'pending-badge';
+    b.textContent = count;
+    btn.appendChild(b);
+  };
+  [apprBtn, loanApprBtn, loanRepayApprBtn, cashConfirmNavBtn].forEach(btn=>{
     const existing = btn && btn.querySelector('.pending-badge');
     if(existing) existing.remove();
   });
+  // Cash-recipient confirmations waiting on THIS member — any logged-in
+  // member can have one of these, not just Satyajit Das / Prasun Jyoti.
+  if(memberSession && DATA){
+    const myCashPend = (DATA.paymentRequests||[]).filter(p=>p.stage==='recipient' && p.cashRecipient
+        && p.cashRecipient.toLowerCase()===memberSession.userId.toLowerCase()).length
+      + (DATA.loanRepayments||[]).filter(r=>r.stage==='recipient' && r.cashRecipient
+        && r.cashRecipient.toLowerCase()===memberSession.userId.toLowerCase()).length;
+    addBadge(cashConfirmNavBtn, myCashPend);
+  }
+  if(!apprBtn) return;
   if(!memberSession || !canApprove() || !DATA){
     lastKnownPendingCount = null;
     return;
@@ -848,13 +865,6 @@ function updatePendingBadge(){
   const loanPend = (DATA.loanRequests||[]).filter(l=>l.stage==='collector'||l.stage==='admin').length;
   const loanRepayPend = (DATA.loanRepayments||[]).filter(l=>l.stage==='collector'||l.stage==='admin').length;
   const total = payPend + loanPend + loanRepayPend;
-  const addBadge = (btn, count)=>{
-    if(!btn || !count) return;
-    const b = document.createElement('span');
-    b.className = 'pending-badge';
-    b.textContent = count;
-    btn.appendChild(b);
-  };
   addBadge(apprBtn, payPend);
   addBadge(loanApprBtn, loanPend);
   addBadge(loanRepayApprBtn, loanRepayPend);
@@ -2480,6 +2490,80 @@ function renderLoanRepay(){
     ${apprCard}`;
 }
 
+// Dedicated page (১২ নগদ প্রাপ্তি নিশ্চিতকরণ) so a member who was handed cash
+// on someone else's behalf can find their pending confirmation directly,
+// instead of having to know to look on the পেমেন্ট / ঋণ পরিশোধ pages. Mirrors
+// the same myCashConfirmBox / myLoanRepayCashConfirmBox cards shown there.
+function renderCashConfirm(){
+  const payReqs = DATA.paymentRequests || [];
+  const loanReqs = DATA.loanRepayments || [];
+  let boxes = '';
+  if(memberSession){
+    const myPayConfirm = payReqs.filter(p=>p.stage==='recipient' && p.cashRecipient
+      && p.cashRecipient.toLowerCase()===memberSession.userId.toLowerCase());
+    const myLoanConfirm = loanReqs.filter(r=>r.stage==='recipient' && r.cashRecipient
+      && r.cashRecipient.toLowerCase()===memberSession.userId.toLowerCase());
+    if(myPayConfirm.length){
+      boxes += `
+        <div class="card">
+          <div class="card-head">
+            <h2>💰 মাসিক জমা/সুদ/ফাইনের নগদ টাকা (${myPayConfirm.length})</h2>
+            <div class="hint">সত্যিই হাতে পেয়ে থাকলে নিশ্চিত করুন — তারপর ${DATA.collectorName||'সংগ্রাহক'}-এর কাছে যাবে।</div>
+          </div>
+          <div class="appr-list">${myPayConfirm.map(p=>{
+            const rows = [
+              ['সদস্য (কার জমা)', memberCell(p)], ['ধরন', tag(p)], ['মাস', p.monthLabel],
+              ['টাকা', '<span class="mono">'+moneyInt(p.amount)+'</span>'], ['পেমেন্টের তারিখ', p.paymentDate||'—']
+            ];
+            return `<div class="appr-card">
+              ${rows.map(([k,v])=>`<div class="appr-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
+              <div class="appr-actions"><div class="btn-pair">
+                <button class="approve-btn" onclick="approvePaymentClick(event,'${p.token}','recipient','')">✅ টাকা পেয়েছি</button>
+                <button class="reject-btn" onclick="rejectPaymentClick(event,'${p.token}','recipient','')">❌ পাইনি</button>
+              </div></div>
+            </div>`;
+          }).join('')}</div>
+          <div class="msg-err" id="apprErr" hidden></div>
+          <div class="msg-ok" id="apprOk" hidden></div>
+        </div>`;
+    }
+    if(myLoanConfirm.length){
+      boxes += `
+        <div class="card">
+          <div class="card-head">
+            <h2>💵 ঋণ পরিশোধের নগদ টাকা (${myLoanConfirm.length})</h2>
+            <div class="hint">সত্যিই হাতে পেয়ে থাকলে নিশ্চিত করুন — তারপর ${DATA.collectorName||'সংগ্রাহক'}-এর কাছে যাবে।</div>
+          </div>
+          <div class="appr-list">${myLoanConfirm.map(r=>{
+            const rows = [
+              ['সদস্য (কার ঋণ)', r.member], ['টাকা', '<span class="mono">'+moneyInt(r.amount)+'</span>'],
+              ['পরিশোধের তারিখ', r.paymentDate||'—']
+            ];
+            return `<div class="appr-card">
+              ${rows.map(([k,v])=>`<div class="appr-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
+              <div class="appr-actions"><div class="btn-pair">
+                <button class="approve-btn" onclick="approveLoanRepayClick(event,'${r.token}','recipient','')">✅ টাকা পেয়েছি</button>
+                <button class="reject-btn" onclick="rejectLoanRepayClick(event,'${r.token}','recipient','')">❌ পাইনি</button>
+              </div></div>
+            </div>`;
+          }).join('')}</div>
+          <div class="msg-err" id="loanRepayApprErr" hidden></div>
+        </div>`;
+    }
+  }
+  if(!boxes){
+    boxes = `<div class="card"><p class="hint-text">এখন আপনার নিশ্চিত করার মতো কোনো নগদ টাকা নেই।</p></div>`;
+  }
+  pageBody.innerHTML = `
+    <div class="card">
+      <div class="card-head">
+        <h2>💵 নগদ প্রাপ্তি নিশ্চিতকরণ</h2>
+        <div class="hint">কেউ অন্য কারো হয়ে নগদে মাসিক জমা/সুদ/ফাইন/ঋণ পরিশোধ করলে, আর সেই টাকা যদি সরাসরি আপনাকে দেওয়া হয়ে থাকে — সেটা এখানে দেখা ও নিশ্চিত করা যাবে।</div>
+      </div>
+    </div>
+    ${boxes}`;
+}
+
 async function confirmLoanRepayClaim(ev){
   const errBox = document.getElementById('loanRepayErr');
   const okBox = document.getElementById('loanRepayOk');
@@ -2736,10 +2820,11 @@ const pages = [
   {id:"fine",     label:"ফাইন"},
   {id:"rules",    label:"নিয়মাবলী"},
   {id:"birthdays",label:"জন্মদিন"},
-  {id:"history",  label:"বছরের ইতিহাস"}
+  {id:"history",  label:"বছরের ইতিহাস"},
+  {id:"cashconfirm", label:"নগদ প্রাপ্তি নিশ্চিতকরণ"}
 ];
-const bnNum = ["০১","০২","০৩","০৪","০৫","০৬","০৭","০৮","০৯","১০","১১"];
-const pageTitles = {overview:"Overview", members:"সদস্য তালিকা", contrib:"মাসিক জমা", loans:"ঋণ হিসাব", payment:"পেমেন্ট", loanrequest:"ঋণের আবেদন", loanrepay:"ঋণ পরিশোধ", fine:"ফাইন", rules:"নিয়মাবলী", birthdays:"জন্মদিন", history:"বছরের ইতিহাস"};
+const bnNum = ["০১","০২","০৩","০৪","০৫","০৬","০৭","০৮","০৯","১০","১১","১২"];
+const pageTitles = {overview:"Overview", members:"সদস্য তালিকা", contrib:"মাসিক জমা", loans:"ঋণ হিসাব", payment:"পেমেন্ট", loanrequest:"ঋণের আবেদন", loanrepay:"ঋণ পরিশোধ", fine:"ফাইন", rules:"নিয়মাবলী", birthdays:"জন্মদিন", history:"বছরের ইতিহাস", cashconfirm:"নগদ প্রাপ্তি নিশ্চিতকরণ"};
 const navlist = document.getElementById('navlist');
 navlist.innerHTML = pages.map((p,i)=> `<button data-page="${p.id}" class="${i===0?'active':''}"><span class="n">${bnNum[i]}</span>${p.label}</button>`).join('');
 navlist.addEventListener('click', e=>{
@@ -3136,7 +3221,7 @@ function renderHistory(){
     </div>`;
 }
 
-const renderers = {overview:renderOverview, members:renderMembers, contrib:renderContrib, loans:renderLoans, payment:renderPayment, loanrequest:renderLoanRequest, loanrepay:renderLoanRepay, fine:renderFine, rules:renderRules, birthdays:renderBirthdays, history:renderHistory};
+const renderers = {overview:renderOverview, members:renderMembers, contrib:renderContrib, loans:renderLoans, payment:renderPayment, loanrequest:renderLoanRequest, loanrepay:renderLoanRepay, fine:renderFine, rules:renderRules, birthdays:renderBirthdays, history:renderHistory, cashconfirm:renderCashConfirm};
 function renderPage(id){
   if(!DATA) return;
   pageTitle.textContent = (bnNum[pages.findIndex(p=>p.id===id)]) + " " + pageTitles[id];
