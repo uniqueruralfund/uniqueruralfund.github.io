@@ -515,7 +515,7 @@
   <nav class="navlist" id="navlist"></nav>
   <div class="edit-toggle">
     <button class="edit-btn" id="memberBtn" style="margin-bottom:.5rem;">👤 ব্যক্তিগত তথ্য দেখুন</button>
-    <button class="edit-btn" id="approveBtn" style="margin-bottom:.5rem;" hidden onclick="openApprovalOverlay()">🧾 মাসিক জমার অনুমোদন</button>
+    <button class="edit-btn" id="approveBtn" style="margin-bottom:.5rem;" hidden onclick="openApprovalOverlay()">🧾 পেমেন্ট অনুমোদন</button>
     <button class="edit-btn" id="loanApproveBtn" style="margin-bottom:.5rem;" hidden onclick="openLoanApprovalOverlay()">🏦 ঋণ অনুমোদন</button>
     <button class="edit-btn" id="loanRepayApproveBtn" style="margin-bottom:.5rem;" hidden onclick="openLoanRepayApprovalOverlay()">💵 ঋণ পরিশোধ অনুমোদন</button>
     <button class="edit-btn" id="sheetOpenBtn" style="margin-bottom:.5rem;" hidden onclick="window.open('https://docs.google.com/spreadsheets/d/1C-BdlaRHCjyAARCzKwGTstwvro2sKpPSH1FLZs_3XQo/edit','_blank')">📊 Google Sheet খুলুন</button>
@@ -1627,6 +1627,8 @@ function updateFineAmount(){
 function payMethodChanged(){
   const method = document.getElementById('payMethod').value;
   document.getElementById('payReceiptField').hidden = (method === 'cash');
+  const cashField = document.getElementById('payCashRecipientField');
+  if(cashField) cashField.hidden = (method !== 'cash');
 }
 
 function paymentFooterHTML(type, required){
@@ -1637,6 +1639,14 @@ function paymentFooterHTML(type, required){
         <select id="payMethod" class="pay-select" onchange="payMethodChanged()">
           <option value="online" selected>অনলাইন (UPI/ব্যাংক)</option>
           <option value="cash">নগদ (Cash)</option>
+        </select>
+      </div>
+      <div class="pay-field" id="payCashRecipientField" style="margin-top:1rem;" hidden>
+        <label class="field-label" for="payCashRecipient">কাকে টাকা দিচ্ছেন?</label>
+        <select id="payCashRecipient" class="pay-select">
+          <option value="">সরাসরি ${DATA.collectorName||'সংগ্রাহক'}-কে</option>
+          ${(DATA.contributions||[]).slice().sort((a,b)=>a.name.localeCompare(b.name,'bn'))
+            .map(c=>`<option value="${c.name}">${c.name}</option>`).join('')}
         </select>
       </div>
       <div class="pay-field" style="margin-top:1rem;">
@@ -1652,7 +1662,7 @@ function paymentFooterHTML(type, required){
       </div>
       <div class="msg-err" id="payErr" hidden></div>
       <div class="msg-ok" id="payOk" hidden></div>
-      <p class="hint-text" style="margin-top:.8rem;">অনলাইনে পাঠালে তার প্রমাণ (স্ক্রিনশট বা রসিদ) বেছে নিন — নগদ দিলে প্রমাণ লাগবে না। এরপর <strong>✅ পেমেন্ট করেছি</strong>-তে চাপুন। ${DATA.collectorName||'সংগ্রাহক'} যাচাই করে অনুমোদন করবেন, তারপর Prasun Jyoti চূড়ান্ত করবেন।</p>`;
+      <p class="hint-text" style="margin-top:.8rem;">অনলাইনে পাঠালে তার প্রমাণ (স্ক্রিনশট বা রসিদ) বেছে নিন — নগদ দিলে প্রমাণ লাগবে না, তবে কাকে টাকা দিচ্ছেন বেছে দিন। এরপর <strong>✅ পেমেন্ট করেছি</strong>-তে চাপুন। নগদ অন্য কাউকে দিলে তিনি আগে নিশ্চিত করবেন, তারপর ${DATA.collectorName||'সংগ্রাহক'} যাচাই করে অনুমোদন করবেন, তারপর Prasun Jyoti চূড়ান্ত করবেন।</p>`;
 }
 
 function renderPayment(){
@@ -1797,7 +1807,7 @@ function renderPayment(){
   }
 
   const reqs = DATA.paymentRequests || [];
-  const pend = reqs.filter(p=>p.stage==='collector' || p.stage==='admin');
+  const pend = reqs.filter(p=>p.stage==='recipient' || p.stage==='collector' || p.stage==='admin');
   let doneList = reqs.filter(p=>p.stage==='done' || p.stage==='rejected');
   // an ordinary member only sees claims that are theirs OR that they themselves
   // submitted on someone else's behalf; the collector & admin see everyone's
@@ -1836,6 +1846,39 @@ function renderPayment(){
     }
   }
 
+  // Visible to ANY logged-in member, not just Satyajit/Prasun — this is
+  // whoever was picked as "কাকে টাকা দিচ্ছেন" for someone else's cash claim,
+  // and it's their confirmation that unlocks the usual collector→admin chain.
+  let myCashConfirmBox = '';
+  if(memberSession){
+    const myCashConfirm = reqs.filter(p=>p.stage==='recipient' && p.cashRecipient
+      && p.cashRecipient.toLowerCase()===memberSession.userId.toLowerCase());
+    if(myCashConfirm.length){
+      myCashConfirmBox = `
+        <div class="card">
+          <div class="card-head">
+            <h2>💵 আপনাকে নগদ টাকা দেওয়া হয়েছে (${myCashConfirm.length})</h2>
+            <div class="hint">সত্যিই হাতে পেয়ে থাকলে নিশ্চিত করুন — তারপর ${DATA.collectorName||'সংগ্রাহক'}-এর কাছে যাবে।</div>
+          </div>
+          <div class="appr-list">${myCashConfirm.map(p=>{
+            const rows = [
+              ['সদস্য (কার জমা)', memberCell(p)], ['ধরন', tag(p)], ['মাস', p.monthLabel],
+              ['টাকা', '<span class="mono">'+moneyInt(p.amount)+'</span>'], ['পেমেন্টের তারিখ', p.paymentDate||'—']
+            ];
+            return `<div class="appr-card">
+              ${rows.map(([k,v])=>`<div class="appr-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
+              <div class="appr-actions"><div class="btn-pair">
+                <button class="approve-btn" onclick="approvePaymentClick(event,'${p.token}','recipient','')">✅ টাকা পেয়েছি</button>
+                <button class="reject-btn" onclick="rejectPaymentClick(event,'${p.token}','recipient','')">❌ পাইনি</button>
+              </div></div>
+            </div>`;
+          }).join('')}</div>
+          <div class="msg-err" id="apprErr" hidden></div>
+          <div class="msg-ok" id="apprOk" hidden></div>
+        </div>`;
+    }
+  }
+
   let histBox = '';
   if(doneList.length){
     histBox = `
@@ -1860,6 +1903,7 @@ function renderPayment(){
       ${claimBox}
       ${myPendBox}
     </div>
+    ${myCashConfirmBox}
     ${apprCard}
     ${histBox}`;
 }
@@ -1895,7 +1939,7 @@ async function confirmPaymentClaim(ev, type){
     const already = (DATA.paymentRequests||[]).some(p=>
       p.member.toLowerCase() === payForTarget.toLowerCase() &&
       p.typeLabel === typeLabel && p.monthLabel === monthLabel &&
-      (p.stage === 'collector' || p.stage === 'admin'));
+      (p.stage === 'recipient' || p.stage === 'collector' || p.stage === 'admin'));
     if(already){
       errBox.textContent = 'এই মাসগুলোর জন্য একটা অনুরোধ ইতিমধ্যে অনুমোদনের অপেক্ষায় আছে — নতুন করে পাঠানোর দরকার নেই।';
       errBox.hidden = false;
@@ -1933,11 +1977,13 @@ async function confirmPaymentClaim(ev, type){
       const receipt = await compressReceiptFile(file);
       receiptData = receipt.data; receiptMime = receipt.mime;
     }
+    const cashRecipientEl = document.getElementById('payCashRecipient');
+    const cashRecipient = (payMethod === 'cash' && cashRecipientEl) ? cashRecipientEl.value : '';
     const res = await fetch(SCRIPT_URL, {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
       body: JSON.stringify({action:'submitPaymentClaim', userId:memberSession.userId, pin:memberSession.pin,
-                            payForMember: payForTarget, paymentMethod: payMethod, paymentDate: payDate,
+                            payForMember: payForTarget, paymentMethod: payMethod, paymentDate: payDate, cashRecipient,
                             type, monthIndexes, note: monthLabel, amount, receiptData, receiptMime})
     });
     const json = await res.json();
@@ -2055,7 +2101,7 @@ async function postApprovalAction(ev, body, stage, btnLabel, failMsg, idSuffix){
   const okBox = document.getElementById('apprOk'+idSuffix);
   if(errBox) errBox.hidden = true;
   if(okBox) okBox.hidden = true;
-  if(stage === 'collector'){
+  if(stage === 'collector' || stage === 'recipient'){
     if(!memberSession){
       if(errBox){ errBox.textContent = 'আগে নিজের ID দিয়ে লগইন করুন।'; errBox.hidden = false; }
       return;
@@ -2118,7 +2164,7 @@ async function postLoanRepayApprovalAction(ev, body, stage, btnLabel, failMsg, i
   idSuffix = idSuffix || '';
   const errBox = document.getElementById('loanRepayApprErr'+idSuffix);
   if(errBox) errBox.hidden = true;
-  if(stage === 'collector'){
+  if(stage === 'collector' || stage === 'recipient'){
     if(!memberSession){
       if(errBox){ errBox.textContent = 'আগে নিজের ID দিয়ে লগইন করুন।'; errBox.hidden = false; }
       return;
@@ -2285,9 +2331,17 @@ function loanRepayFooterHTML(){
   return `
       <div class="pay-field" style="margin-top:1rem;">
         <label class="field-label" for="loanRepayMethod">পরিশোধের ধরন</label>
-        <select id="loanRepayMethod" class="pay-select" onchange="document.getElementById('loanRepayReceiptField').hidden = (this.value==='cash')">
+        <select id="loanRepayMethod" class="pay-select" onchange="loanRepayMethodChanged()">
           <option value="online" selected>অনলাইন (UPI/ব্যাংক)</option>
           <option value="cash">নগদ (Cash)</option>
+        </select>
+      </div>
+      <div class="pay-field" id="loanRepayCashRecipientField" style="margin-top:1rem;" hidden>
+        <label class="field-label" for="loanRepayCashRecipient">কাকে টাকা দিচ্ছেন?</label>
+        <select id="loanRepayCashRecipient" class="pay-select">
+          <option value="">সরাসরি ${DATA.collectorName||'সংগ্রাহক'}-কে</option>
+          ${(DATA.contributions||[]).slice().sort((a,b)=>a.name.localeCompare(b.name,'bn'))
+            .map(c=>`<option value="${c.name}">${c.name}</option>`).join('')}
         </select>
       </div>
       <div class="pay-field" style="margin-top:1rem;">
@@ -2303,7 +2357,13 @@ function loanRepayFooterHTML(){
       </div>
       <div class="msg-err" id="loanRepayErr" hidden></div>
       <div class="msg-ok" id="loanRepayOk" hidden></div>
-      <p class="hint-text" style="margin-top:.8rem;">অনলাইনে পাঠালে তার প্রমাণ (স্ক্রিনশট বা রসিদ) বেছে নিন — নগদ দিলে প্রমাণ লাগবে না। ${DATA.collectorName||'সংগ্রাহক'} যাচাই করে অনুমোদন করবেন, তারপর Prasun Jyoti চূড়ান্ত করবেন।</p>`;
+      <p class="hint-text" style="margin-top:.8rem;">অনলাইনে পাঠালে তার প্রমাণ (স্ক্রিনশট বা রসিদ) বেছে নিন — নগদ দিলে প্রমাণ লাগবে না, তবে কাকে টাকা দিচ্ছেন বেছে দিন। ${DATA.collectorName||'সংগ্রাহক'} যাচাই করে অনুমোদন করবেন, তারপর Prasun Jyoti চূড়ান্ত করবেন।</p>`;
+}
+function loanRepayMethodChanged(){
+  const method = document.getElementById('loanRepayMethod').value;
+  document.getElementById('loanRepayReceiptField').hidden = (method === 'cash');
+  const cashField = document.getElementById('loanRepayCashRecipientField');
+  if(cashField) cashField.hidden = (method !== 'cash');
 }
 
 function renderLoanRepay(){
@@ -2358,6 +2418,37 @@ function renderLoanRepay(){
     }
   }
 
+  // Visible to ANY logged-in member — whoever was picked as "কাকে টাকা
+  // দিচ্ছেন" for someone else's cash loan-repayment, same as the পেমেন্ট page.
+  let myLoanRepayCashConfirmBox = '';
+  if(memberSession){
+    const myCashConfirm = reqs.filter(r=>r.stage==='recipient' && r.cashRecipient
+      && r.cashRecipient.toLowerCase()===memberSession.userId.toLowerCase());
+    if(myCashConfirm.length){
+      myLoanRepayCashConfirmBox = `
+        <div class="card">
+          <div class="card-head">
+            <h2>💵 আপনাকে নগদ টাকা দেওয়া হয়েছে (${myCashConfirm.length})</h2>
+            <div class="hint">সত্যিই হাতে পেয়ে থাকলে নিশ্চিত করুন — তারপর ${DATA.collectorName||'সংগ্রাহক'}-এর কাছে যাবে।</div>
+          </div>
+          <div class="appr-list">${myCashConfirm.map(r=>{
+            const rows = [
+              ['সদস্য (কার ঋণ)', r.member], ['টাকা', '<span class="mono">'+moneyInt(r.amount)+'</span>'],
+              ['পরিশোধের তারিখ', r.paymentDate||'—']
+            ];
+            return `<div class="appr-card">
+              ${rows.map(([k,v])=>`<div class="appr-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
+              <div class="appr-actions"><div class="btn-pair">
+                <button class="approve-btn" onclick="approveLoanRepayClick(event,'${r.token}','recipient','')">✅ টাকা পেয়েছি</button>
+                <button class="reject-btn" onclick="rejectLoanRepayClick(event,'${r.token}','recipient','')">❌ পাইনি</button>
+              </div></div>
+            </div>`;
+          }).join('')}</div>
+          <div class="msg-err" id="loanRepayApprErr" hidden></div>
+        </div>`;
+    }
+  }
+
   // Read-only here on purpose — the actionable version lives only in the
   // ঋণ পরিশোধ অনুমোদন overlay, matching পেমেন্ট অনুমোদন / ঋণ অনুমোদন.
   let apprCard = canApprove() ? buildLoanRepayApprovalCardHTML('', true) : '';
@@ -2371,6 +2462,7 @@ function renderLoanRepay(){
       ${formBox}
       ${myBox}
     </div>
+    ${myLoanRepayCashConfirmBox}
     ${apprCard}`;
 }
 
@@ -2417,11 +2509,13 @@ async function confirmLoanRepayClaim(ev){
       const receipt = await compressReceiptFile(file);
       receiptData = receipt.data; receiptMime = receipt.mime;
     }
+    const cashRecipientEl = document.getElementById('loanRepayCashRecipient');
+    const cashRecipient = (method === 'cash' && cashRecipientEl) ? cashRecipientEl.value : '';
     const res = await fetch(SCRIPT_URL, {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
       body: JSON.stringify({action:'submitLoanRepayment', userId:memberSession.userId, pin:memberSession.pin,
-                            forMember, amount, paymentMethod: method, paymentDate, receiptData, receiptMime})
+                            forMember, amount, paymentMethod: method, paymentDate, cashRecipient, receiptData, receiptMime})
     });
     const json = await res.json();
     if(!json.ok){
