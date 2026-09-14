@@ -1425,13 +1425,16 @@ function buildApprovalCardHTML(idSuffix, readOnly){
     pendBox = `
       <div class="appr-list">${pend.map(p=>{
         const stage = p.stage;
-        const mine = stage === 'collector' ? isCollector() : isAdminMember();
+        // Prasun Jyoti (admin) can also approve the collector stage on
+        // Satyajit Das's behalf — needs Edit Mode unlocked, same as his own
+        // admin-stage approval.
+        const mine = stage === 'collector' ? (isCollector() || isAdminMember()) : isAdminMember();
         let btns;
         if(readOnly){
           btns = `<span class="hint-text">${stage==='collector' ? (DATA.collectorName||'')+'-এর' : ADMIN_NAME+'-র'} অপেক্ষায়</span>`;
         } else if(!mine){
           btns = `<span class="hint-text">${stage==='collector' ? (DATA.collectorName||'')+'-এর' : ADMIN_NAME+'-র'} অপেক্ষায়</span>`;
-        } else if(stage === 'admin' && !isEditing()){
+        } else if((stage === 'admin' || (stage === 'collector' && !isCollector())) && !isEditing()){
           btns = `<span class="hint-text">অনুমোদন করতে বাঁদিকে <strong>🔒 এডিট মোড</strong> আনলক করুন</span>`;
         } else {
           btns = `<div class="btn-pair">
@@ -1490,7 +1493,12 @@ function buildLoanApprovalCardHTML(idSuffix, readOnly){
         if(readOnly){
           btns = `<span class="hint-text">${r.stage==='ack' ? 'সদস্যের স্বীকৃতির' : (r.stage==='collector' ? (DATA.collectorName||'') : ADMIN_NAME)+'-র'} অপেক্ষায়</span>`;
         } else if(r.stage === 'collector'){
-          btns = isCollector()
+          // Normally only Satyajit Das actually hands over the loan money —
+          // but Prasun Jyoti (admin) can step in on his behalf when Edit Mode
+          // is unlocked, same disbursement form, so a claim never gets stuck
+          // just because the collector is unavailable.
+          const canDisburse = isCollector() || (isAdminMember() && isEditing());
+          btns = canDisburse
             ? `<div style="text-align:left;">
                 <div class="pay-field" style="margin-bottom:.5rem;">
                   <label class="field-label" for="disburseMethod-${r.token}">পেমেন্টের ধরন</label>
@@ -1508,7 +1516,9 @@ function buildLoanApprovalCardHTML(idSuffix, readOnly){
                   <button class="reject-btn" onclick="loanRejectClick(event,'${r.token}')">❌ বাতিল</button>
                 </div>
               </div>`
-            : `<span class="hint-text">${DATA.collectorName||''}-এর অপেক্ষায়</span>`;
+            : (isAdminMember()
+                ? `<span class="hint-text">দিতে চাইলে বাঁদিকে <strong>🔒 এডিট মোড</strong> আনলক করুন</span>`
+                : `<span class="hint-text">${DATA.collectorName||''}-এর অপেক্ষায়</span>`);
         } else if(r.stage === 'ack'){
           btns = (isAdminMember() && isEditing())
             ? `<div class="btn-pair"><span class="hint-text">স্বীকৃতির অপেক্ষায়</span><button class="reject-btn" onclick="loanRejectClick(event,'${r.token}')">❌ বাতিল</button></div>`
@@ -1568,11 +1578,14 @@ function buildLoanRepayApprovalCardHTML(idSuffix, readOnly){
     pendBox = `
       <div class="appr-list">${pend.map(r=>{
         const stage = r.stage;
-        const mine = stage === 'collector' ? isCollector() : isAdminMember();
+        // Prasun Jyoti (admin) can also approve the collector stage on
+        // Satyajit Das's behalf — needs Edit Mode unlocked, same as his own
+        // admin-stage approval.
+        const mine = stage === 'collector' ? (isCollector() || isAdminMember()) : isAdminMember();
         let btns;
         if(readOnly || !mine){
           btns = `<span class="hint-text">${stage==='collector' ? (DATA.collectorName||'')+'-এর' : ADMIN_NAME+'-র'} অপেক্ষায়</span>`;
-        } else if(stage === 'admin' && !isEditing()){
+        } else if((stage === 'admin' || (stage === 'collector' && !isCollector())) && !isEditing()){
           btns = `<span class="hint-text">অনুমোদন করতে বাঁদিকে <strong>🔒 এডিট মোড</strong> আনলক করুন</span>`;
         } else {
           btns = `<div class="btn-pair">
@@ -2168,8 +2181,14 @@ async function postApprovalAction(ev, body, stage, btnLabel, failMsg, idSuffix){
       if(errBox){ errBox.textContent = 'আগে নিজের ID দিয়ে লগইন করুন।'; errBox.hidden = false; }
       return;
     }
-    body.userId = memberSession.userId;
-    body.pin = memberSession.pin;
+    // Prasun Jyoti approving the collector stage on Satyajit Das's behalf
+    // uses the shared Edit Mode PIN instead of his own personal login.
+    if(stage === 'collector' && isAdminMember() && !isCollector()){
+      body.pin = editPin;
+    } else {
+      body.userId = memberSession.userId;
+      body.pin = memberSession.pin;
+    }
   } else {
     body.pin = editPin;
   }
@@ -2239,8 +2258,14 @@ async function postLoanRepayApprovalAction(ev, body, stage, btnLabel, failMsg, i
       if(errBox){ errBox.textContent = 'আগে নিজের ID দিয়ে লগইন করুন।'; errBox.hidden = false; }
       return;
     }
-    body.userId = memberSession.userId;
-    body.pin = memberSession.pin;
+    // Prasun Jyoti approving the collector stage on Satyajit Das's behalf
+    // uses the shared Edit Mode PIN instead of his own personal login.
+    if(stage === 'collector' && isAdminMember() && !isCollector()){
+      body.pin = editPin;
+    } else {
+      body.userId = memberSession.userId;
+      body.pin = memberSession.pin;
+    }
   } else {
     body.pin = editPin;
   }
@@ -2700,7 +2725,9 @@ async function loanDisburseClick(ev, token){
     return;
   }
   if(!confirm('আপনি কি সদস্যকে টাকা দিয়ে দিয়েছেন?')) return;
-  const body = {action:'disburseLoan', token, userId:memberSession.userId, pin:memberSession.pin, paymentMethod: method};
+  const body = {action:'disburseLoan', token, paymentMethod: method};
+  if(isCollector() && !isAdminMember()){ body.userId = memberSession.userId; body.pin = memberSession.pin; }
+  else { body.pin = editPin; }
   if(file){
     const btn = ev.target;
     const oldLabel = btn.textContent;
