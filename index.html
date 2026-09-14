@@ -1685,34 +1685,6 @@ function paymentFooterHTML(type, required){
 // someone else's cash claim confirms here, picking the date THEY actually
 // hand the cash to Satyajit Das (this becomes the real record-keeping date,
 // overwriting whatever date the original payer guessed at claim time).
-// Shared by মাসিক জমা and চলতি ঋণের সুদ (never ফাইন itself) — if a fine is due
-// (same 2-months-overdue rule shown on the ফাইন page) and Satyajit Das hasn't
-// yet approved a matching ফাইন claim, the member must settle that first.
-// Unlocks the moment Satyajit approves (stage 'admin' or already 'done') —
-// doesn't wait for Prasun Jyoti's own final approval on the fine.
-function fineLockInfo(targetName, isLoanCheck){
-  const targetMine = isLoanCheck ? activeLoanByName(targetName) : contribRowByName(targetName);
-  if(!targetMine) return {locked:false};
-  const today = new Date();
-  const overdue = isLoanCheck
-    ? targetMine.months.map(m=>({paid:m.amount!==null, deadline:parseDMY(m.due)})).filter(m=>!m.paid && m.deadline<=today)
-    : DATA.months.map((mo,i)=>({paid:targetMine.pay[i]>0, deadline:new Date(Number(DATA.year), i, 15)})).filter(m=>!m.paid && m.deadline<=today);
-  if(overdue.length < 2) return {locked:false};
-  const subTypeText = isLoanCheck ? 'ঋণের সুদের ফাইন' : 'মাসিক জমার ফাইন';
-  const myFineClaims = (DATA.paymentRequests||[]).filter(p=>p.typeLabel==='ফাইন'
-    && p.member.toLowerCase()===targetName.toLowerCase()
-    && p.monthLabel.indexOf(subTypeText) > -1);
-  if(myFineClaims.some(p=>p.stage==='admin' || p.stage==='done')) return {locked:false};
-  const pendingClaim = myFineClaims.some(p=>p.stage==='collector' || p.stage==='recipient');
-  const gotoFineLink = `<a href="#" onclick="payType='fine'; fineSubType='${isLoanCheck?'loan':'contribution'}'; renderPage('payment'); return false;">ফাইন জমার পাতায় যান</a>`;
-  return {
-    locked: true,
-    message: pendingClaim
-      ? `আপনার <strong>${subTypeText}</strong> এখনও ${DATA.collectorName||'সংগ্রাহক'}-এর অনুমোদনের অপেক্ষায় — অনুমোদন হলেই এখানে জমা দেওয়া যাবে।`
-      : `নিয়ম অনুযায়ী আগে <strong>${subTypeText}</strong> জমা দিতে হবে, তারপর ${isLoanCheck?'চলতি ঋণের সুদ':'মাসিক জমা'} দেওয়া যাবে। ${gotoFineLink}।`
-  };
-}
-
 function buildPayCashConfirmCard(){
   if(!memberSession) return '';
   const reqs = DATA.paymentRequests || [];
@@ -1756,7 +1728,6 @@ function renderPayment(){
   const targetName = memberSession ? (payForName || memberSession.userId) : '';
   const mine = isFine ? contribRowByName(targetName) : (isLoan ? activeLoanByName(targetName) : contribRowByName(targetName));
   const required = isFine ? 0 : (isLoan ? (mine ? mine.monthlyInterest : 0) : (DATA.monthlyContribution || 100));
-  const fineLock = (!isFine && memberSession && mine) ? fineLockInfo(targetName, isLoan) : {locked:false};
 
   const typeSelect = `
     <div class="pay-field">
@@ -1811,9 +1782,9 @@ function renderPayment(){
       // "unpaid so far", which would wrongly fine someone still within grace.
       const today = new Date();
       const overdue = isLoanFine
-        ? loanMine.months.map((m,i)=>({idx:i, label:(i+1)+'ম মাস · '+m.due, paid:m.amount!==null, deadline:parseDMY(m.due)}))
+        ? loanMine.months.map((m,i)=>({label:(i+1)+'ম মাস · '+m.due, paid:m.amount!==null, deadline:parseDMY(m.due)}))
             .filter(m=>!m.paid && m.deadline<=today)
-        : DATA.months.map((mo,i)=>({idx:i, label:mo, paid:mine.pay[i]>0, deadline:new Date(Number(DATA.year), i, 15)}))
+        : DATA.months.map((mo,i)=>({label:mo, paid:mine.pay[i]>0, deadline:new Date(Number(DATA.year), i, 15)}))
             .filter(m=>!m.paid && m.deadline<=today);
       if(overdue.length < 2){
         monthsBox = `<p class="hint-text" style="margin-top:.9rem;">নিয়ম অনুযায়ী পরপর ২ মাসের সময়সীমা (১৫ তারিখ) পার না হলে ফাইন প্রযোজ্য হয় না — এখন কোনো ফাইন বকেয়া নেই। বাকি থাকা টাকা সরাসরি <a href="#" onclick="payType='${isLoanFine?'loan':'contribution'}'; renderPage('payment'); return false;">${isLoanFine?'চলতি ঋণের সুদ':'মাসিক জমা'}</a> থেকে জমা দিন।</p>`;
@@ -1826,7 +1797,7 @@ function renderPayment(){
           <div class="pay-field">
             <label class="field-label">কোন কোন মাসের জন্য ফাইন?</label>
             <div class="fine-month-list">
-              ${overdue.map(m=>`<label class="fine-month-item"><input type="checkbox" class="fine-month-cb" data-label="${m.label}" data-idx="${m.idx}" checked onchange="updateFineAmount()"> ${m.label}</label>`).join('')}
+              ${overdue.map(m=>`<label class="fine-month-item"><input type="checkbox" class="fine-month-cb" data-label="${m.label}" checked onchange="updateFineAmount()"> ${m.label}</label>`).join('')}
             </div>
           </div>`;
       }
@@ -1854,12 +1825,6 @@ function renderPayment(){
       </div>
       <p class="hint-text" style="margin:.3rem 0 1rem;">উপরের মাসগুলোর টিক অনুযায়ী টাকাটা নিজে থেকেই হিসাব হয় — নিয়মটা <a href="#" onclick="document.querySelector('[data-page=fine]').click(); return false;">এখানে দেখুন</a>। প্রয়োজনে টাকার অঙ্ক নিজে বদলেও দিতে পারেন।</p>
       ${paymentFooterHTML('fine', 0)}` : ''}`;
-  } else if(fineLock.locked){
-    // A fine is due and Satyajit Das hasn't approved it yet — the member must
-    // settle that first, so the regular claim form stays hidden.
-    claimBox = `
-      <div class="pay-row">${typeSelect}${payForSelect}</div>
-      <p class="hint-text" style="margin-top:.9rem;">🔒 ${fineLock.message}</p>`;
   } else {
     // One or several months can be picked in one go — the amount scales with
     // how many are ticked. Only the single earliest unpaid one starts
@@ -1981,13 +1946,7 @@ async function confirmPaymentClaim(ev, type){
   const isFine = type === 'fine';
   let monthLabel, monthIndexes = [];
   if(isFine){
-    const checkedBoxes = Array.from(document.querySelectorAll('.fine-month-cb:checked'));
-    const checkedMonths = checkedBoxes.map(cb=>cb.dataset.label);
-    // Which exact months get credited to the member's own row at approval
-    // time — without this, the fine's whole amount used to just vanish into
-    // the lump "Earnings From Fine" total instead of also marking these
-    // months paid.
-    monthIndexes = checkedBoxes.map(cb=>Number(cb.dataset.idx));
+    const checkedMonths = Array.from(document.querySelectorAll('.fine-month-cb:checked')).map(cb=>cb.dataset.label);
     const subTypeLabel = fineSubType === 'loan' ? 'ঋণের সুদের ফাইন' : 'মাসিক জমার ফাইন';
     monthLabel = subTypeLabel + (checkedMonths.length ? ' — ' + checkedMonths.join(', ') : '');
   } else {
@@ -2051,7 +2010,7 @@ async function confirmPaymentClaim(ev, type){
       headers:{'Content-Type':'text/plain;charset=utf-8'},
       body: JSON.stringify({action:'submitPaymentClaim', userId:memberSession.userId, pin:memberSession.pin,
                             payForMember: payForTarget, paymentMethod: payMethod, paymentDate: payDate, cashRecipient,
-                            type, fineFor: isFine ? fineSubType : undefined, monthIndexes, note: monthLabel, amount, receiptData, receiptMime})
+                            type, monthIndexes, note: monthLabel, amount, receiptData, receiptMime})
     });
     const json = await res.json();
     if(!json.ok){
