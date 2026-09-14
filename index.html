@@ -1627,16 +1627,6 @@ function updatePayAmount(rate){
   amountEl.dataset.amount = total;
 }
 
-function updateFineAmount(){
-  const amountEl = document.getElementById('payAmount');
-  if(!amountEl) return;
-  const checked = document.querySelectorAll('.fine-month-cb:checked').length;
-  const rate = Number(amountEl.dataset.rate) || 0;
-  const total = checked ? (checked * rate + rate) : 0;
-  amountEl.value = total || '';
-  amountEl.dataset.amount = total;
-}
-
 // Shared by all three payment types — the mandatory receipt upload and the
 // submit button don't differ between them.
 function payMethodChanged(){
@@ -1685,6 +1675,36 @@ function paymentFooterHTML(type, required){
 // someone else's cash claim confirms here, picking the date THEY actually
 // hand the cash to Satyajit Das (this becomes the real record-keeping date,
 // overwriting whatever date the original payer guessed at claim time).
+// Shared by মাসিক জমা and চলতি ঋণের সুদ (never ফাইন itself) — if a fine is due
+// (same 2-months-overdue rule shown on the ফাইন page) the member must settle
+// that first. Unlocks the moment Satyajit Das approves it (stage 'admin' or
+// already 'done') — doesn't wait for Prasun Jyoti's own final approval.
+// Only the MOST RECENT matching fine claim counts (paymentRequests already
+// comes back newest-first) — an old, already-settled fine from a past cycle
+// must not permanently unlock a brand-new backlog that piles up later.
+function fineLockInfo(targetName, isLoanCheck){
+  const targetMine = isLoanCheck ? activeLoanByName(targetName) : contribRowByName(targetName);
+  if(!targetMine) return {locked:false};
+  const today = new Date();
+  const overdue = isLoanCheck
+    ? targetMine.months.map(m=>({paid:m.amount!==null, deadline:parseDMY(m.due)})).filter(m=>!m.paid && m.deadline<=today)
+    : DATA.months.map((mo,i)=>({paid:targetMine.pay[i]>0, deadline:new Date(Number(DATA.year), i, 16)})).filter(m=>!m.paid && m.deadline<=today);
+  if(overdue.length < 2) return {locked:false};
+  const subTypeText = isLoanCheck ? 'ঋণের সুদের ফাইন' : 'মাসিক জমার ফাইন';
+  const latestFineClaim = (DATA.paymentRequests||[]).find(p=>p.typeLabel==='ফাইন'
+    && p.member.toLowerCase()===targetName.toLowerCase()
+    && p.monthLabel.indexOf(subTypeText) > -1);
+  if(latestFineClaim && (latestFineClaim.stage==='admin' || latestFineClaim.stage==='done')) return {locked:false};
+  const pendingClaim = latestFineClaim && (latestFineClaim.stage==='collector' || latestFineClaim.stage==='recipient');
+  const gotoFineLink = `<a href="#" onclick="payType='fine'; fineSubType='${isLoanCheck?'loan':'contribution'}'; renderPage('payment'); return false;">ফাইন জমার পাতায় যান</a>`;
+  return {
+    locked: true,
+    message: pendingClaim
+      ? `আপনার <strong>${subTypeText}</strong> এখনও ${DATA.collectorName||'সংগ্রাহক'}-এর অনুমোদনের অপেক্ষায় — অনুমোদন হলেই এখানে জমা দেওয়া যাবে।`
+      : `নিয়ম অনুযায়ী আগে <strong>${subTypeText}</strong> জমা দিতে হবে, তারপর ${isLoanCheck?'চলতি ঋণের সুদ':'মাসিক জমা'} দেওয়া যাবে। ${gotoFineLink}।`
+  };
+}
+
 function buildPayCashConfirmCard(){
   if(!memberSession) return '';
   const reqs = DATA.paymentRequests || [];
@@ -1728,6 +1748,7 @@ function renderPayment(){
   const targetName = memberSession ? (payForName || memberSession.userId) : '';
   const mine = isFine ? contribRowByName(targetName) : (isLoan ? activeLoanByName(targetName) : contribRowByName(targetName));
   const required = isFine ? 0 : (isLoan ? (mine ? mine.monthlyInterest : 0) : (DATA.monthlyContribution || 100));
+  const fineLock = (!isFine && memberSession && mine) ? fineLockInfo(targetName, isLoan) : {locked:false};
 
   const typeSelect = `
     <div class="pay-field">
@@ -1777,27 +1798,28 @@ function renderPayment(){
       monthsBox = `<p class="hint-text" style="margin-top:.9rem;">আপনার কোনো চলতি ঋণ নেই, তাই ঋণের সুদের ফাইন প্রযোজ্য নয়।</p>`;
     } else {
       // Fine rule (same for both types): a month only counts once its own
-      // 15th-of-the-month deadline has actually passed, and the fine itself
-      // only kicks in once at least 2 such months have piled up — not merely
-      // "unpaid so far", which would wrongly fine someone still within grace.
+      // 16th-of-the-month deadline has actually passed (the 15th itself is
+      // still grace), and the fine is a flat penalty of 1 month's rate for
+      // every completed PAIR of overdue months — separate from the overdue
+      // months' own catch-up payment, which is no longer bundled into this
+      // claim (paid afterward as an ordinary মাসিক জমা/ঋণের সুদ claim, once
+      // this fine is approved and the lock on that tab opens).
       const today = new Date();
       const overdue = isLoanFine
         ? loanMine.months.map((m,i)=>({label:(i+1)+'ম মাস · '+m.due, paid:m.amount!==null, deadline:parseDMY(m.due)}))
             .filter(m=>!m.paid && m.deadline<=today)
-        : DATA.months.map((mo,i)=>({label:mo, paid:mine.pay[i]>0, deadline:new Date(Number(DATA.year), i, 15)}))
+        : DATA.months.map((mo,i)=>({label:mo, paid:mine.pay[i]>0, deadline:new Date(Number(DATA.year), i, 16)}))
             .filter(m=>!m.paid && m.deadline<=today);
       if(overdue.length < 2){
-        monthsBox = `<p class="hint-text" style="margin-top:.9rem;">নিয়ম অনুযায়ী পরপর ২ মাসের সময়সীমা (১৫ তারিখ) পার না হলে ফাইন প্রযোজ্য হয় না — এখন কোনো ফাইন বকেয়া নেই। বাকি থাকা টাকা সরাসরি <a href="#" onclick="payType='${isLoanFine?'loan':'contribution'}'; renderPage('payment'); return false;">${isLoanFine?'চলতি ঋণের সুদ':'মাসিক জমা'}</a> থেকে জমা দিন।</p>`;
+        monthsBox = `<p class="hint-text" style="margin-top:.9rem;">নিয়ম অনুযায়ী পরপর ২ মাসের সময়সীমা (১৬ তারিখ) পার না হলে ফাইন প্রযোজ্য হয় না — এখন কোনো ফাইন বকেয়া নেই। বাকি থাকা টাকা সরাসরি <a href="#" onclick="payType='${isLoanFine?'loan':'contribution'}'; renderPage('payment'); return false;">${isLoanFine?'চলতি ঋণের সুদ':'মাসিক জমা'}</a> থেকে জমা দিন।</p>`;
       } else {
-        // All overdue months start checked — "কোন মাসগুলো বাকি" is already
-        // known from the sheet, members shouldn't have to re-figure it out.
         fineDue = true;
-        initialTotal = overdue.length * perMonthRate + perMonthRate; // + one month's worth as the fine itself
+        initialTotal = Math.floor(overdue.length / 2) * perMonthRate;
         monthsBox = `
           <div class="pay-field">
-            <label class="field-label">কোন কোন মাসের জন্য ফাইন?</label>
+            <label class="field-label">কোন কোন মাস বকেয়া? (শুধু তথ্যের জন্য — এই মাসগুলোর জমার টাকা এখানে দিতে হবে না)</label>
             <div class="fine-month-list">
-              ${overdue.map(m=>`<label class="fine-month-item"><input type="checkbox" class="fine-month-cb" data-label="${m.label}" checked onchange="updateFineAmount()"> ${m.label}</label>`).join('')}
+              ${overdue.map(m=>`<label class="fine-month-item"><input type="checkbox" class="fine-month-cb" data-label="${m.label}" checked disabled> ${m.label}</label>`).join('')}
             </div>
           </div>`;
       }
@@ -1817,14 +1839,20 @@ function renderPayment(){
       ${fineDue ? `
       <div class="pay-row" style="margin-top:.8rem;">
         <div class="pay-field" style="flex:0 0 auto;">
-          <label class="field-label" for="payAmount">মোট টাকা (বাকি মাস + ১ মাসের ফাইন)</label>
+          <label class="field-label" for="payAmount">ফাইনের টাকা (প্রতি ২ মাস বকেয়ায় ১ মাসের ফাইন)</label>
           <input type="number" id="payAmount" class="pay-select mono" min="1" step="1"
                  value="${initialTotal||''}" data-amount="${initialTotal}" data-rate="${perMonthRate}"
                  oninput="this.dataset.amount=this.value||0;">
         </div>
       </div>
-      <p class="hint-text" style="margin:.3rem 0 1rem;">উপরের মাসগুলোর টিক অনুযায়ী টাকাটা নিজে থেকেই হিসাব হয় — নিয়মটা <a href="#" onclick="document.querySelector('[data-page=fine]').click(); return false;">এখানে দেখুন</a>। প্রয়োজনে টাকার অঙ্ক নিজে বদলেও দিতে পারেন।</p>
+      <p class="hint-text" style="margin:.3rem 0 1rem;">এটা শুধু ফাইনের (জরিমানার) টাকা — নিয়মটা <a href="#" onclick="document.querySelector('[data-page=fine]').click(); return false;">এখানে দেখুন</a>। এটা অনুমোদন হয়ে গেলেই বকেয়া মাসগুলোর আসল জমা <strong>${isLoanFine?'চলতি ঋণের সুদ':'মাসিক জমা'}</strong> ট্যাব থেকে আলাদাভাবে দিতে পারবেন। প্রয়োজনে টাকার অঙ্ক নিজে বদলেও দিতে পারেন।</p>
       ${paymentFooterHTML('fine', 0)}` : ''}`;
+  } else if(fineLock.locked){
+    // A fine is due and Satyajit Das hasn't approved it yet — the member must
+    // settle that first, so the regular claim form stays hidden.
+    claimBox = `
+      <div class="pay-row">${typeSelect}${payForSelect}</div>
+      <p class="hint-text" style="margin-top:.9rem;">🔒 ${fineLock.message}</p>`;
   } else {
     // One or several months can be picked in one go — the amount scales with
     // how many are ticked. Only the single earliest unpaid one starts
