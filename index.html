@@ -1444,9 +1444,13 @@ function buildApprovalCardHTML(idSuffix, readOnly){
         const rows = [
           ['সদস্য', memberCell(p)], ['ধরন', tag(p)], ['মাস', p.monthLabel],
           ['পেমেন্টের তারিখ', p.paymentDate||'—'],
-          ['কবে জমা দিয়েছে', p.askedAt||'—'], ['Satyajit অনুমোদন', p.collectorApprovedAt||'—'], ['Prasun অনুমোদন', p.adminApprovedAt||'—'],
-          ['টাকা', '<span class="mono">'+moneyInt(p.amount)+'</span>'], ['রসিদ', receipt], ['অবস্থা', p.status]
+          ['কবে জমা দিয়েছে', p.askedAt||'—']
         ];
+        if(p.cashRecipient){
+          rows.push([p.cashRecipient+' টাকা পেয়েছেন', p.recipientApprovedAt||'—']);
+        }
+        rows.push(['Satyajit অনুমোদন', p.collectorApprovedAt||'—'], ['Prasun অনুমোদন', p.adminApprovedAt||'—'],
+          ['টাকা', '<span class="mono">'+moneyInt(p.amount)+'</span>'], ['রসিদ', receipt], ['অবস্থা', p.status]);
         return `<div class="appr-card">
           ${rows.map(([k,v])=>`<div class="appr-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
           <div class="appr-actions">${btns}</div>
@@ -1581,9 +1585,13 @@ function buildLoanRepayApprovalCardHTML(idSuffix, readOnly){
         const rows = [
           ['সদস্য', r.member], ['টাকা (আসল থেকে)', '<span class="mono">'+moneyInt(r.amount)+'</span>'],
           ['পরিশোধের তারিখ', r.paymentDate||'—'], ['মাধ্যম', r.method], ['রসিদ', receipt],
-          ['কবে জমা দিয়েছে', r.askedAt||'—'], ['Satyajit অনুমোদন', r.collectorApprovedAt||'—'], ['Prasun অনুমোদন', r.adminApprovedAt||'—'],
-          ['অবস্থা', r.status]
+          ['কবে জমা দিয়েছে', r.askedAt||'—']
         ];
+        if(r.cashRecipient){
+          rows.push([r.cashRecipient+' টাকা পেয়েছেন', r.recipientApprovedAt||'—']);
+        }
+        rows.push(['Satyajit অনুমোদন', r.collectorApprovedAt||'—'], ['Prasun অনুমোদন', r.adminApprovedAt||'—'],
+          ['অবস্থা', r.status]);
         return `<div class="appr-card">
           ${rows.map(([k,v])=>`<div class="appr-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
           <div class="appr-actions">${btns}</div>
