@@ -445,6 +445,7 @@
       <div class="wc-stats" id="wcStats"></div>
       <div class="wc-links-row">
         <a class="wc-site" href="https://uniqueruralfund.github.io/view/uniqueruralfund/home" target="_blank" rel="noopener">🔗 আমাদের ওয়েবসাইট দেখুন</a>
+        <a class="wc-site" href="#" onclick="openUsageGuideFromWelcome(); return false;">📘 কীভাবে ব্যবহার করবেন</a>
         <a class="wc-login-pill" href="#" onclick="showWcLoginForm(); return false;">🔑 লগইন করুন</a>
       </div>
       <div class="wc-contact">
@@ -796,7 +797,7 @@ function updateEditBtn(){
   const logBtn = document.getElementById('loginLogBtn');
   if(logBtn) logBtn.hidden = !isPrasunOnly();       // only Prasun Jyoti
   const guideBtn = document.getElementById('usageGuideBtn');
-  if(guideBtn) guideBtn.hidden = !canApprove();     // only Satyajit Das / Prasun Jyoti
+  if(guideBtn) guideBtn.hidden = !memberSession;    // any logged-in member, never the public
 }
 
 // A visible badge on পেমেন্ট অনুমোদন so Satyajit Das / Prasun Jyoti notice a
@@ -1026,7 +1027,12 @@ async function welcomeLogin(ev){
     else{ clearRememberedLogin(); }
     if(!DATA){ await loadData(true); }
     enterApp();
-    flashSaved('স্বাগতম, ' + memberSession.userId, false);
+    if(pendingGuideAfterLogin){
+      pendingGuideAfterLogin = false;
+      openUsageGuidePage();
+    } else {
+      flashSaved('স্বাগতম, ' + memberSession.userId, false);
+    }
   }catch(err){
     errBox.textContent = 'নেটওয়ার্ক সমস্যা, আবার চেষ্টা করুন।';
     errBox.hidden = false;
@@ -1044,11 +1050,21 @@ function toggleWcPinVisibility(){
   btn.setAttribute('aria-label', showing ? 'পাসওয়ার্ড দেখুন' : 'পাসওয়ার্ড লুকান');
 }
 // A full page (not a popup) so it reads like the app's own welcome/onboarding
-// page — restricted to Satyajit Das / Prasun Jyoti via canApprove(), and not
-// part of the numbered nav so no one else ever sees it listed. currentPage is
-// left untouched, so "← ফিরে যান" just re-renders whatever page was showing.
+// page — restricted to actual logged-in members (any of the 24), never the
+// public pre-login visitor, and not part of the numbered nav so it stays a
+// members-only shortcut. currentPage is left untouched, so "← ফিরে যান" just
+// re-renders whatever page was showing.
+// Clicked from the public Welcome (pre-login) screen — the guide itself is
+// members-only, so this just opens the same member-login form and remembers
+// to jump straight to the guide once that login succeeds.
+let pendingGuideAfterLogin = false;
+function openUsageGuideFromWelcome(){
+  if(memberSession){ openUsageGuidePage(); return; }
+  pendingGuideAfterLogin = true;
+  showWcLoginForm();
+}
 function openUsageGuidePage(){
-  if(!canApprove()) return;
+  if(!memberSession) return;
   pageTitle.textContent = '📘 কীভাবে ব্যবহার করবেন';
   pageBody.innerHTML = `
     <div class="card">
@@ -1082,6 +1098,7 @@ function showWcLoginForm(){
 function hideWcLoginForm(){
   document.getElementById('wcCol2').hidden = true;
   document.getElementById('wcHeroPanel').hidden = false;
+  pendingGuideAfterLogin = false;   // backed out — don't jump to the guide on some later, unrelated login
 }
 document.getElementById('wcId').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('wcPin').focus(); });
 document.getElementById('wcPin').addEventListener('keydown', e=>{ if(e.key==='Enter') welcomeLogin(e); });
