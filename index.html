@@ -631,6 +631,16 @@
   </div>
 </div>
 
+<div class="pin-overlay" id="upiQrOverlay" hidden>
+  <div class="pin-box" style="width:min(94vw,360px);">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:.8rem;">
+      <h3 style="margin:0;">📲 UPI QR কোড</h3>
+      <button type="button" class="overlay-close" onclick="closeUpiQrOverlay()" aria-label="বন্ধ করুন">✕</button>
+    </div>
+    <div id="upiQrBody"></div>
+  </div>
+</div>
+
 <script>
 /* ================= CONFIG — deploy Code.gs then paste the exec URL here ================= */
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPGv8Pr1IU3jhnAehKGJQ9XVTtUjRtYQh9eUsJOY6FwuvSY48ApETkz59MKlr5dsoR5w/exec";
@@ -1660,18 +1670,29 @@ function payMethodChanged(){
 // mobile browser AND inside the installed Android app (v2+, which adds native
 // handling to hand this scheme off to GPay/PhonePe — a bare WebView otherwise
 // can't open non-http(s) links on its own).
-function openUpiPay(noteText){
+// GPay/NPCI restrict raw upi:// deep links opened from a web page/app (only
+// verified merchant apps get that trusted "intent" flow) — it either does
+// nothing or opens Pay but silently blocks completion. Scanning an actual QR
+// code doesn't hit that restriction, so this shows one instead (rendered via
+// a public QR-image API — same upi://pay string as before, just as a QR now).
+function openUpiQrOverlay(noteText){
   const amountEl = document.getElementById('payAmount') || document.getElementById('loanRepayAmountInput');
   const amount = amountEl ? Number(amountEl.dataset.amount || amountEl.value || 0) : 0;
   if(!amount || amount <= 0){
     alert('আগে টাকার পরিমাণ ঠিক করুন।');
     return;
   }
-  const uri = 'upi://pay?pa=' + encodeURIComponent(COLLECTOR_UPI_ID)
+  const upiString = 'upi://pay?pa=' + encodeURIComponent(COLLECTOR_UPI_ID)
     + '&pn=' + encodeURIComponent(DATA.collectorName || 'Satyajit Das')
     + '&am=' + amount + '&cu=INR&tn=' + encodeURIComponent(noteText || 'Unique Rural Fund');
-  window.location.href = uri;
+  const qrImgUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=' + encodeURIComponent(upiString);
+  document.getElementById('upiQrBody').innerHTML = `
+    <p style="text-align:center; margin:.3rem 0 1rem; font-weight:600;">₹${amount} — ${DATA.collectorName||'Satyajit Das'}-কে</p>
+    <img src="${qrImgUrl}" alt="UPI QR কোড" style="display:block; margin:0 auto; width:220px; height:220px; border-radius:10px; background:#fff; padding:10px;">
+    <p class="hint-text" style="text-align:center; margin-top:1rem;">নিজের UPI অ্যাপ (GPay/PhonePe ইত্যাদি) দিয়ে এই QR কোডটা স্ক্যান করুন — টাকার অঙ্ক ও নোট আগে থেকেই বসানো থাকবে। পাঠানোর পর স্ক্রিনশট দিয়ে নিচে থেকে দাবি জমা দিন।</p>`;
+  document.getElementById('upiQrOverlay').hidden = false;
 }
+function closeUpiQrOverlay(){ document.getElementById('upiQrOverlay').hidden = true; }
 
 function paymentFooterHTML(type, required){
   const todayStr = new Date().toISOString().slice(0,10);
@@ -1684,8 +1705,8 @@ function paymentFooterHTML(type, required){
         </select>
       </div>
       <div class="pay-field" id="payUpiField" style="margin-top:1rem;">
-        <button type="button" class="pay-btn claim" style="width:100%;" onclick="openUpiPay('${type==='fine'?'ফাইন':(type==='loan'?'ঋণের সুদ':'মাসিক জমা')} — Unique Rural Fund')">📲 UPI-তে পাঠান</button>
-        <p class="hint-text" style="margin:.4rem 0 0;">এতে সরাসরি আপনার UPI অ্যাপ (GPay/PhonePe ইত্যাদি) খুলে যাবে, ${DATA.collectorName||'সংগ্রাহক'}-এর UPI ID ও টাকার অঙ্ক আগে থেকে ভরা থাকবে। পাঠানোর পর স্ক্রিনশট দিয়ে নিচে থেকে দাবি জমা দিন।</p>
+        <button type="button" class="pay-btn claim" style="width:100%;" onclick="openUpiQrOverlay('${type==='fine'?'ফাইন':(type==='loan'?'ঋণের সুদ':'মাসিক জমা')} — Unique Rural Fund')">📲 UPI QR কোড দেখান</button>
+        <p class="hint-text" style="margin:.4rem 0 0;">${DATA.collectorName||'সংগ্রাহক'}-এর UPI ID ও টাকার অঙ্ক বসানো একটা QR কোড দেখাবে — নিজের UPI অ্যাপ দিয়ে সেটা স্ক্যান করে পাঠান। পাঠানোর পর স্ক্রিনশট দিয়ে নিচে থেকে দাবি জমা দিন।</p>
       </div>
       <div class="pay-field" id="payCashRecipientField" style="margin-top:1rem;" hidden>
         <label class="field-label" for="payCashRecipient">কাকে টাকা দিচ্ছেন?</label>
@@ -2460,8 +2481,8 @@ function loanRepayFooterHTML(){
         </select>
       </div>
       <div class="pay-field" id="loanRepayUpiField" style="margin-top:1rem;">
-        <button type="button" class="pay-btn claim" style="width:100%;" onclick="openUpiPay('ঋণ পরিশোধ — Unique Rural Fund')">📲 UPI-তে পাঠান</button>
-        <p class="hint-text" style="margin:.4rem 0 0;">এতে সরাসরি আপনার UPI অ্যাপ (GPay/PhonePe ইত্যাদি) খুলে যাবে, ${DATA.collectorName||'সংগ্রাহক'}-এর UPI ID ও টাকার অঙ্ক আগে থেকে ভরা থাকবে। পাঠানোর পর স্ক্রিনশট দিয়ে নিচে থেকে দাবি জমা দিন।</p>
+        <button type="button" class="pay-btn claim" style="width:100%;" onclick="openUpiQrOverlay('ঋণ পরিশোধ — Unique Rural Fund')">📲 UPI QR কোড দেখান</button>
+        <p class="hint-text" style="margin:.4rem 0 0;">${DATA.collectorName||'সংগ্রাহক'}-এর UPI ID ও টাকার অঙ্ক বসানো একটা QR কোড দেখাবে — নিজের UPI অ্যাপ দিয়ে সেটা স্ক্যান করে পাঠান। পাঠানোর পর স্ক্রিনশট দিয়ে নিচে থেকে দাবি জমা দিন।</p>
       </div>
       <div class="pay-field" id="loanRepayCashRecipientField" style="margin-top:1rem;" hidden>
         <label class="field-label" for="loanRepayCashRecipient">কাকে টাকা দিচ্ছেন?</label>
