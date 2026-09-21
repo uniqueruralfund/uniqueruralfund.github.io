@@ -1631,11 +1631,11 @@ function buildLoanRepayApprovalCardHTML(idSuffix, readOnly){
 // matching the rule shown on the ফাইন page. Still hand-editable afterward.
 // For the regular (non-fine) monthly-জমা / ঋণের-সুদ claim — recomputes the
 // total as (checked months × flat monthly rate) whenever a box is (un)ticked.
-function updatePayAmount(rate){
+function updatePayAmount(){
   const amountEl = document.getElementById('payAmount');
   if(!amountEl) return;
-  const checked = document.querySelectorAll('.pay-month-cb:checked').length;
-  const total = checked * rate;
+  const checked = Array.from(document.querySelectorAll('.pay-month-cb:checked'));
+  const total = checked.reduce((sum,cb)=>sum + Number(cb.dataset.rate||0), 0);
   amountEl.textContent = '₹' + total;
   amountEl.dataset.amount = total;
 }
@@ -1872,9 +1872,19 @@ function renderPayment(){
     // how many are ticked. Only the single earliest unpaid one starts
     // checked, matching what most members want most of the time; ticking
     // more adds them to the same claim.
+    // A loan that's crossed its own "Last month of loan repayment" deadline
+    // bills each month at whatever rate was in effect for THAT month's own
+    // due date — a month due on/before the deadline stays at the normal 1%
+    // even if paid late; only a month due after it owes the 10% penalty
+    // rate. So unlike মাসিক জমা (always one flat rate), a loan's unpaid
+    // months can each carry a different rate in the same claim.
     const unpaidList = isLoan
-      ? mine.months.map((m,i)=>({idx:i, label:(i+1)+'ম মাস · '+m.due, paid:m.amount!==null})).filter(m=>!m.paid)
-      : DATA.months.map((mo,i)=>({idx:i, label:mo, paid:mine.pay[i]>0})).filter(m=>!m.paid);
+      ? mine.months.map((m,i)=>{
+          const isPostDeadline = mine.lastRepaymentDate && m.dueRaw && new Date(m.dueRaw) > new Date(mine.lastRepaymentDate);
+          const rate = Math.round(mine.amount * (isPostDeadline ? 0.10 : 0.01));
+          return {idx:i, label:(i+1)+'ম মাস · '+m.due, paid:m.amount!==null, rate};
+        }).filter(m=>!m.paid)
+      : DATA.months.map((mo,i)=>({idx:i, label:mo, paid:mine.pay[i]>0, rate:required})).filter(m=>!m.paid);
 
     let monthsBox;
     if(!unpaidList.length){
@@ -1884,11 +1894,11 @@ function renderPayment(){
         <div class="pay-field">
           <label class="field-label">কোন মাসের জন্য? (একাধিক বেছে নিতে পারেন)</label>
           <div class="fine-month-list">
-            ${unpaidList.map((m,i)=>`<label class="fine-month-item"><input type="checkbox" class="pay-month-cb" data-idx="${m.idx}" data-label="${m.label}" ${i===0?'checked':''} onchange="updatePayAmount(${required})"> ${m.label}</label>`).join('')}
+            ${unpaidList.map((m,i)=>`<label class="fine-month-item"><input type="checkbox" class="pay-month-cb" data-idx="${m.idx}" data-label="${m.label}" data-rate="${m.rate}" ${i===0?'checked':''} onchange="updatePayAmount()"> ${m.label}${isLoan?' <span class="hint-text">(₹'+m.rate+')</span>':''}</label>`).join('')}
           </div>
         </div>`;
     }
-    const initialPayTotal = unpaidList.length ? required : 0;
+    const initialPayTotal = unpaidList.length ? unpaidList[0].rate : 0;
 
     claimBox = `
       <div class="pay-row">${typeSelect}${payForSelect}</div>
