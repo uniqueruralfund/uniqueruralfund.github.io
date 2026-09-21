@@ -500,6 +500,7 @@
     <button class="edit-btn" id="loanRepayApproveBtn" style="margin-bottom:.5rem;" hidden onclick="openLoanRepayApprovalOverlay()">💵 ঋণ পরিশোধ অনুমোদন</button>
     <button class="edit-btn" id="sheetOpenBtn" style="margin-bottom:.5rem;" hidden onclick="window.open('https://docs.google.com/spreadsheets/d/1C-BdlaRHCjyAARCzKwGTstwvro2sKpPSH1FLZs_3XQo/edit','_blank')">📊 Google Sheet খুলুন</button>
     <button class="edit-btn" id="loginLogBtn" style="margin-bottom:.5rem;" hidden onclick="openLoginLogOverlay()">🕓 লগইন লগ</button>
+    <button class="edit-btn" id="loanNotifAdminBtn" style="margin-bottom:.5rem;" hidden onclick="openLoanNotifAdminOverlay()">🔔 ঋণ নোটিফিকেশন</button>
     <button class="edit-btn" id="editBtn">🔒 এডিট মোড</button>
   </div>
 </div>
@@ -631,6 +632,24 @@
   </div>
 </div>
 
+<!-- Deliberately no ✕ close button — stays up until "বুঝেছি" is clicked. -->
+<div class="pin-overlay" id="loanNotifyOverlay" hidden>
+  <div class="pin-box" style="width:min(94vw,480px);">
+    <h3 style="margin:0 0 .8rem;">🔔 জরুরি নোটিফিকেশন</h3>
+    <div id="loanNotifyBody"></div>
+  </div>
+</div>
+
+<div class="pin-overlay" id="loanNotifAdminOverlay" hidden>
+  <div class="pin-box" style="width:min(90vw,600px); max-height:85vh; overflow-y:auto;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:.8rem;">
+      <h3 style="margin:0;">🔔 ঋণ নোটিফিকেশন</h3>
+      <button type="button" class="overlay-close" onclick="closeLoanNotifAdminOverlay()" aria-label="বন্ধ করুন">✕</button>
+    </div>
+    <div id="loanNotifAdminBody"></div>
+  </div>
+</div>
+
 <script>
 /* ================= CONFIG — deploy Code.gs then paste the exec URL here ================= */
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPGv8Pr1IU3jhnAehKGJQ9XVTtUjRtYQh9eUsJOY6FwuvSY48ApETkz59MKlr5dsoR5w/exec";
@@ -724,6 +743,7 @@ async function loadData(silent){
     updatePendingBadge();
     if(!memberSession){ showWelcome(); return; }
     renderPage(currentPage);
+    checkLoanNotifications();
     if(!silent) flashSaved('লাইভ ডেটা লোড হয়েছে', false);
   }catch(err){
     console.error(err);
@@ -794,6 +814,8 @@ function updateEditBtn(){
   if(sheetBtn) sheetBtn.hidden = !isAdminMember();   // only Prasun Jyoti
   const logBtn = document.getElementById('loginLogBtn');
   if(logBtn) logBtn.hidden = !isPrasunOnly();       // only Prasun Jyoti
+  const loanNotifBtn = document.getElementById('loanNotifAdminBtn');
+  if(loanNotifBtn) loanNotifBtn.hidden = !canApprove();   // Satyajit Das ও Prasun Jyoti
 }
 
 // A visible badge on পেমেন্ট অনুমোদন so Satyajit Das / Prasun Jyoti notice a
@@ -989,6 +1011,7 @@ function enterApp(){
   document.getElementById('mainArea').hidden = false;
   updateUserChip();
   renderPage(currentPage);
+  checkLoanNotifications();
 }
 async function welcomeLogin(ev){
   const userId = document.getElementById('wcId').value.trim();
@@ -1320,6 +1343,58 @@ async function openLoginLogOverlay(){
 }
 function closeLoginLogOverlay(){ document.getElementById('loginLogOverlay').hidden = true; }
 function closeMemberView(){ document.getElementById('memberViewOverlay').hidden = true; }
+
+// A loan that's crossed its overdue deadline gets the same message shown
+// here as in its email — kept up on login/refresh, and deliberately NOT
+// dismissible except via its own "বুঝেছি" button, so it keeps reappearing
+// until the member actually acknowledges it (tracked below for Satyajit
+// Das / Prasun Jyoti to see who has/hasn't).
+function checkLoanNotifications(){
+  if(!memberSession || !DATA){ document.getElementById('loanNotifyOverlay').hidden = true; return; }
+  const mine = (DATA.loanNotifications||[]).filter(n=>!n.isRead && n.member.toLowerCase()===memberSession.userId.toLowerCase());
+  if(!mine.length){ document.getElementById('loanNotifyOverlay').hidden = true; return; }
+  const n = mine[0];
+  document.getElementById('loanNotifyBody').innerHTML = `
+    <p style="white-space:pre-wrap; line-height:1.6; margin:0;">${n.message}</p>
+    <button class="pay-btn claim" style="width:100%; margin-top:1rem;" onclick="acknowledgeLoanNotification('${n.token}')">বুঝেছি</button>
+    <div class="msg-err" id="loanNotifyErr" hidden></div>`;
+  document.getElementById('loanNotifyOverlay').hidden = false;
+}
+async function acknowledgeLoanNotification(token){
+  const errBox = document.getElementById('loanNotifyErr');
+  if(errBox) errBox.hidden = true;
+  try{
+    const res = await fetch(SCRIPT_URL, {
+      method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action:'markLoanNotificationRead', token, userId:memberSession.userId, pin:memberSession.pin})
+    });
+    const json = await res.json();
+    if(!json.ok){
+      if(errBox){ errBox.textContent = json.error || 'হয়নি, আবার চেষ্টা করুন।'; errBox.hidden = false; }
+      return;
+    }
+    if(json.data){ DATA = json.data; }
+    checkLoanNotifications(); // shows the next one, if any, else hides
+  }catch(err){
+    if(errBox){ errBox.textContent = 'নেটওয়ার্ক সমস্যা, আবার চেষ্টা করুন।'; errBox.hidden = false; }
+  }
+}
+
+// Satyajit Das / Prasun Jyoti's own view of every notification ever sent,
+// and whether/when each member has acknowledged theirs.
+function openLoanNotifAdminOverlay(){
+  if(!canApprove()) return;
+  const rows = DATA.loanNotifications || [];
+  const body = document.getElementById('loanNotifAdminBody');
+  body.innerHTML = !rows.length
+    ? '<p class="hint-text">এখনও কোনো নোটিফিকেশন পাঠানো হয়নি।</p>'
+    : `<div class="table-scroll" style="max-height:60vh;"><table>
+        <thead><tr><th>সদস্য</th><th>পাঠানোর সময়</th><th>অবস্থা</th><th>পড়ার সময়</th></tr></thead>
+        <tbody>${rows.map(n=>`<tr><td>${n.member}</td><td>${n.askedAt}</td><td>${n.isRead ? 'পড়েছেন ✅' : 'এখনও পড়েননি'}</td><td>${n.readAt||'—'}</td></tr>`).join('')}</tbody>
+      </table></div>`;
+  document.getElementById('loanNotifAdminOverlay').hidden = false;
+}
+function closeLoanNotifAdminOverlay(){ document.getElementById('loanNotifAdminOverlay').hidden = true; }
 
 /* ================= online payment (পেমেন্ট page) ================= */
 function updateUserChip(){
