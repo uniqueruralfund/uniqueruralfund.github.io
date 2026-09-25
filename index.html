@@ -445,6 +445,7 @@
       <div class="wc-stats" id="wcStats"></div>
       <div class="wc-links-row">
         <a class="wc-site" href="https://uniqueruralfund.github.io/view/uniqueruralfund/home" target="_blank" rel="noopener">🔗 আমাদের ওয়েবসাইট দেখুন</a>
+        <a class="wc-site" id="wcAppDownloadLink" href="UniqueRuralFund.apk" download>📱 অ্যাপ ডাউনলোড করুন</a>
         <a class="wc-login-pill" href="#" onclick="showWcLoginForm(); return false;">🔑 লগইন করুন</a>
       </div>
       <div class="wc-contact">
@@ -658,6 +659,11 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPGv8Pr1IU3jhnAehKG
 // browser never sees it — so this is how a login tells the two apart.
 function getClientPlatform(){
   try{ return (typeof window.Capacitor !== 'undefined') ? 'app' : 'web'; }catch(e){ return 'web'; }
+}
+// No point offering "download the app" to someone already using it.
+if(getClientPlatform() === 'app'){
+  const dlLink = document.getElementById('wcAppDownloadLink');
+  if(dlLink) dlLink.hidden = true;
 }
 const AUTO_REFRESH_SEC = 90;
 const ADMIN_NAME = 'Prasun Jyoti';   // only this member + the collector see the approve/reject panel
