@@ -502,6 +502,7 @@
     <button class="edit-btn" id="sheetOpenBtn" style="margin-bottom:.5rem;" hidden onclick="window.open('https://docs.google.com/spreadsheets/d/1C-BdlaRHCjyAARCzKwGTstwvro2sKpPSH1FLZs_3XQo/edit','_blank')">📊 Google Sheet খুলুন</button>
     <button class="edit-btn" id="loginLogBtn" style="margin-bottom:.5rem;" hidden onclick="openLoginLogOverlay()">🕓 লগইন লগ</button>
     <button class="edit-btn" id="loanNotifAdminBtn" style="margin-bottom:.5rem;" hidden onclick="openLoanNotifAdminOverlay()">🔔 ঋণ নোটিফিকেশন</button>
+    <button class="edit-btn" id="adminOverviewBtn" style="margin-bottom:.5rem;" hidden onclick="openAdminOverviewOverlay()">📊 অ্যাডমিন ওভারভিউ</button>
     <button class="edit-btn" id="editBtn">🔒 এডিট মোড</button>
   </div>
 </div>
@@ -648,6 +649,16 @@
       <button type="button" class="overlay-close" onclick="closeLoanNotifAdminOverlay()" aria-label="বন্ধ করুন">✕</button>
     </div>
     <div id="loanNotifAdminBody"></div>
+  </div>
+</div>
+
+<div class="pin-overlay" id="adminOverviewOverlay" hidden>
+  <div class="pin-box" style="width:min(94vw,720px); max-height:85vh; overflow-y:auto;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:.8rem;">
+      <h3 style="margin:0;">📊 অ্যাডমিন ওভারভিউ</h3>
+      <button type="button" class="overlay-close" onclick="closeAdminOverviewOverlay()" aria-label="বন্ধ করুন">✕</button>
+    </div>
+    <div id="adminOverviewBody"></div>
   </div>
 </div>
 
@@ -822,6 +833,8 @@ function updateEditBtn(){
   if(logBtn) logBtn.hidden = !isPrasunOnly();       // only Prasun Jyoti
   const loanNotifBtn = document.getElementById('loanNotifAdminBtn');
   if(loanNotifBtn) loanNotifBtn.hidden = !canApprove();   // Satyajit Das ও Prasun Jyoti
+  const adminOverviewBtn = document.getElementById('adminOverviewBtn');
+  if(adminOverviewBtn) adminOverviewBtn.hidden = !canApprove();   // Satyajit Das ও Prasun Jyoti
 }
 
 // A visible badge on পেমেন্ট অনুমোদন so Satyajit Das / Prasun Jyoti notice a
@@ -1401,6 +1414,58 @@ function openLoanNotifAdminOverlay(){
   document.getElementById('loanNotifAdminOverlay').hidden = false;
 }
 function closeLoanNotifAdminOverlay(){ document.getElementById('loanNotifAdminOverlay').hidden = true; }
+
+function openAdminOverviewOverlay(){
+  if(!canApprove()) return;
+  const fs = DATA.fundSummary;
+  const now = new Date();
+  const elapsedMonths = (DATA.year === String(now.getFullYear())) ? (now.getMonth()+1) : 12;
+  const loanSum = DATA.activeLoans.reduce((s,l)=>s+l.amount,0);
+  const overdueLoans = DATA.activeLoans.filter(l=>l.interestOverdue);
+  const behindMembers = DATA.contributions.map(m=>{
+    const paidMonths = m.pay.filter(p=>p>0).length;
+    return {name:m.name, paidMonths, gap: Math.max(0, elapsedMonths - paidMonths)};
+  }).filter(x=>x.gap>0).sort((a,b)=>b.gap-a.gap);
+  const expected = elapsedMonths * (DATA.monthlyContribution||100) * DATA.contributions.length;
+  const collectRate = expected>0 ? Math.round((fs.totalCollectedThisYear||0)/expected*100) : 100;
+
+  const statHtml = `
+    <div class="stat-grid" style="margin-bottom:1.1rem;">
+      <div class="stat"><div class="k">সক্রিয় ঋণ</div><div class="v mono">${DATA.activeLoans.length}</div></div>
+      <div class="stat"><div class="k">মোট ঋণ বকেয়া</div><div class="v gold mono">${moneyInt(loanSum)}</div></div>
+      <div class="stat"><div class="k">ওভারডিউ ঋণ</div><div class="v mono" style="color:${overdueLoans.length?'#B23A2E':'inherit'};">${overdueLoans.length}</div></div>
+      <div class="stat"><div class="k">${DATA.year}-এ সুদ আয়</div><div class="v mono">${moneyInt(fs.earningsInterest)}</div></div>
+      <div class="stat"><div class="k">${DATA.year}-এ ফাইন আয়</div><div class="v mono">${moneyInt(fs.earningsFine)}</div></div>
+      <div class="stat"><div class="k">চাঁদা সংগ্রহের হার</div><div class="v mono">${collectRate}%</div></div>
+    </div>`;
+
+  const overdueHtml = !overdueLoans.length
+    ? '<p class="hint-text">এখন কোনো ঋণ ওভারডিউ নেই।</p>'
+    : `<div class="table-scroll" style="max-height:32vh;"><table>
+        <thead><tr><th>সদস্য</th><th>ঋণের পরিমাণ</th><th>শেষ কিস্তির তারিখ</th><th>বর্তমান মাসিক সুদ</th><th>বকেয়া মাস</th></tr></thead>
+        <tbody>${overdueLoans.map(l=>{
+          const gapMonths = Math.max(0, l.dueDates.filter(d=>parseDMY(d)<=now).length - l.monthsPaid);
+          return `<tr><td>${l.name}</td><td class="mono">${moneyInt(l.amount)}</td><td class="mono">${l.closingDate}</td><td class="mono" style="color:#B23A2E;">${moneyInt(l.monthlyInterest)}</td><td class="mono">${gapMonths}</td></tr>`;
+        }).join('')}</tbody>
+      </table></div>`;
+
+  const behindHtml = !behindMembers.length
+    ? '<p class="hint-text">সবাই এই বছরের চাঁদায় হালনাগাদ আছেন।</p>'
+    : `<div class="table-scroll" style="max-height:32vh;"><table>
+        <thead><tr><th>সদস্য</th><th>জমা দিয়েছেন</th><th>বাকি</th></tr></thead>
+        <tbody>${behindMembers.map(x=>`<tr><td>${x.name}</td><td class="mono">${x.paidMonths}/${elapsedMonths}</td><td class="mono" style="color:#B23A2E;">${x.gap} মাস</td></tr>`).join('')}</tbody>
+      </table></div>`;
+
+  document.getElementById('adminOverviewBody').innerHTML = `
+    ${statHtml}
+    <div class="card-head" style="margin-bottom:.5rem;"><h2 style="font-size:1rem;">⚠️ ওভারডিউ ঋণ</h2></div>
+    ${overdueHtml}
+    <div class="card-head" style="margin:1.1rem 0 .5rem;"><h2 style="font-size:1rem;">📉 চাঁদায় পিছিয়ে থাকা সদস্যরা (${DATA.year})</h2></div>
+    ${behindHtml}
+  `;
+  document.getElementById('adminOverviewOverlay').hidden = false;
+}
+function closeAdminOverviewOverlay(){ document.getElementById('adminOverviewOverlay').hidden = true; }
 
 /* ================= online payment (পেমেন্ট page) ================= */
 function updateUserChip(){
