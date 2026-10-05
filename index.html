@@ -280,6 +280,8 @@
   .wc-clock .wc-clock-time{font-family:'IBM Plex Mono',monospace; font-size:1.3rem; font-weight:600;
     color:var(--active-bg); letter-spacing:.02em;}
   .wc-clock .wc-clock-date{font-size:.8rem; color:#9FB6A4;}
+  .wc-clock .wc-greeting{flex-basis:100%; text-align:center; font-family:'Tiro Bangla',serif;
+    font-size:1.08rem; color:#FBF5E7; margin-bottom:.15rem;}
   .wc-stats{display:flex; gap:.6rem; flex-wrap:wrap; margin-top:1.7rem;}
   .wc-stat{background:rgba(255,255,255,.07); border:1px solid rgba(239,230,210,.16);
     border-radius:12px; padding:.7rem 1rem; min-width:104px;}
@@ -433,6 +435,7 @@
           <svg role="img" aria-label="Unique Rural Fund"><use href="#urfMark"/></svg>
         </div>
         <div class="wc-clock">
+          <span class="wc-greeting">—</span>
           <span class="wc-clock-time">—</span>
           <span class="wc-clock-date">—</span>
         </div>
@@ -457,6 +460,7 @@
 
     <div class="wc-col2" id="wcCol2" hidden>
     <div class="wc-clock" id="wcClock">
+      <span class="wc-greeting" id="wcGreeting">—</span>
       <span class="wc-clock-time" id="wcClockTime">—</span>
       <span class="wc-clock-date" id="wcClockDate">—</span>
     </div>
@@ -728,11 +732,21 @@ function bnDayPeriod(h){
   if(h<19) return 'বিকাল';
   return 'রাত';
 }
+// Separate from bnDayPeriod() above (which labels the clock's own time text) —
+// this is the "Subho ___" greeting line shown above the clock.
+function bnGreeting(h){
+  if(h<5) return 'শুভ রাত্রি';
+  if(h<12) return 'শুভ সকাল';
+  if(h<16) return 'শুভ দুপুর';
+  if(h<20) return 'শুভ সন্ধ্যা';
+  return 'শুভ রাত্রি';
+}
 function updateWelcomeClock(){
   // Two clock instances now exist (the hero page and the login page) — both
   // stay in sync by class instead of a single getElementById id pair.
   const timeEls = document.querySelectorAll('.wc-clock-time');
   const dateEls = document.querySelectorAll('.wc-clock-date');
+  const greetEls = document.querySelectorAll('.wc-greeting');
   if(!timeEls.length) return;
   const now = new Date();
   const dateStr = BN_WEEKDAYS[now.getDay()] + ', ' + toBnDigits(now.getDate()) + ' '
@@ -743,8 +757,10 @@ function updateWelcomeClock(){
   const mm = toBnDigits(String(now.getMinutes()).padStart(2,'0'));
   const ss = toBnDigits(String(now.getSeconds()).padStart(2,'0'));
   const timeStr = period + ' ' + toBnDigits(h) + ':' + mm + ':' + ss;
+  const greetStr = bnGreeting(now.getHours());
   timeEls.forEach(el=>el.textContent = timeStr);
   dateEls.forEach(el=>el.textContent = dateStr);
+  greetEls.forEach(el=>el.textContent = greetStr);
 }
 updateWelcomeClock();
 setInterval(updateWelcomeClock, 1000);
