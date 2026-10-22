@@ -290,6 +290,14 @@
     background:linear-gradient(135deg,#F6DFA0 0%,#D9A24B 55%,#B8892B 100%);
     -webkit-background-clip:text; background-clip:text; color:transparent;
     text-shadow:0 2px 16px rgba(184,137,43,.35);}
+  .wc-festival{display:flex; align-items:center; gap:.45rem; justify-content:flex-end;
+    padding:.3rem .85rem; border-radius:999px; background:rgba(217,162,75,.12);
+    border:1px solid rgba(217,162,75,.35); animation:wcFestIn .8s ease both;}
+  .wc-festival[hidden]{display:none;}
+  .wc-festival .wc-festival-icon{font-size:1.15rem; line-height:1;}
+  .wc-festival .wc-festival-text{font-family:'Tiro Bangla',serif; font-weight:700;
+    font-size:1.2rem; line-height:1.2; color:#F6DFA0; letter-spacing:.01em;}
+  @keyframes wcFestIn{from{opacity:0; transform:translateY(-6px);} to{opacity:1; transform:none;}}
   .wc-stats{display:flex; gap:.6rem; flex-wrap:wrap; margin-top:1.7rem;}
   .wc-stat{background:rgba(255,255,255,.07); border:1px solid rgba(239,230,210,.16);
     border-radius:12px; padding:.7rem 1rem; min-width:104px;}
@@ -446,6 +454,10 @@
           <svg role="img" aria-label="Unique Rural Fund"><use href="#urfMark"/></svg>
         </div>
         <div class="wc-top-right">
+          <div class="wc-festival" id="wcFestival" hidden>
+            <span class="wc-festival-icon" id="wcFestivalIcon"></span>
+            <span class="wc-festival-text" id="wcFestivalText"></span>
+          </div>
           <div class="wc-greeting-big" id="wcGreetingBig">
             <span class="wc-greeting-icon" id="wcGreetingIcon">—</span>
             <span class="wc-greeting-text" id="wcGreetingText">—</span>
@@ -763,6 +775,50 @@ function bnGreetingIcon(h){
   if(h<20) return '🌇';
   return '🌙';
 }
+/* ---- festival wishes (shown above the greeting, by the visitor's device date) ----
+   Each entry: from/to = [month, day] inclusive. Entries with `y` apply only to that
+   year (lunar-calendar festivals move every year, so add next year's dates here
+   each year). Entries without `y` repeat every year. The first match wins. */
+const BN_FESTIVALS = [
+  // --- same date every year ---
+  {from:[1,1],  to:[1,2],   icon:'🎉', text:'শুভ ইংরেজি নববর্ষ'},
+  {from:[1,14], to:[1,15],  icon:'🌾', text:'শুভ পৌষ সংক্রান্তি'},
+  {from:[1,26], to:[1,26],  icon:'🇮🇳', text:'প্রজাতন্ত্র দিবসের শুভেচ্ছা'},
+  {from:[4,14], to:[4,16],  icon:'🎊', text:'শুভ নববর্ষ — শুভ পয়লা বৈশাখ'},
+  {from:[5,9],  to:[5,9],   icon:'📖', text:'শুভ পঁচিশে বৈশাখ'},
+  {from:[8,15], to:[8,15],  icon:'🇮🇳', text:'স্বাধীনতা দিবসের শুভেচ্ছা'},
+  {from:[9,17], to:[9,17],  icon:'⚙️', text:'শুভ বিশ্বকর্মা পূজা'},
+  {from:[12,24],to:[12,26], icon:'🎄', text:'শুভ বড়দিন'},
+  {from:[12,31],to:[12,31], icon:'🎉', text:'আগাম ইংরেজি নববর্ষের শুভেচ্ছা'},
+  // --- 2026 ---
+  {y:2026, from:[1,23],  to:[1,23],  icon:'📚', text:'শুভ সরস্বতী পূজা'},
+  {y:2026, from:[3,3],   to:[3,4],   icon:'🎨', text:'শুভ দোলযাত্রা'},
+  {y:2026, from:[7,16],  to:[7,16],  icon:'🛕', text:'শুভ রথযাত্রা'},
+  {y:2026, from:[9,4],   to:[9,4],   icon:'🦚', text:'শুভ জন্মাষ্টমী'},
+  {y:2026, from:[9,14],  to:[9,14],  icon:'🐘', text:'শুভ গণেশ চতুর্থী'},
+  {y:2026, from:[10,10], to:[10,10], icon:'🪔', text:'শুভ মহালয়া'},
+  {y:2026, from:[10,11], to:[10,19], icon:'🌼', text:'শুভ শারদীয়া'},
+  {y:2026, from:[10,20], to:[10,28], icon:'🙏', text:'শুভ বিজয়া'},
+  {y:2026, from:[10,29], to:[11,10], icon:'🪔', text:'শুভ দীপাবলি'},
+  {y:2026, from:[11,11], to:[11,12], icon:'🤝', text:'শুভ ভাইফোঁটা'},
+];
+function bnFestivalNow(now){
+  const y = now.getFullYear(), md = (now.getMonth()+1)*100 + now.getDate();
+  return BN_FESTIVALS.find(f => (!f.y || f.y === y)
+    && md >= f.from[0]*100 + f.from[1] && md <= f.to[0]*100 + f.to[1]) || null;
+}
+function updateFestival(now){
+  const box = document.getElementById('wcFestival');
+  if(!box) return;
+  const f = bnFestivalNow(now);
+  if(!f){ box.hidden = true; return; }
+  const txt = document.getElementById('wcFestivalText');
+  if(txt.textContent !== f.text){
+    txt.textContent = f.text;
+    document.getElementById('wcFestivalIcon').textContent = f.icon;
+  }
+  box.hidden = false;
+}
 function updateWelcomeClock(){
   // Two clock instances now exist (the hero page and the login page) — both
   // stay in sync by class instead of a single getElementById id pair.
@@ -785,6 +841,7 @@ function updateWelcomeClock(){
   dateEls.forEach(el=>el.textContent = dateStr);
   greetEls.forEach(el=>el.textContent = greetStr);
   greetIconEls.forEach(el=>el.textContent = bnGreetingIcon(now.getHours()));
+  updateFestival(now);
 }
 updateWelcomeClock();
 setInterval(updateWelcomeClock, 1000);
