@@ -247,12 +247,13 @@
       radial-gradient(900px 520px at 12% 8%, rgba(198,124,62,.30), transparent 60%),
       radial-gradient(760px 520px at 92% 92%, rgba(46,107,79,.55), transparent 62%),
       linear-gradient(150deg, #12241B 0%, #16301F 45%, #1E4A35 100%);
-    display:flex; align-items:center; justify-content:center; padding:2.4rem 1.4rem;}
+    display:flex; align-items:flex-start; justify-content:center; padding:2.4rem 1.4rem;}
   /* Only one of wc-hero / wc-col2 is ever shown at a time now (see
      showWcLoginForm/hideWcLoginForm) — a single centered column suits both:
      the hero's own text keeps its familiar max-width, and the login card
      doesn't stretch loose across space that used to be the hero's column. */
-  .welcome-inner{width:min(640px,100%); display:flex; flex-direction:column; align-items:center;}
+  .welcome-inner{width:min(640px,100%); display:flex; flex-direction:column; align-items:center;
+    margin:auto;}
   .wc-hero{color:#EFE6D2; width:100%;}
   .wc-top-row{display:flex; align-items:flex-start; justify-content:space-between;
     gap:1rem; flex-wrap:wrap; margin-bottom:1.5rem;}
@@ -304,7 +305,8 @@
     filter:drop-shadow(0 2px 8px rgba(0,0,0,.35));}
   .wc-festival .wc-festival-icon svg{width:100%; height:100%;}
   .wc-festival .wc-festival-text{font-family:'Tiro Bangla',serif; font-weight:700;
-    font-size:1.55rem; line-height:1.15; text-align:center; letter-spacing:.01em;
+    font-size:1.55rem; line-height:1.4; padding:.28em .1em 0; margin-top:-.2em;
+    text-align:center; letter-spacing:.01em;
     background:linear-gradient(135deg,#F6DFA0 0%,#D9A24B 55%,#B8892B 100%);
     -webkit-background-clip:text; background-clip:text; color:transparent;}
   .wc-festival .wc-festival-text::after{content:''; display:block; width:2.6rem; height:2px;
@@ -391,6 +393,7 @@
      scrolling — every rule below only trims spacing/size, never content. */
   @media (max-width:480px), (max-height:720px){
     .welcome{padding:1rem .9rem 1.2rem;}
+    .welcome-inner{margin:0 auto;}
     .wc-top-row{margin-bottom:.7rem;}
     .wc-logo-wrap{padding:.5rem;}
     .wc-logo-wrap svg{width:56px; height:56px;}
