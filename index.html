@@ -291,7 +291,10 @@
     -webkit-background-clip:text; background-clip:text; color:transparent;
     text-shadow:0 2px 16px rgba(184,137,43,.35);}
   /* festival wish: sits beside the logo, picture on top, wish under it */
-  .wc-festival{flex:1 1 8rem; align-self:stretch; display:flex; flex-direction:column;
+  .wc-top-mid{flex:1 1 9rem; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:.5rem; min-width:0;}
+  .wc-top-mid .wc-greeting-big{justify-content:center;}
+  .wc-festival{display:flex; flex-direction:column;
     align-items:center; justify-content:center; gap:.2rem; text-align:center;
     animation:wcFestIn .8s ease both;}
   .wc-festival[hidden]{display:none;}
@@ -397,8 +400,11 @@
     .wc-top-right{gap:.3rem; margin-top:-.2rem;}
     .wc-festival .wc-festival-icon{width:3.4rem; height:3.4rem; padding:.4rem;}
     .wc-festival .wc-festival-text{font-size:1.3rem;}
-    .wc-greeting-big .wc-greeting-icon{font-size:1.4rem;}
-    .wc-greeting-big .wc-greeting-text{font-size:1.55rem;}
+    .wc-greeting-big .wc-greeting-icon{font-size:1.15rem;}
+    .wc-greeting-big .wc-greeting-text{font-size:1.3rem;}
+    .wc-top-row{flex-wrap:nowrap; align-items:center;}
+    .wc-top-row,.wc-hero,.welcome-inner{min-width:0; max-width:100%;}
+    .wc-top-mid{gap:.35rem;}
     .wc-eyebrow{margin:0 0 .4rem; font-size:.62rem;}
     .wc-hero h1{font-size:1.5rem; margin:0 0 .2rem;}
     .wc-rule{margin:.5rem 0 .6rem;}
@@ -464,20 +470,20 @@
         <div class="wc-logo-wrap">
           <svg role="img" aria-label="Unique Rural Fund"><use href="#urfMark"/></svg>
         </div>
-        <div class="wc-festival" id="wcFestival" hidden>
-          <span class="wc-festival-icon" id="wcFestivalIcon"></span>
-          <span class="wc-festival-text" id="wcFestivalText"></span>
-        </div>
-        <div class="wc-top-right">
+        <div class="wc-top-mid">
+          <div class="wc-festival" id="wcFestival" hidden>
+            <span class="wc-festival-icon" id="wcFestivalIcon"></span>
+            <span class="wc-festival-text" id="wcFestivalText"></span>
+          </div>
           <div class="wc-greeting-big" id="wcGreetingBig">
             <span class="wc-greeting-icon" id="wcGreetingIcon">—</span>
             <span class="wc-greeting-text" id="wcGreetingText">—</span>
           </div>
-          <div class="wc-clock">
-            <span class="wc-clock-time">—</span>
-            <span class="wc-clock-date">—</span>
-          </div>
         </div>
+      </div>
+      <div class="wc-clock">
+        <span class="wc-clock-time">—</span>
+        <span class="wc-clock-date">—</span>
       </div>
       <p class="wc-eyebrow">Est. 2021</p>
       <h1>Welcome to<br><span class="gold">Unique Rural Fund</span></h1>
