@@ -281,7 +281,7 @@
     color:var(--active-bg); letter-spacing:.02em;}
   .wc-clock .wc-clock-date{font-size:.8rem; color:#9FB6A4;}
   .wc-top-right{display:flex; flex-direction:column; align-items:flex-end; gap:.5rem;
-    margin-top:-.4rem;}
+    margin-top:-.4rem; margin-left:auto;}
   .wc-greeting-big{display:flex; align-items:center; gap:.4rem; justify-content:flex-end;}
   .wc-greeting-big .wc-greeting-icon{font-size:2rem; line-height:1;
     filter:drop-shadow(0 2px 6px rgba(0,0,0,.3));}
@@ -290,14 +290,22 @@
     background:linear-gradient(135deg,#F6DFA0 0%,#D9A24B 55%,#B8892B 100%);
     -webkit-background-clip:text; background-clip:text; color:transparent;
     text-shadow:0 2px 16px rgba(184,137,43,.35);}
-  .wc-festival{display:flex; align-items:center; gap:.5rem; justify-content:flex-end;
-    margin:0 0 .35rem; animation:wcFestIn .8s ease both;}
+  /* festival wish: sits beside the logo, picture on top, wish under it */
+  .wc-festival{flex:1 1 8rem; align-self:stretch; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:.2rem; text-align:center;
+    animation:wcFestIn .8s ease both;}
   .wc-festival[hidden]{display:none;}
-  .wc-festival .wc-festival-icon{display:flex; width:3.4rem; height:3.4rem; flex:none;
+  .wc-festival .wc-festival-icon{display:flex; align-items:center; justify-content:center;
+    width:4.4rem; height:4.4rem; flex:none; border-radius:50%; padding:.55rem;
+    background:radial-gradient(circle,rgba(246,223,160,.28) 0%,rgba(246,223,160,.08) 60%,transparent 72%);
     filter:drop-shadow(0 2px 8px rgba(0,0,0,.35));}
   .wc-festival .wc-festival-icon svg{width:100%; height:100%;}
-  .wc-festival .wc-festival-text{font-family:'Tiro Bangla',serif; font-weight:400;
-    font-size:1.5rem; line-height:1.2; color:#F6DFA0; letter-spacing:.02em; text-align:right;}
+  .wc-festival .wc-festival-text{font-family:'Tiro Bangla',serif; font-weight:700;
+    font-size:1.55rem; line-height:1.15; text-align:center; letter-spacing:.01em;
+    background:linear-gradient(135deg,#F6DFA0 0%,#D9A24B 55%,#B8892B 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .wc-festival .wc-festival-text::after{content:''; display:block; width:2.6rem; height:2px;
+    margin:.3rem auto 0; border-radius:2px; background:linear-gradient(90deg,transparent,#D9A24B,transparent);}
   @keyframes wcFestIn{from{opacity:0; transform:translateY(-6px);} to{opacity:1; transform:none;}}
   .wc-stats{display:flex; gap:.6rem; flex-wrap:wrap; margin-top:1.7rem;}
   .wc-stat{background:rgba(255,255,255,.07); border:1px solid rgba(239,230,210,.16);
@@ -387,6 +395,8 @@
     .wc-clock .wc-clock-time{font-size:1rem;}
     .wc-clock .wc-clock-date{font-size:.68rem;}
     .wc-top-right{gap:.3rem; margin-top:-.2rem;}
+    .wc-festival .wc-festival-icon{width:3.4rem; height:3.4rem; padding:.4rem;}
+    .wc-festival .wc-festival-text{font-size:1.3rem;}
     .wc-greeting-big .wc-greeting-icon{font-size:1.4rem;}
     .wc-greeting-big .wc-greeting-text{font-size:1.55rem;}
     .wc-eyebrow{margin:0 0 .4rem; font-size:.62rem;}
@@ -454,11 +464,11 @@
         <div class="wc-logo-wrap">
           <svg role="img" aria-label="Unique Rural Fund"><use href="#urfMark"/></svg>
         </div>
+        <div class="wc-festival" id="wcFestival" hidden>
+          <span class="wc-festival-icon" id="wcFestivalIcon"></span>
+          <span class="wc-festival-text" id="wcFestivalText"></span>
+        </div>
         <div class="wc-top-right">
-          <div class="wc-festival" id="wcFestival" hidden>
-            <span class="wc-festival-icon" id="wcFestivalIcon"></span>
-            <span class="wc-festival-text" id="wcFestivalText"></span>
-          </div>
           <div class="wc-greeting-big" id="wcGreetingBig">
             <span class="wc-greeting-icon" id="wcGreetingIcon">—</span>
             <span class="wc-greeting-text" id="wcGreetingText">—</span>
