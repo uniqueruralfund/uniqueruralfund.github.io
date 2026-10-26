@@ -1021,7 +1021,7 @@ function updatePendingBadge(){
     return;
   }
   const payPend = (DATA.paymentRequests||[]).filter(p=>p.stage==='collector'||p.stage==='admin').length;
-  const loanPend = (DATA.loanRequests||[]).filter(l=>l.stage==='collector'||l.stage==='admin').length;
+  const loanPend = (DATA.loanRequests||[]).filter(l=>l.stage==='urgent'||l.stage==='collector'||l.stage==='admin').length;
   const loanRepayPend = (DATA.loanRepayments||[]).filter(l=>l.stage==='collector'||l.stage==='admin').length;
   const total = payPend + loanPend + loanRepayPend;
   addBadge(apprBtn, payPend);
@@ -1776,7 +1776,7 @@ function buildApprovalCardHTML(idSuffix, readOnly){
 function buildLoanApprovalCardHTML(idSuffix, readOnly){
   idSuffix = idSuffix || '';
   const reqs = DATA.loanRequests || [];
-  const pend = reqs.filter(r=>['collector','ack','admin'].includes(r.stage));
+  const pend = reqs.filter(r=>['urgent','collector','ack','admin'].includes(r.stage));
   let pendBox;
   if(!pend.length){
     pendBox = `<p class="hint-text">এখন কোনো ঋণের আবেদন অপেক্ষায় নেই।</p>`;
@@ -1786,6 +1786,25 @@ function buildLoanApprovalCardHTML(idSuffix, readOnly){
         let btns;
         if(readOnly){
           btns = `<span class="hint-text">${r.stage==='ack' ? 'সদস্যের স্বীকৃতির' : (r.stage==='collector' ? (DATA.collectorName||'') : ADMIN_NAME)+'-র'} অপেক্ষায়</span>`;
+        } else if(r.stage === 'urgent'){
+          // 🚨 Urgent request: Prasun decides FIRST (and may change the amount);
+          // only after his approval does it reach the collector to pay.
+          if(!isAdminMember()){
+            btns = `<span class="hint-text">${ADMIN_NAME}-র অনুমোদনের অপেক্ষায়</span>`;
+          } else if(!isEditing()){
+            btns = `<span class="hint-text">অনুমোদন করতে বাঁদিকে <strong>🔒 এডিট মোড</strong> আনলক করুন</span>`;
+          } else {
+            btns = `<div style="text-align:left;">
+              <div class="pay-field" style="margin-bottom:.5rem;">
+                <label class="field-label" for="urgentAmt-${r.token}${idSuffix}">অনুমোদিত টাকা (বদলাতে পারেন)</label>
+                <input type="number" id="urgentAmt-${r.token}${idSuffix}" class="pay-select" value="${r.amount}" min="1" step="1">
+              </div>
+              <div class="btn-pair">
+                <button class="approve-btn" onclick="loanUrgentApproveClick(event,'${r.token}','${idSuffix}')">✅ অনুমোদন</button>
+                <button class="reject-btn" onclick="loanRejectClick(event,'${r.token}')">❌ বাতিল</button>
+              </div>
+            </div>`;
+          }
         } else if(r.stage === 'collector'){
           // Normally only Satyajit Das actually hands over the loan money —
           // but Prasun Jyoti (admin) can step in on his behalf when Edit Mode
@@ -1839,6 +1858,12 @@ function buildLoanApprovalCardHTML(idSuffix, readOnly){
           ['প্রদানের মাধ্যম', r.method||'—'], ['রসিদ', disburseReceipt],
           ['অবস্থা', r.status]
         ];
+        if(r.urgent){
+          rows.splice(1, 0, ['ধরন', '🚨 জরুরি আবেদন'], ['কারণ', escHtml(r.urgentReason)||'—']);
+          if(r.originalAmount && r.originalAmount !== r.amount){
+            rows.splice(4, 0, ['মূলত চেয়েছিলেন', '<span class="mono">'+moneyInt(r.originalAmount)+'</span>']);
+          }
+        }
         return `<div class="appr-card"${disputed?' style="background:#FBEFE0;"':''}>
           ${rows.map(([k,v])=>`<div class="appr-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
           <div class="appr-actions">${btns}</div>
@@ -2610,7 +2635,7 @@ function activeLoanRequestByName(name){
   if(!DATA || !name) return null;
   return (DATA.loanRequests||[]).find(r=>
     r.member.toLowerCase()===name.toLowerCase() &&
-    ['collector','ack','admin'].includes(r.stage)) || null;
+    ['urgent','collector','ack','admin'].includes(r.stage)) || null;
 }
 
 function renderLoanRequest(){
@@ -2657,7 +2682,7 @@ function renderLoanRequest(){
           <input type="date" id="loanNeededByInput" class="pay-select" value="${todayStr}" min="${todayStr}">
         </div>
       </div>
-      <p class="hint-text" style="margin:.3rem 0 1rem;">সর্বোচ্চ <strong>${moneyInt(maxEligible)}</strong> — Available Balance ${moneyInt(availableBalance)}-এর ${rules.percent}%, সর্বোচ্চ ${moneyInt(rules.cap)}। কম নিতে চাইলে বক্সের সংখ্যাটা বদলে দিন।</p>
+      <p class="hint-text" style="margin:.3rem 0 1rem;">সর্বোচ্চ <strong>${moneyInt(maxEligible)}</strong> — Available Balance ${moneyInt(availableBalance)}-এর ${rules.percent}%, সর্বোচ্চ ${moneyInt(rules.cap)}। কম নিতে চাইলে বক্সের সংখ্যাটা বদলে দিন। এর বেশি লাগলে সাইডবারের <strong>🚨 জরুরি আবেদন</strong> মেনু ব্যবহার করুন।</p>
       <div class="pay-actions">
         <button class="pay-btn claim" onclick="submitLoanRequestClick(event)">📨 অনুরোধ পাঠান</button>
       </div>
@@ -2962,6 +2987,150 @@ async function confirmLoanRepayClaim(ev){
   }
 }
 
+/* ================= 🚨 urgent loan (জরুরি আবেদন page) ================= */
+// No amount ceiling here — the applicant states the need and a reason; the
+// request goes to Prasun FIRST, who may change the amount and approves, and
+// only then does the collector pay. Everything after that is the ordinary flow.
+function urgentForChanged(v){ loanForName = v; renderPage('urgentloan'); }
+
+function renderUrgentLoan(){
+  const targetName = memberSession ? (loanForName || memberSession.userId) : '';
+  const hasActiveLoan = !!activeLoanByName(targetName);
+  const myPending = activeLoanRequestByName(targetName);
+  const todayStr = new Date().toISOString().slice(0,10);
+  const who = targetName && memberSession && targetName.toLowerCase()===memberSession.userId.toLowerCase() ? 'আপনার' : targetName+'-এর';
+
+  const forSelect = memberSession ? `
+    <div class="pay-field">
+      <label class="field-label" for="loanForWhom">কার হয়ে আবেদন করছেন?</label>
+      <select id="loanForWhom" class="pay-select" onchange="urgentForChanged(this.value)">
+        ${(DATA.contributions||[]).slice().sort((a,b)=>a.name.localeCompare(b.name,'bn'))
+          .map(c=>`<option value="${escHtml(c.name)}" ${c.name.toLowerCase()===targetName.toLowerCase()?'selected':''}>${escHtml(c.name)}${c.name.toLowerCase()===memberSession.userId.toLowerCase()?' (নিজে)':''}</option>`).join('')}
+      </select>
+    </div>` : '';
+
+  let formBox;
+  if(!memberSession){
+    formBox = `<p class="hint-text">জরুরি আবেদন করতে সাইডবারের <strong>👤 ব্যক্তিগত তথ্য দেখুন</strong>-এ নিজের User ID ও Password দিয়ে লগইন করুন।</p>`;
+  } else if(hasActiveLoan){
+    formBox = `<div class="pay-row">${forSelect}</div><p class="hint-text">${who} একটি চলতি ঋণ চলছে — সেটি শেষ না হওয়া পর্যন্ত নতুন আবেদন করা যাবে না।</p>`;
+  } else if(myPending){
+    formBox = `<div class="pay-row">${forSelect}</div><p class="hint-text">${who} একটি ঋণের আবেদন প্রক্রিয়াধীন আছে — নিচে "আপনার জরুরি আবেদন"-এ দেখুন।</p>`;
+  } else {
+    formBox = `
+      <div class="pay-row">
+        ${forSelect}
+        <div class="pay-field">
+          <label class="field-label" for="urgentAmountInput">কত টাকা লাগবে?</label>
+          <input type="number" id="urgentAmountInput" class="pay-select" min="1" step="1" placeholder="যত টাকা দরকার">
+        </div>
+        <div class="pay-field">
+          <label class="field-label" for="urgentNeededByInput">কবে টাকা লাগবে?</label>
+          <input type="date" id="urgentNeededByInput" class="pay-select" value="${todayStr}" min="${todayStr}">
+        </div>
+      </div>
+      <div class="pay-field" style="margin:.6rem 0 .3rem;">
+        <label class="field-label" for="urgentReasonInput">জরুরি হওয়ার কারণ (আবশ্যক)</label>
+        <textarea id="urgentReasonInput" class="pay-select" rows="3" maxlength="500" placeholder="কেন এই টাকা জরুরি, সংক্ষেপে লিখুন" style="width:100%;font-family:inherit;"></textarea>
+      </div>
+      <p class="hint-text" style="margin:.3rem 0 1rem;">এখানে সাধারণ সীমা (Available Balance-এর ${(DATA.loanRules&&DATA.loanRules.percent)||60}%, সর্বোচ্চ ${moneyInt((DATA.loanRules&&DATA.loanRules.cap)||25000)}) প্রযোজ্য নয়। আবেদন প্রথমে <strong>${ADMIN_NAME}</strong>-এর কাছে যাবে; তিনি টাকার পরিমাণ বদলাতে পারেন। অনুমোদনের পর <strong>${DATA.collectorName||'সংগ্রাহক'}</strong> টাকা দেবেন।</p>
+      <div class="pay-actions">
+        <button class="pay-btn claim" onclick="submitUrgentLoanClick(event)">🚨 জরুরি অনুরোধ পাঠান</button>
+      </div>
+      <div class="msg-err" id="loanErr" hidden></div>`;
+  }
+
+  let myBox = '';
+  if(memberSession){
+    const mine = (DATA.loanRequests||[]).filter(r=>r.urgent && (r.member.toLowerCase()===memberSession.userId.toLowerCase()
+      || (r.processedBy && r.processedBy.toLowerCase()===memberSession.userId.toLowerCase())));
+    if(mine.length){
+      myBox = `
+        <h4 class="pay-subhead">আপনার জরুরি আবেদন</h4>
+        <div class="table-scroll" style="max-height:none;"><table>
+          <thead><tr><th>সদস্য</th><th>টাকা</th><th>কারণ</th><th>তারিখ</th><th>অবস্থা</th><th>কাজ</th></tr></thead>
+          <tbody>${mine.map(r=>{
+            const action = r.stage === 'ack'
+              ? `<div class="btn-pair">
+                  <button class="approve-btn" onclick="loanAckClick(event,'${r.token}')">✅ টাকা পেয়েছি</button>
+                  <button class="reject-btn" onclick="loanDisputeClick(event,'${r.token}')">❌ এখনো পাইনি</button>
+                </div>`
+              : `<span class="hint-text">—</span>`;
+            const amt = (r.originalAmount && r.originalAmount !== r.amount)
+              ? `<span class="mono">${moneyInt(r.amount)}</span><br><span class="hint-text">(চেয়েছিলেন ${moneyInt(r.originalAmount)})</span>`
+              : `<span class="mono">${moneyInt(r.amount)}</span>`;
+            return `<tr><td>${escHtml(r.member)}</td><td>${amt}</td><td>${escHtml(r.urgentReason)}</td><td>${r.askedAt}</td><td>${r.status}</td><td>${action}</td></tr>`;
+          }).join('')}</tbody>
+        </table></div>`;
+    }
+  }
+
+  pageBody.innerHTML = `
+    <div class="card">
+      <div class="card-head">
+        <h2>🚨 জরুরি ঋণের আবেদন</h2>
+        <div class="hint">সাধারণ সীমার বেশি টাকা লাগলে এখান থেকে আবেদন করুন। কারণ লেখা আবশ্যক, আর ${ADMIN_NAME} আগে অনুমোদন দেবেন।</div>
+      </div>
+      ${formBox}
+      ${myBox}
+    </div>`;
+}
+
+async function submitUrgentLoanClick(ev){
+  const errBox = document.getElementById('loanErr');
+  errBox.hidden = true;
+  const amount = Number(document.getElementById('urgentAmountInput').value);
+  const reason = (document.getElementById('urgentReasonInput').value || '').trim();
+  if(!amount || amount <= 0){
+    errBox.textContent = 'সঠিক পরিমাণ দিন।';
+    errBox.hidden = false;
+    return;
+  }
+  if(!reason){
+    errBox.textContent = 'জরুরি আবেদনের কারণ লিখতে হবে।';
+    errBox.hidden = false;
+    return;
+  }
+  const forWhomEl = document.getElementById('loanForWhom');
+  const forMember = forWhomEl && forWhomEl.value ? forWhomEl.value : memberSession.userId;
+  const neededByEl = document.getElementById('urgentNeededByInput');
+  const neededByDate = neededByEl && neededByEl.value ? neededByEl.value : '';
+  const confirmWho = forMember.toLowerCase()===memberSession.userId.toLowerCase() ? '' : (forMember + '-এর হয়ে ');
+  if(!confirm('আপনি কি নিশ্চিত ' + confirmWho + moneyInt(amount) + ' জরুরি ঋণের আবেদন ' + ADMIN_NAME + '-এর কাছে পাঠাতে চান?')) return;
+  const btn = ev.target;
+  btn.disabled = true;
+  const oldLabel = btn.textContent;
+  btn.textContent = 'পাঠানো হচ্ছে...';
+  try{
+    const res = await fetch(SCRIPT_URL, {
+      method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action:'submitUrgentLoanRequest', userId:memberSession.userId, pin:memberSession.pin, amount, forMember, neededByDate, reason})
+    });
+    const json = await res.json();
+    if(!json.ok){
+      errBox.textContent = json.error || 'পাঠানো যায়নি।';
+      errBox.hidden = false;
+      return;
+    }
+    flashSaved(json.message || 'জরুরি অনুরোধ পাঠানো হয়েছে', false);
+    await loadData(true);
+  }catch(err){
+    errBox.textContent = 'নেটওয়ার্ক সমস্যা, আবার চেষ্টা করুন।';
+    errBox.hidden = false;
+  }finally{
+    btn.disabled = false;
+    btn.textContent = oldLabel;
+  }
+}
+
+async function loanUrgentApproveClick(ev, token, idSuffix){
+  const el = document.getElementById('urgentAmt-'+token+(idSuffix||''));
+  const amount = el ? Number(el.value) : 0;
+  if(!amount || amount <= 0){ alert('সঠিক পরিমাণ দিন।'); return; }
+  if(!confirm(moneyInt(amount) + ' ঋণ অনুমোদন করবেন? এরপর ' + (DATA.collectorName||'সংগ্রাহক') + ' এই টাকা দেবেন।')) return;
+  await postLoanAction(ev, {action:'approveUrgentLoan', token, amount, pin:editPin}, '✅ অনুমোদন', 'অনুমোদন করা যায়নি।');
+}
+
 async function submitLoanRequestClick(ev){
   const errBox = document.getElementById('loanErr');
   errBox.hidden = true;
@@ -3100,6 +3269,7 @@ async function postLoanAction(ev, body, btnLabel, failMsg){
 }
 
 /* ================= helpers ================= */
+function escHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function money(n){ if(n===null||n===undefined) return "—"; return "₹" + Number(n).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2}); }
 function moneyInt(n){ if(n===null||n===undefined) return "—"; return "₹" + Number(n).toLocaleString('en-IN'); }
 function initialsOf(name){
@@ -3146,6 +3316,7 @@ const pages = [
   {id:"loans",    label:"ঋণ হিসাব"},
   {id:"payment",  label:"পেমেন্ট"},
   {id:"loanrequest", label:"ঋণের আবেদন"},
+  {id:"urgentloan", label:"🚨 জরুরি আবেদন"},
   {id:"loanrepay", label:"ঋণ পরিশোধ"},
   {id:"fine",     label:"ফাইন"},
   {id:"rules",    label:"নিয়মাবলী"},
@@ -3154,8 +3325,8 @@ const pages = [
   {id:"cashconfirm", label:"নগদ প্রাপ্তি নিশ্চিতকরণ"},
   {id:"usageguide", label:"কীভাবে ব্যবহার করবেন"}
 ];
-const bnNum = ["০১","০২","০৩","০৪","০৫","০৬","০৭","০৮","০৯","১০","১১","১২","১৩"];
-const pageTitles = {overview:"Overview", members:"সদস্য তালিকা", contrib:"মাসিক জমা", loans:"ঋণ হিসাব", payment:"পেমেন্ট", loanrequest:"ঋণের আবেদন", loanrepay:"ঋণ পরিশোধ", fine:"ফাইন", rules:"নিয়মাবলী", birthdays:"জন্মদিন", history:"বছরের ইতিহাস", cashconfirm:"নগদ প্রাপ্তি নিশ্চিতকরণ", usageguide:"কীভাবে ব্যবহার করবেন"};
+const bnNum = ["০১","০২","০৩","০৪","০৫","০৬","০৭","০৮","০৯","১০","১১","১২","১৩","১৪"];
+const pageTitles = {overview:"Overview", members:"সদস্য তালিকা", contrib:"মাসিক জমা", loans:"ঋণ হিসাব", payment:"পেমেন্ট", loanrequest:"ঋণের আবেদন", urgentloan:"🚨 জরুরি আবেদন", loanrepay:"ঋণ পরিশোধ", fine:"ফাইন", rules:"নিয়মাবলী", birthdays:"জন্মদিন", history:"বছরের ইতিহাস", cashconfirm:"নগদ প্রাপ্তি নিশ্চিতকরণ", usageguide:"কীভাবে ব্যবহার করবেন"};
 const navlist = document.getElementById('navlist');
 navlist.innerHTML = pages.map((p,i)=> `<button data-page="${p.id}" class="${i===0?'active':''}"><span class="n">${bnNum[i]}</span>${p.label}</button>`).join('');
 navlist.addEventListener('click', e=>{
@@ -3552,7 +3723,7 @@ function renderHistory(){
     </div>`;
 }
 
-const renderers = {overview:renderOverview, members:renderMembers, contrib:renderContrib, loans:renderLoans, payment:renderPayment, loanrequest:renderLoanRequest, loanrepay:renderLoanRepay, fine:renderFine, rules:renderRules, birthdays:renderBirthdays, history:renderHistory, cashconfirm:renderCashConfirm, usageguide:renderUsageGuide};
+const renderers = {overview:renderOverview, members:renderMembers, contrib:renderContrib, loans:renderLoans, payment:renderPayment, loanrequest:renderLoanRequest, urgentloan:renderUrgentLoan, loanrepay:renderLoanRepay, fine:renderFine, rules:renderRules, birthdays:renderBirthdays, history:renderHistory, cashconfirm:renderCashConfirm, usageguide:renderUsageGuide};
 function renderPage(id){
   if(!DATA) return;
   pageTitle.textContent = (bnNum[pages.findIndex(p=>p.id===id)]) + " " + pageTitles[id];
