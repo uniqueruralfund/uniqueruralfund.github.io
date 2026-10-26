@@ -1803,6 +1803,9 @@ function buildLoanApprovalCardHTML(idSuffix, readOnly){
                 <button class="approve-btn" onclick="loanUrgentApproveClick(event,'${r.token}','${idSuffix}')">✅ অনুমোদন</button>
                 <button class="reject-btn" onclick="loanRejectClick(event,'${r.token}')">❌ বাতিল</button>
               </div>
+              <div style="margin-top:.5rem;">
+                <button class="refresh-btn" onclick="loanUrgentBroadcastClick(event,'${r.token}')">📢 সবাইকে জানান</button>
+              </div>
             </div>`;
           }
         } else if(r.stage === 'collector'){
@@ -3129,6 +3132,11 @@ async function loanUrgentApproveClick(ev, token, idSuffix){
   if(!amount || amount <= 0){ alert('সঠিক পরিমাণ দিন।'); return; }
   if(!confirm(moneyInt(amount) + ' ঋণ অনুমোদন করবেন? এরপর ' + (DATA.collectorName||'সংগ্রাহক') + ' এই টাকা দেবেন।')) return;
   await postLoanAction(ev, {action:'approveUrgentLoan', token, amount, pin:editPin}, '✅ অনুমোদন', 'অনুমোদন করা যায়নি।');
+}
+
+async function loanUrgentBroadcastClick(ev, token){
+  if(!confirm('এই জরুরি আবেদনের তথ্য গ্রুপের সব সদস্যকে ইমেইলে পাঠানো হবে (কারণসহ)। পাঠাবেন?')) return;
+  await postLoanAction(ev, {action:'broadcastUrgentLoan', token, pin:editPin}, '📢 সবাইকে জানান', 'পাঠানো যায়নি।');
 }
 
 async function submitLoanRequestClick(ev){
