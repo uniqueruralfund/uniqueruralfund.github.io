@@ -442,9 +442,12 @@
   .hd-fab:hover{background:var(--green-dark);}
   .hd-panel{position:fixed; right:16px; bottom:70px; z-index:9001; width:min(94vw,370px); max-height:78vh; background:#fff; border-radius:16px; box-shadow:0 12px 40px rgba(0,0,0,.35); display:flex; flex-direction:column; overflow:hidden; font-family:'Hind Siliguri',sans-serif;}
   .hd-panel[hidden]{display:none;}
-  .hd-head{background:var(--green-dark); color:#fff; padding:.8rem 1rem; display:flex; justify-content:space-between; align-items:center;}
-  .hd-head b{font-size:1.02rem;} .hd-head small{display:block; opacity:.8; font-size:.74rem;}
-  .hd-x{background:none; border:0; color:#fff; font-size:1.2rem; cursor:pointer;}
+  .hd-head{background:var(--green-dark); color:#fff; padding:1rem 1.1rem .95rem; display:flex; justify-content:space-between; align-items:flex-start; gap:.6rem;}
+  .hd-head .hd-title{font:700 1.35rem 'Hind Siliguri',sans-serif; line-height:1.2;}
+  .hd-head .hd-tag{display:block; margin-top:.35rem; color:#E7C877; font-weight:600; font-size:.88rem;}
+  .hd-head .hd-hello{display:block; margin-top:.6rem; font-size:.88rem; line-height:1.5; color:#fff;}
+  .hd-head .hd-spark{color:#E7C877; font-size:1.3rem; line-height:1; margin-right:.2rem;}
+  .hd-x{background:none; border:0; color:#fff; font-size:1.2rem; cursor:pointer; line-height:1;}
   .hd-body{padding:.8rem; overflow-y:auto; flex:1; background:var(--content-bg);}
   .hd-msg{background:#fff; border:1px solid var(--line); border-radius:12px; padding:.65rem .8rem; margin-bottom:.6rem; font-size:.92rem; line-height:1.55; color:var(--ink);}
   .hd-msg.me{background:var(--green); color:#fff; border-color:var(--green); margin-left:2rem;}
@@ -563,7 +566,7 @@
   </div>
   <nav class="navlist" id="navlist"></nav>
   <div class="edit-toggle">
-    <button class="edit-btn" id="helpMenuBtn" style="margin-bottom:.5rem;" onclick="hdToggle()">💬 May I help you?</button>
+    <button class="edit-btn" id="helpMenuBtn" style="margin-bottom:.5rem;" onclick="hdToggle()">🤝 URF Sathi</button>
     <button class="edit-btn" id="memberBtn" style="margin-bottom:.5rem;">👤 ব্যক্তিগত তথ্য দেখুন</button>
     <button class="edit-btn" id="approveBtn" style="margin-bottom:.5rem;" hidden onclick="openApprovalOverlay()">🧾 মাসিক জমার অনুমোদন</button>
     <button class="edit-btn" id="loanApproveBtn" style="margin-bottom:.5rem;" hidden onclick="openLoanApprovalOverlay()">🏦 ঋণ অনুমোদন</button>
@@ -3783,7 +3786,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
 </script>
 
 <div class="hd-panel" id="hdPanel" hidden>
-  <div class="hd-head"><div><b>👋 May I help you?</b><small>প্রশ্ন বেছে নিন বা লিখুন — সাথে সাথে উত্তর পাবেন</small></div><button class="hd-x" type="button" onclick="hdToggle()" aria-label="বন্ধ করুন">✕</button></div>
+  <div class="hd-head"><div><span class="hd-title">🤝 URF Sathi</span><span class="hd-tag">Your Trusted Financial Companion</span><span class="hd-hello">নমস্কার! 👋 আমি URF Sathi। আপনার সঞ্চয়, ঋণ ও আর্থিক তথ্য জানতে আমি আপনাকে সাহায্য করতে প্রস্তুত।</span></div><div style="display:flex; align-items:flex-start;"><span class="hd-spark" aria-hidden="true">✨</span><button class="hd-x" type="button" onclick="hdToggle()" aria-label="বন্ধ করুন">✕</button></div></div>
   <div class="hd-body" id="hdBody"></div>
   <form class="hd-input" onsubmit="hdAsk(event)"><input id="hdText" type="text" placeholder="এখানে প্রশ্ন লিখুন…" autocomplete="off"><button type="submit">পাঠান</button></form>
 </div>
@@ -3823,7 +3826,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
   function backBtn(label){ return; var b=document.createElement('button'); b.type='button'; b.className='hd-q'; b.style.marginTop='.5rem'; b.textContent=label; b.onclick=menu; body().appendChild(b); body().scrollTop=body().scrollHeight; }
   function menu(){
     var b=body(); b.innerHTML='';
-    add('নমস্কার! 👋 <b>আমি কীভাবে সাহায্য করতে পারি?</b><br>নিচের বক্সে আপনার প্রশ্ন লিখুন (বাংলা বা Banglish), আমি উত্তর দেব।');
+    add('নিচের বক্সে আপনার প্রশ্ন লিখুন (বাংলা বা Banglish) — যেমন <i>"আমার জমা কত"</i>, <i>"kon kon member loan niyeche"</i>, <i>"balance koto"</i>। আমি সাথে সাথে উত্তর দেব।');
   }
   function reply(f){
     var d=add(f.a());
