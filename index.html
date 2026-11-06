@@ -454,7 +454,10 @@
   .hd-title{display:block; font:700 1.95rem 'Hind Siliguri',sans-serif; line-height:1.05; color:#fff; letter-spacing:.2px;}
   .hd-tag{display:block; margin-top:.2rem; font:italic 700 .82rem 'Hind Siliguri',sans-serif; color:#F5C800;}
   .hd-swoosh{display:block; width:100%; height:22px; margin-top:-2px;}
-  .hd-hello{display:block; margin-top:.2rem; font-size:.95rem; line-height:1.55; color:#fff;}
+  .hd-hello{display:block; margin-top:.45rem; padding:.6rem .8rem .65rem; background:rgba(255,255,255,.09); border:1px solid rgba(231,200,119,.4); border-left:4px solid #E7C877; border-radius:12px;}
+  .hd-hi{display:block; font:700 1.08rem 'Hind Siliguri',sans-serif; line-height:1.35; color:#FFE9A8; overflow-wrap:anywhere;}
+  .hd-hi .hd-em{font-size:1.25rem; vertical-align:-2px; margin-left:.15rem;}
+  .hd-sub{display:block; margin-top:.25rem; font-size:.88rem; line-height:1.6; color:rgba(255,255,255,.9);}
   .hd-tools{position:absolute; top:.6rem; right:.7rem; display:flex; align-items:center; gap:.45rem;}
   .hd-spark{font-size:1.3rem; line-height:1;}
   .hd-x{background:none; border:0; color:#fff; font-size:1.35rem; cursor:pointer; line-height:1; padding:.1rem .2rem;}
@@ -3803,7 +3806,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
       <div class="hd-titles"><span class="hd-welcome" id="hdWelcome">স্বাগতম</span><span class="hd-title">URF Sathi</span><span class="hd-tag">Your Trusted Financial Companion</span></div>
     </div>
     <svg class="hd-swoosh" viewBox="0 0 360 22" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="hdSw" x1="0" x2="1"><stop offset="0" stop-color="#7BC043" stop-opacity="0"/><stop offset=".35" stop-color="#A8D93A"/><stop offset=".7" stop-color="#F5E100"/><stop offset="1" stop-color="#F5E100" stop-opacity=".9"/></linearGradient></defs><path d="M20 18 C110 4, 250 6, 352 2 C260 12, 130 20, 20 18 Z" fill="url(#hdSw)"/></svg>
-    <span class="hd-hello" id="hdHello">নমস্কার! 🤝 আমি URF Sathi। আপনার সঞ্চয়, ঋণ ও আর্থিক তথ্য জানতে আমি আপনাকে সাহায্য করতে প্রস্তুত।</span>
+    <div class="hd-hello" id="hdHello"><span class="hd-hi">নমস্কার! <span class="hd-em">🤝</span></span><span class="hd-sub">আমি URF Sathi। আপনার সঞ্চয়, ঋণ ও আর্থিক তথ্য জানতে আমি আপনাকে সাহায্য করতে প্রস্তুত।</span></div>
   </div>
   <div class="hd-body" id="hdBody"></div>
   <form class="hd-input" onsubmit="hdAsk(event)"><input id="hdText" type="text" placeholder="এখানে প্রশ্ন লিখুন…" autocomplete="off"><button type="submit">পাঠান</button></form>
@@ -4415,8 +4418,8 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     var x=h+m/60;
     if(x>=5 && x<12) return 'শুভ সকাল ☀️';
     if(x>=12 && x<15.5) return 'শুভ দুপুর 🌤️';
-    if(x>=15.5 && x<18) return 'শুভ বিকেল 🌇';
-    if(x>=18 && x<20) return 'শুভ সন্ধ্যা 🌆';
+    if(x>=15.5 && x<18) return 'শুভ বিকেল ☕';
+    if(x>=18 && x<20) return 'শুভ সন্ধ্যা 🪔';
     return 'শুভ রাত্রি 🌙';
   }
   function hdGreet(){
@@ -4425,7 +4428,10 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     var d=new Date(), g=hdGreeting(d.getHours(),d.getMinutes());
     var w=document.getElementById('hdWelcome'), h=document.getElementById('hdHello');
     if(w) w.textContent = n ? 'স্বাগতম, '+n+'!' : 'স্বাগতম';
-    if(h) h.textContent = g+(n?', '+n:'')+'! 🤝 আমি URF Sathi। আপনার সঞ্চয়, ঋণ ও আর্থিক তথ্য জানতে আমি আপনাকে সাহায্য করতে প্রস্তুত।';
+    if(h){
+      var parts=g.split(' '), wish=parts[0]+' '+parts[1], em=parts[2]||'🤝';
+      h.innerHTML='<span class="hd-hi">'+wish+(n?', '+n:'')+'! <span class="hd-em">'+em+'</span></span><span class="hd-sub">আমি URF Sathi। আপনার সঞ্চয়, ঋণ ও আর্থিক তথ্য জানতে আমি আপনাকে সাহায্য করতে প্রস্তুত।</span>';
+    }
   }
   window.hdToggle=function(){ var p=document.getElementById('hdPanel'); p.hidden=!p.hidden; if(!p.hidden){ hdGreet(); if(!body().children.length) menu(); } };
 })();
