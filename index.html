@@ -3868,8 +3868,8 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
   // জমার তারিখ ও কে কবে অনুমোদন করেছেন — শুধু যে সদস্যের কথা, তিনি নিজে, আর Satyajit/Prasun (অ্যাডমিন) দেখতে পাবেন
   function payDetail(m, idx, pendingOnly){
     var me=(typeof memberSession!=='undefined'&&memberSession)?String(memberSession.userId||'').toLowerCase():'';
-    var allowed=(typeof canApprove==='function'&&canApprove()) || me===m.name.toLowerCase();
-    if(!allowed) return '';
+    var allowed=!!me;   // owner decision: every logged-in member may see everyone's payment/approval dates
+    if(!allowed) return '<br><span style="opacity:.75">🔒 জমার তারিখ ও অনুমোদনের বিস্তারিত শুধু সংশ্লিষ্ট সদস্য নিজে, '+(DATA.collectorName||'সংগ্রাহক')+' ও Prasun Jyoti দেখতে পান।</span>';
     var key1=BN_MONTHS[idx], key2=EN_MONTHS[idx], key3=key2.slice(0,3);
     var list=(DATA.paymentRequests||[]).filter(function(p){
       if(!p||String(p.member||'').toLowerCase()!==m.name.toLowerCase()) return false;
@@ -3887,9 +3887,14 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     if(p.status) s+='<br>📌 অবস্থা: '+p.status;
     return s;
   }
+  var HD={ctx:null};
+  function detailQ0(l){ return has(l,['detail','details','bistarito','বিস্তারিত','kobe','kon date','date','tarikh','tarik','তারিখ','কবে','approve','approved','onumodon','অনুমোদন']); }
   function dataAnswer(t){
     if(typeof DATA==='undefined' || !DATA || !DATA.contributions) return null;
     var found=findMembers(t);
+    if(!found.length && HD.ctx && detailQ0(t.toLowerCase())){
+      found=(DATA.contributions||[]).filter(function(x){return x.name===HD.ctx.name;});
+    }
     if(!found.length) return null;
     if(found.length>1) return 'একাধিক সদস্যের নাম মিলেছে: <b>'+found.map(function(m){return m.name;}).join(', ')+'</b>।<br>পুরো নাম লিখে আবার জিজ্ঞেস করুন।';
     var m=found[0], l=t.toLowerCase(), pay=m.pay||[];
@@ -3912,16 +3917,19 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
       return unpaid.length ? '<b>'+m.name+'</b>-এর '+year+' সালের বকেয়া মাস: <b>'+unpaid.join(', ')+'</b> ('+unpaid.length+' মাস)।' : '<b>'+m.name+'</b>-এর '+year+' সালে এ পর্যন্ত কোনো মাসিক জমা বকেয়া নেই। ✅';
     }
     var asked=monthAsked(l);
+    if(asked<0 && HD.ctx && HD.ctx.name===m.name && !lastQ && detailQ0(l)) asked=HD.ctx.idx;
     var detailQ=has(l,['kobe','kon date','date','tarikh','tarik','তারিখ','কবে','approve','approved','onumodon','অনুমোদন']);
     if(asked>=0){
       if(!(pay[asked]>0)){
         var pd0=payDetail(m,asked,true);
         return '<b>'+m.name+'</b>-এর <b>'+BN_MONTHS[asked]+' '+year+'</b> মাসের জমা এখনো হিসাবে ওঠেনি।'+(pd0?'<br>'+pd0:'');
       }
+      HD.ctx={name:m.name,idx:asked};
       return '<b>'+m.name+'</b>-এর <b>'+BN_MONTHS[asked]+' '+year+'</b> মাসের জমা: <b>'+rs(pay[asked])+'</b> ✅'+payDetail(m,asked,false);
     }
     if(!paidIdx.length) return '<b>'+m.name+'</b> '+year+' সালে এখনো কোনো মাসিক জমা দেননি।';
     var li=paidIdx[paidIdx.length-1];
+    HD.ctx={name:m.name,idx:li};
     var lastTxt='<b>'+m.name+'</b>-এর সর্বশেষ জমা: <b>'+BN_MONTHS[li]+' '+year+'</b> মাসের ('+rs(pay[li])+')।'+payDetail(m,li,false);
     if(detailQ && !totalQ) return lastTxt;
     if(lastQ && !totalQ) return lastTxt;
