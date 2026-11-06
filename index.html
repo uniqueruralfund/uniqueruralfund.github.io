@@ -3837,10 +3837,62 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     }
     backBtn('⬅ অন্য প্রশ্ন');
   }
+  /* ---- সদস্যের হিসাব নিয়ে প্রশ্ন (বাংলা বা Banglish) — লাইভ ডেটা থেকে উত্তর ---- */
+  var BN_MONTHS=['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+  function rs(n){ return '₹'+Number(n||0).toLocaleString('en-IN'); }
+  function has(t, list){
+    var words=t.split(/[^a-zঀ-৿]+/).filter(Boolean);
+    return list.some(function(k){ k=k.trim(); return /^[a-z]+$/.test(k) ? words.some(function(w){return w===k||(k.length>=4&&w.indexOf(k)===0);}) : t.indexOf(k)>=0; });
+  }
+  function findMembers(t){
+    var words=t.toLowerCase().split(/[^a-zঀ-৿]+/).filter(Boolean);
+    var scored=[];
+    (DATA.contributions||[]).forEach(function(m){
+      var toks=m.name.toLowerCase().split(/\s+/).filter(function(x){return x.length>=3;}), s=0;
+      toks.forEach(function(tk){ if(words.some(function(w){ return w===tk || (w.length>=4 && tk.indexOf(w)===0); })) s++; });
+      if(s>0) scored.push({m:m,s:s});
+    });
+    if(!scored.length) return [];
+    var top=Math.max.apply(null, scored.map(function(x){return x.s;}));
+    return scored.filter(function(x){return x.s===top;}).map(function(x){return x.m;});
+  }
+  function dataAnswer(t){
+    if(!window.DATA || !DATA.contributions) return null;
+    var found=findMembers(t);
+    if(!found.length) return null;
+    if(found.length>1) return 'একাধিক সদস্যের নাম মিলেছে: <b>'+found.map(function(m){return m.name;}).join(', ')+'</b>।<br>পুরো নাম লিখে আবার জিজ্ঞেস করুন।';
+    var m=found[0], l=t.toLowerCase(), pay=m.pay||[];
+    var months=DATA.months||[], year=DATA.year;
+    var now=new Date(), cur=(String(year)===String(now.getFullYear()))?(now.getMonth()+(now.getDate()>=16?1:0)):12;
+    var paidIdx=[]; pay.forEach(function(p,i){ if(p>0) paidIdx.push(i); });
+    var total=pay.reduce(function(s,p){return s+(p>0?p:0);},0);
+    var unpaid=[]; for(var i=0;i<Math.min(cur,12);i++){ if(!(pay[i]>0)) unpaid.push(BN_MONTHS[i]); }
+    var loanQ=has(l,['loan','rin','ঋণ','ধার','sud','সুদ']);
+    var unpaidQ=has(l,['baki','bokeya','bakeya','বাকি','বকেয়া','dei ni','den ni','দেয়নি','দেননি']);
+    var totalQ=has(l,['mot ','total','মোট','koto','কত']);
+    var lastQ=has(l,['last','shesh','sesh','সর্বশেষ','শেষ','letest','latest']);
+    if(loanQ){
+      var ln=(DATA.activeLoans||[]).filter(function(x){return x.name===m.name;})[0];
+      if(!ln) return '<b>'+m.name+'</b>-এর এখন কোনো চলতি ঋণ নেই।';
+      var sp=(ln.months||[]).filter(function(x){return x&&x.amount!==null;}).length;
+      return '<b>'+m.name+'</b>-এর চলতি ঋণ: <b>'+rs(ln.amount)+'</b> (নেওয়া হয়েছে '+ln.date+')।<br>মাসিক সুদ: '+rs(ln.monthlyInterest)+' — এ পর্যন্ত '+sp+' মাসের সুদ জমা পড়েছে'+(ln.interestOverdue?', <b>সুদ বকেয়া আছে</b>':'')+'।'+(ln.closingDate?'<br>ঋণ শেষ হবে: '+ln.closingDate:'');
+    }
+    if(unpaidQ){
+      return unpaid.length ? '<b>'+m.name+'</b>-এর '+year+' সালের বকেয়া মাস: <b>'+unpaid.join(', ')+'</b> ('+unpaid.length+' মাস)।' : '<b>'+m.name+'</b>-এর '+year+' সালে এ পর্যন্ত কোনো মাসিক জমা বকেয়া নেই। ✅';
+    }
+    if(!paidIdx.length) return '<b>'+m.name+'</b> '+year+' সালে এখনো কোনো মাসিক জমা দেননি।';
+    var li=paidIdx[paidIdx.length-1];
+    var lastTxt='<b>'+m.name+'</b>-এর সর্বশেষ জমা: <b>'+BN_MONTHS[li]+' '+year+'</b> মাসের ('+rs(pay[li])+')।';
+    if(lastQ && !totalQ) return lastTxt;
+    if(totalQ && !lastQ) return '<b>'+m.name+'</b> '+year+' সালে মোট জমা দিয়েছেন <b>'+rs(total)+'</b> ('+paidIdx.length+' মাসে)।';
+    return lastTxt+'<br>'+year+' সালে মোট জমা: <b>'+rs(total)+'</b> ('+paidIdx.length+' মাস)।'+(unpaid.length?'<br>বকেয়া মাস: '+unpaid.join(', '):'<br>কোনো মাস বকেয়া নেই ✅');
+  }
   window.hdPick=function(i){ add(FAQ[i].q,true); reply(FAQ[i]); };
   window.hdAsk=function(e){
     e.preventDefault(); var inp=document.getElementById('hdText'); var t=inp.value.trim(); if(!t) return; inp.value='';
     add(t.replace(/</g,'&lt;'),true);
+    var da=null; try{ da=dataAnswer(t); }catch(err){ da=null; }
+    if(da){ add(da); backBtn('⬅ মেনুতে ফিরুন'); return; }
     var w=t.toLowerCase().split(/\s+/).filter(function(x){return x.length>1;});
     var best=-1, sc=0;
     FAQ.forEach(function(f,i){ var keys=(f.k+' '+f.q).toLowerCase(), s=0; w.forEach(function(x){ if(keys.indexOf(x)>=0) s++; }); if(s>sc){sc=s;best=i;} });
