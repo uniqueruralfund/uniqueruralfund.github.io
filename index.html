@@ -3947,7 +3947,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     var claim=(DATA.paymentRequests||[]).filter(function(p){return p.typeLabel==='ফাইন' && String(p.member||'').toLowerCase()===name.toLowerCase() && String(p.monthLabel||'').indexOf(label)>-1;})[0];
     if(claim && (claim.stage==='admin'||claim.stage==='done')) return '✅ '+label+' জমা/অনুমোদিত ('+(claim.paymentDate||claim.askedAt||'')+')';
     if(claim && (claim.stage==='collector'||claim.stage==='recipient')) return '⏳ '+label+' জমা দেওয়া হয়েছে, অনুমোদনের অপেক্ষায়';
-    return '⚠️ <b>'+label+' প্রযোজ্য</b> — '+overdueCount+' মাস বকেয়া, আনুমানিক ফাইন <b>'+rs(Math.floor(overdueCount/2)*rate)+'</b> (সঠিক অঙ্ক ফাইন পাতায়)';
+    return '⚠️ <b>'+label+' প্রযোজ্য</b> — '+overdueCount+' মাস বকেয়া → ফাইন <b>'+rs(Math.floor(overdueCount/2)*rate)+'</b> ('+Math.floor(overdueCount/2)+' × '+rs(rate)+')';
   }
   function loanSummary(m){
     var ln=(DATA.activeLoans||[]).filter(function(x){return x.name===m.name;})[0];
@@ -4261,7 +4261,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     if(ln){ var late=(ln.months||[]).filter(function(z){return z&&z.amount===null&&dueInfo2(z.due).d<=now;}).length; out+='<br>• '+fineStatus(m.name,late,ln.monthlyInterest,'ঋণের সুদের ফাইন'); }
     var fp=(DATA.paymentRequests||[]).filter(function(p){return p.typeLabel==='ফাইন' && String(p.member||'').toLowerCase()===m.name.toLowerCase();});
     if(fp.length) out+='<br>• এ পর্যন্ত ফাইন জমার অনুরোধ: '+fp.length+'টি (সর্বশেষ: '+(fp[0].paymentDate||fp[0].askedAt||'—')+', '+(fp[0].status||'')+')';
-    return out+'<br><span style="opacity:.75">নিয়ম: ২ মাস বকেয়া থাকলে ৩য় মাসে ফাইন। সঠিক অঙ্ক সাইটের ফাইন পাতায়।</span>';
+    return out+'<br><span style="opacity:.75">হিসাব: প্রতি ২ মাস বকেয়ায় ১ মাসের হারে ফাইন (সাইটের ফাইন পাতার একই নিয়ম); যে মাসের ১৬ তারিখ পার হয়েছে সেটাই বকেয়া।</span>';
   }
   /* নিজের (বা নাম বলা সদস্যের) আটকে থাকা পেমেন্ট/আবেদন */
   function stuckAnswer(m){
@@ -4338,8 +4338,8 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     if(!named && meM && loanW && has(l,['shodh','sodh','শোধ','sesh','শেষ','close','clear','bondho','বন্ধ','payoff','pay off','porishodh','পরিশোধ']) && has(l,['korte hole','korle','korte','dite hobe','lagbe','koto taka','ekbare','ek sathe','dile','করতে হলে','করলে','কত টাকা','লাগবে'])){
       var lnn=(DATA.activeLoans||[]).filter(function(x){return x.name===meM.name;})[0];
       if(!lnn) return '🏦 '+meM.name+'-এর এখন কোনো চলতি ঋণ নেই, তাই শোধ করার মতো কিছু বাকি নেই। ✅';
-      var tdy=new Date(), lt=(lnn.months||[]).filter(function(z){return z&&z.amount===null&&dueInfo2(z.due).d<=tdy;}).length, dueI=lt*(Number(lnn.monthlyInterest)||0);
-      return '🏦 <b>'+meM.name+'-এর ঋণ শোধ করতে:</b><br>• আসল ঋণ: <b>'+rs(lnn.amount)+'</b><br>• বকেয়া সুদ: <b>'+rs(dueI)+'</b> ('+lt+' মাস × '+rs(lnn.monthlyInterest)+')<br>• মোট প্রায়: <b>'+rs((Number(lnn.amount)||0)+dueI)+'</b><br><span style="opacity:.8">শোধের মাস পর্যন্তই সুদ লাগে, শোধের পর আর সুদ নেই। সঠিক অঙ্ক <b>ঋণ পরিশোধ</b> পাতায় দেখুন — আগে বকেয়া সুদ মিটিয়ে আসল দিতে হয়।</span>';
+      var tdy=new Date(), lateM=(lnn.months||[]).filter(function(z){return z&&z.amount===null&&dueInfo2(z.due).d<=tdy;}), lt=lateM.length, dueI=lateM.reduce(function(sum,z){ var post=lnn.lastRepaymentDate&&z.dueRaw&&new Date(z.dueRaw)>new Date(lnn.lastRepaymentDate); return sum+Math.round((Number(lnn.amount)||0)*(post?0.10:0.01)); },0), post10=lateM.filter(function(z){return lnn.lastRepaymentDate&&z.dueRaw&&new Date(z.dueRaw)>new Date(lnn.lastRepaymentDate);}).length;
+      return '🏦 <b>'+meM.name+'-এর ঋণ শোধ করতে:</b><br>• আসল ঋণ: <b>'+rs(lnn.amount)+'</b><br>• বকেয়া সুদ: <b>'+rs(dueI)+'</b> ('+lt+' মাস'+(post10?', এর মধ্যে '+post10+' মাস ১০% হারে':' × '+rs(lnn.monthlyInterest))+')<br>• মোট: <b>'+rs((Number(lnn.amount)||0)+dueI)+'</b><br><span style="opacity:.8">হিসাব: আসল ঋণ + যে মাসের সুদের তারিখ পার হয়েছে অথচ দেওয়া হয়নি সেই মাসগুলোর সুদ (সাইটের নিয়মে)। আগে বকেয়া সুদ মিটিয়ে তারপর আসল দিতে হয়; শোধের পর আর সুদ লাগে না।</span>';
     }
     // সদস্য হিসেবে সুবিধা/অধিকার
     if(!named && has(l,['adhikar','অধিকার','sujog','সুযোগ','suvidha','সুবিধা','benefit','fayda','ফায়দা']) && has(l,['fund','ফান্ড','group','গ্রুপ','member','সদস্য','amar','আমার'])){
@@ -4502,14 +4502,14 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
       mem.forEach(function(x){
         var c=0; for(var i=0;i<Math.min(curN,12);i++){ if(!(x.pay[i]>0)) c++; }
         var parts=[];
-        if(c>=2){ var cl=claimOf(x.name,'মাসিক জমার ফাইন'); parts.push('মাসিক জমা '+c+' মাস বকেয়া → আনুমানিক '+rsx(Math.floor(c/2)*mRate)+claimTxt(cl)); }
+        if(c>=2){ var cl=claimOf(x.name,'মাসিক জমার ফাইন'); parts.push('মাসিক জমা '+c+' মাস বকেয়া → ফাইন '+rsx(Math.floor(c/2)*mRate)+' ('+Math.floor(c/2)+' × '+rsx(mRate)+')'+claimTxt(cl)); }
         var ln=(DATA.activeLoans||[]).filter(function(y){return y.name===x.name;})[0];
         if(ln){ var late=(ln.months||[]).filter(function(z){return z&&z.amount===null&&dueInfo2(z.due).d<=today2;}).length;
-          if(late>=2){ var cl2=claimOf(x.name,'ঋণের সুদের ফাইন'); parts.push('ঋণের সুদ '+late+' মাস বকেয়া → আনুমানিক '+rsx(Math.floor(late/2)*ln.monthlyInterest)+claimTxt(cl2)); } }
+          if(late>=2){ var cl2=claimOf(x.name,'ঋণের সুদের ফাইন'); parts.push('ঋণের সুদ '+late+' মাস বকেয়া → ফাইন '+rsx(Math.floor(late/2)*ln.monthlyInterest)+' ('+Math.floor(late/2)+' × '+rsx(ln.monthlyInterest)+')'+claimTxt(cl2)); } }
         if(parts.length) fr.push({n:x.name,p:parts});
       });
       if(!fr.length) return '✅ এই মুহূর্তে কারও ফাইন প্রযোজ্য নয় — কারও ২ মাস বা তার বেশি বকেয়া নেই।';
-      return '⚠️ <b>এখন ফাইন প্রযোজ্য ('+fr.length+' জন)</b> — ২ বা তার বেশি মাস বকেয়া:<br>'+bullets(fr.map(function(r){return '<b>'+r.n+'</b> — '+r.p.join('; ');}))+'<br><span style="opacity:.75">অঙ্কটা আনুমানিক; সঠিক অঙ্ক সাইটের ফাইন পাতায় দেখুন।</span>';
+      return '⚠️ <b>এখন ফাইন প্রযোজ্য ('+fr.length+' জন)</b> — ২ বা তার বেশি মাস বকেয়া:<br>'+bullets(fr.map(function(r){return '<b>'+r.n+'</b> — '+r.p.join('; ');}))+'<br><span style="opacity:.75">হিসাব: প্রতি ২ মাস বকেয়ায় ১ মাসের হারে ফাইন (মাসিক জমায় ₹'+mRate+', ঋণের সুদে সেই ঋণের মাসিক সুদ) — সাইটের ফাইন পাতার একই নিয়ম। যে মাসের ১৬ তারিখ পার হয়েছে সেটাই বকেয়া।</span>';
     }
     // ---- কে সবচেয়ে বেশি ফাইন দিয়েছে? (সদস্যওয়ারি ফাইনের হিসাব ডেটায় নেই — সত্যি কথা জানানো) ----
     if(has(l,['fine','ফাইন','jorimana','জরিমানা']) && has(l,['basi','besi','beshi','বেশি','sob thake','sobthake','sobcheye','sabcheye','most','ke ke','kon','kara','ke','কে','কোন','কারা','সবচেয়ে']) && has(l,['diyeche','diyechhe','diyechen','diyache','diyachhe','diyachen','deyeche','diyecho','dia','dilo','dey','den','joma','pay','paid','koreche','korechhe','দিয়েছে','দিয়েছেন','দিল','জমা'])){
