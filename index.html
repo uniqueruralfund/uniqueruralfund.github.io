@@ -4000,6 +4000,36 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     return out;
   }
   function detailQ0(l){ return has(l,['detail','details','bistarito','বিস্তারিত','kobe','kon date','date','tarikh','tarik','তারিখ','কবে','approve','approved','onumodon','অনুমোদন']); }
+  /* ---- "কার জমা কে করে/দেয়?" — পেমেন্ট রেকর্ডের processedBy (যিনি সাইটে জমা দিয়েছেন) থেকে ---- */
+  function whoSubmitsQ(l){
+    var w=l.split(/[^a-zঀ-৿]+/).filter(Boolean);
+    function any(a){ return a.some(function(x){return w.indexOf(x)>=0;}); }
+    if(!any(['ke','কে','keu','কেউ','kake','কাকে','kon','কোন','kara','কারা'])) return false;
+    if(!any(['kore','korey','dey','dei','den','diye','deya','করে','দেয়','দেন','দিয়ে','দেওয়া'])) return false;
+    if(!has(l,['joma','jama','জমা','payment','pement','পেমেন্ট','taka','টাকা','chanda','চাঁদা'])) return false;
+    if(has(l,['approve','onumodon','অনুমোদন','kobe','কবে','date','তারিখ','tarikh','late','deri','দেরি','fine','ফাইন','baki','বাকি','bokeya','বকেয়া','dey ni','dei ni'])) return false;
+    return true;
+  }
+  function submitters(name){
+    var rec=[];
+    (DATA.paymentRequests||[]).forEach(function(p){ if(String(p.member).toLowerCase()===name.toLowerCase() && (p.stage==='done'||p.stage==='admin') ) rec.push({by:p.processedBy||p.member,d:p.paymentDate||p.askedAt,m:p.method,k:p.typeLabel||'জমা'}); });
+    (DATA.loanRepayments||[]).forEach(function(p){ if(String(p.member).toLowerCase()===name.toLowerCase() && (p.stage==='done'||p.stage==='admin') ) rec.push({by:p.processedBy||p.member,d:p.paymentDate||p.askedAt,m:p.method,k:'ঋণ পরিশোধ'}); });
+    return rec;
+  }
+  function submitterAnswer(m){
+    var rec=submitters(m.name), me=m.name.toLowerCase();
+    if(!rec.length) return '👤 <b>'+m.name+'</b>-এর জমা কে করেন, তা জানা যাচ্ছে না — অনলাইনে নথিভুক্ত কোনো পেমেন্ট নেই (আগের জমা সরাসরি Sheet-এ এন্ট্রি করা)।';
+    var tally={}, order=[];
+    rec.forEach(function(r){ var k=String(r.by).toLowerCase()===me?'নিজে':r.by; if(!tally[k]){tally[k]={n:0,meth:{}}; order.push(k);} tally[k].n++; tally[k].meth[r.m||'']=1; });
+    order.sort(function(a,b){return tally[b].n-tally[a].n;});
+    var others=order.filter(function(k){return k!=='নিজে';}), out='👤 <b>'+m.name+'</b>-এর জমা যিনি সাইটে করেন:<br>'+bullets(order.map(function(k){ return (k==='নিজে'?'নিজে ('+m.name+')':'<b>'+k+'</b>')+' — '+tally[k].n+' বার ('+Object.keys(tally[k].meth).filter(Boolean).join('/')+')'; }));
+    var last=rec.slice().sort(function(a,b){ return dueD0(b.d)-dueD0(a.d); })[0];
+    out+='<br>📌 সর্বশেষ ('+last.k+', '+last.d+') করেছেন: <b>'+(String(last.by).toLowerCase()===me?'নিজে':last.by)+'</b>';
+    if(!others.length) out+='<br>✅ সাধারণত নিজেই জমা দেন।';
+    else if(tally[others[0]].n*2>=rec.length) out+='<br>💡 সাধারণত <b>'+others[0]+'</b>-ই '+m.name+'-এর হয়ে জমা দেন।';
+    return out+'<br><span style="opacity:.7">(সেপ্টেম্বর ২০২৬ থেকে অনলাইনে নথিভুক্ত রেকর্ড ধরে)</span>';
+  }
+  function dueD0(s){ var q=String(s||'').split('-'), M={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11}, mi=M[(q[1]||'').toLowerCase().slice(0,3)]; return new Date(+q[2],mi===undefined?0:mi,+q[0]||1); }
   function dataAnswer(t){
     if(typeof DATA==='undefined' || !DATA || !DATA.contributions) return null;
     var found=findMembers(t);
@@ -4014,6 +4044,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     if(found.length===1 && (fullQ || isBareName(t,found[0]))) return fullProfile(found[0]);
     if(found.length>1) return 'একাধিক সদস্যের নাম মিলেছে: <b>'+found.map(function(m){return m.name;}).join(', ')+'</b>।<br>পুরো নাম লিখে আবার জিজ্ঞেস করুন।';
     var m=found[0], l=t.toLowerCase(), pay=m.pay||[];
+    if(whoSubmitsQ(l)) return submitterAnswer(m);
     var months=DATA.months||[], year=DATA.year;
     var now=new Date(), cur=(String(year)===String(now.getFullYear()))?(now.getMonth()+(now.getDate()>=16?1:0)):12;
     var paidIdx=[]; pay.forEach(function(p,i){ if(p>0) paidIdx.push(i); });
@@ -4200,6 +4231,46 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     // ---- শুভেচ্ছা / ধন্যবাদ / কী জিজ্ঞেস করা যায় ----
     if(l.length<30 && has(l,['hi','hello','hey','namaskar','nomoskar','nomoshkar','নমস্কার','হ্যালো','হাই','salam','সালাম','assalamu'])) return 'নমস্কার! 🙏 বলুন, ফান্ড বা কোনো সদস্যের হিসাব নিয়ে কী জানতে চান?';
     if(has(l,['thanks','thank','dhonnobad','dhanyabad','ধন্যবাদ','থ্যাঙ্কস','shukriya'])) return 'আপনাকেও ধন্যবাদ! 😊 আর কিছু জানার থাকলে লিখুন।';
+    // ---- কার জমা কে করে? (অন্যের হয়ে যাঁরা জমা দেন) ----
+    if(whoSubmitsQ(l)){
+      var proxy={}, pk=[];
+      mem.forEach(function(x){
+        var tl={}; submitters(x.name).forEach(function(r){ if(String(r.by).toLowerCase()!==x.name.toLowerCase()){ tl[r.by]=(tl[r.by]||0)+1; } });
+        Object.keys(tl).forEach(function(by){ if(!proxy[by]){proxy[by]=[];pk.push(by);} proxy[by].push(x.name+' ('+tl[by]+')'); });
+      });
+      pk.sort(function(a,b){return proxy[b].length-proxy[a].length;});
+      if(!pk.length) return 'অনলাইনে নথিভুক্ত রেকর্ডে সবাই নিজের জমা নিজেই দিয়েছেন।';
+      return '🤝 <b>অন্যের হয়ে যাঁরা জমা দেন</b> (বন্ধনীতে বার):<br>'+bullets(pk.map(function(by){ return '<b>'+by+'</b> → '+proxy[by].join(', '); }))+'<br><span style="opacity:.75">নির্দিষ্ট সদস্যের জন্য লিখুন, যেমন "Nimai er joma ke kore"। (সেপ্টেম্বর ২০২৬ থেকে নথিভুক্ত রেকর্ড)</span>';
+    }
+    // ---- কে সবচেয়ে বেশি ফাইন দিয়েছে? (সদস্যওয়ারি ফাইনের হিসাব ডেটায় নেই — সত্যি কথা জানানো) ----
+    if(has(l,['fine','ফাইন','jorimana','জরিমানা']) && has(l,['basi','besi','beshi','বেশি','sob thake','sobthake','sobcheye','sabcheye','most','ke ke','kon','kara','ke','কে','কোন','কারা','সবচেয়ে']) && has(l,['diyeche','diyechhe','diyechen','diyache','diyachhe','diyachen','deyeche','diyecho','dia','dilo','dey','den','joma','pay','paid','koreche','korechhe','দিয়েছে','দিয়েছেন','দিল','জমা'])){
+      var curF=(String(year)===String(N.getFullYear()))?(N.getMonth()+(N.getDate()>=16?1:0)):12, owe=[];
+      mem.forEach(function(m){ var c=0; for(var i=0;i<Math.min(curF,12);i++){ if(!(m.pay[i]>0)) c++; } if(c>=2) owe.push({n:m.name,c:c}); });
+      owe.sort(function(a,b){return b.c-a.c;});
+      return '💸 <b>কে কত ফাইন দিয়েছেন</b> — সদস্যওয়ারি ফাইনের হিসাব সাইটের ডেটায় নেই, তাই কে সবচেয়ে বেশি দিয়েছেন তা আমি বলতে পারছি না।<br>তবে মোট ফাইন আদায় বলতে পারি: <b>'+year+' সালে এ পর্যন্ত '+rsx(fs.earningsFine)+'</b>।'+(owe.length?'<br><br>⚠️ এখন ২ বা তার বেশি মাস বকেয়া থাকায় যাঁদের ফাইন প্রযোজ্য হতে পারে ('+owe.length+' জন):<br>'+bullets(owe.slice(0,10).map(function(o){return o.n+' — '+o.c+' মাস বকেয়া';})):'<br><br>✅ এখন কারও ২ মাস বা তার বেশি বকেয়া নেই।')+'<br><span style="opacity:.75">কে কত ফাইন দিয়েছেন তার পুরো তালিকা Sheet-এ অ্যাডমিন দেখতে পারেন।</span>';
+    }
+    // ---- কে সবচেয়ে বেশি দেরিতে জমা দেয়? (অনলাইনে নথিভুক্ত পেমেন্টের তারিখ ধরে) ----
+    if(has(l,['late','deri','deriti','dere','দেরি','দেরিতে','bilombe','বিলম্বে']) && (jomaW||has(l,['payment','pay','পেমেন্ট'])) && has(l,['basi','besi','beshi','বেশি','sob thake','sobthake','sobcheye','sabcheye','most','ke ke','kon','kara','ke','কে','কোন','কারা','member','সদস্য','সবচেয়ে'])){
+      var MM={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11}, lateBy={}, onTime=0, tot=0;
+      (DATA.paymentRequests||[]).forEach(function(p){
+        if(p.typeLabel!=='মাসিক জমা' || (p.stage!=='done' && p.stage!=='admin')) return;
+        var pd=dueD(p.paymentDate||p.askedAt); if(isNaN(pd)) return;
+        String(p.monthLabel||'').split(',').forEach(function(ml){
+          var q=ml.trim().split('-'), mi=MM[(q[0]||'').toLowerCase().slice(0,3)]; if(mi===undefined||!q[1]) return;
+          tot++; var dl=new Date(2000+(+q[1]),mi,15), diff=Math.round((pd-dl)/86400000);
+          if(diff>0){ var o=lateBy[p.member]||(lateBy[p.member]={n:p.member,c:0,mx:0,ms:[]}); o.c++; o.ms.push(ml.trim()); if(diff>o.mx) o.mx=diff; } else onTime++;
+        });
+      });
+      var lt=Object.keys(lateBy).map(function(k){return lateBy[k];}).sort(function(a,b){return b.c-a.c||b.mx-a.mx;});
+      var curL=(String(year)===String(N.getFullYear()))?(N.getMonth()+(N.getDate()>=16?1:0)):12, dueR=[];
+      mem.forEach(function(m){ var u=0; for(var i=0;i<Math.min(curL,12);i++){ if(!(m.pay[i]>0)) u++; } if(u) dueR.push({n:m.name,u:u}); });
+      dueR.sort(function(a,b){return b.u-a.u;});
+      var out2='⏰ <b>দেরিতে জমা (১৫ তারিখের পরে)</b><br>';
+      out2+= lt.length ? bullets(lt.slice(0,10).map(function(o){return o.n+' — '+o.c+' মাসের জমা দেরিতে ('+o.ms.join(', ')+'), সর্বোচ্চ '+o.mx+' দিন দেরি';})) : 'অনলাইনে নথিভুক্ত পেমেন্টে কেউ দেরিতে জমা দেননি ✅';
+      out2+='<br><span style="opacity:.75">(সেপ্টেম্বর ২০২৬ থেকে অনলাইনে নথিভুক্ত '+tot+'টি মাসের জমা ধরে হিসাব। তার আগের জমার তারিখ ডেটায় নেই।)</span>';
+      if(dueR.length) out2+='<br><br>📌 <b>এখনও জমা বাকি — সবচেয়ে বেশি বকেয়া:</b><br>'+bullets(dueR.slice(0,5).map(function(r){return r.n+' — '+r.u+' মাস';}))+(dueR.length>5?'<br>…মোট '+dueR.length+' জন (সবার তালিকা: "kar joma baki")':'');
+      return out2;
+    }
     if(has(l,['help','sahajyo','shahajjo','সাহায্য','ki ki','কী কী','ki jante','what can']) && !has(l,['menu','page','pata','পাতা','মেনু'])){
       return 'আমি এগুলো বলতে পারি 👇<br>• কোনো সদস্যের জমা, বকেয়া, ঋণ, সুদ, পেমেন্টের তারিখ ও অনুমোদন<br>• কারা ঋণ নিয়েছে, কার সুদ/জমা বাকি<br>• ফান্ডের ব্যালেন্স, সুদ-ফাইন আয়, খরচ, SIP<br>• নিয়মাবলী (ফাইন, ঋণের সীমা, SIP, ১০% সুদ…)<br>• জন্মদিন, মোবাইল নম্বর, সংগ্রাহক/অ্যাডমিন<br>বাংলা বা Banglish — যেভাবে খুশি লিখুন।';
     }
