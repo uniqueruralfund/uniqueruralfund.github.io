@@ -3843,6 +3843,17 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     var words=t.split(/[^a-zঀ-৿]+/).filter(Boolean);
     return list.some(function(k){ k=k.trim(); return /^[a-z]+$/.test(k) ? words.some(function(w){return w===k||(k.length>=4&&w.indexOf(k)===0);}) : t.indexOf(k)>=0; });
   }
+  function osa(a,b){
+    var i,j,d=[];
+    for(i=0;i<=a.length;i++){ d[i]=[i]; }
+    for(j=1;j<=b.length;j++){ d[0][j]=j; }
+    for(i=1;i<=a.length;i++){ for(j=1;j<=b.length;j++){
+      var c=a[i-1]===b[j-1]?0:1;
+      d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+c);
+      if(i>1&&j>1&&a[i-1]===b[j-2]&&a[i-2]===b[j-1]) d[i][j]=Math.min(d[i][j],d[i-2][j-2]+1);
+    } }
+    return d[a.length][b.length];
+  }
   function findMembers(t){
     var words=t.toLowerCase().split(/[^a-zঀ-৿]+/).filter(Boolean);
     var scored=[];
@@ -3851,6 +3862,14 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
       toks.forEach(function(tk){ if(words.some(function(w){ return w===tk || (w.length>=4 && tk.indexOf(w)===0); })) s++; });
       if(s>0) scored.push({m:m,s:s});
     });
+    if(!scored.length){
+      // বানান ভুল/উল্টোপাল্টা হলেও ধরার চেষ্টা (যেমন Utapl → Utpal)
+      (DATA.contributions||[]).forEach(function(m){
+        var toks=m.name.toLowerCase().split(/\s+/).filter(function(x){return x.length>=4;}), s=0;
+        toks.forEach(function(tk){ if(words.some(function(w){ return w.length>=4 && /^[a-z]+$/.test(w) && osa(w,tk)<=(tk.length>=7?2:1); })) s++; });
+        if(s>0) scored.push({m:m,s:s});
+      });
+    }
     if(!scored.length) return [];
     var top=Math.max.apply(null, scored.map(function(x){return x.s;}));
     return scored.filter(function(x){return x.s===top;}).map(function(x){return x.m;});
@@ -3877,7 +3896,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
       var ml=String(p.monthLabel||'').toLowerCase();
       return ml.indexOf(key1)>=0 || ml.indexOf(key3)>=0;
     });
-    if(!list.length) return pendingOnly?'':'<br><span style="opacity:.75">ℹ️ এই মাসের অনলাইন পেমেন্ট-অনুরোধের তথ্য নেই (সরাসরি Sheet-এ লেখা হয়ে থাকতে পারে)।</span>';
+    if(!list.length) return pendingOnly?'':'<br><span style="opacity:.75">ℹ️ এই মাসের জমা সরাসরি Sheet-এ লেখা, অনলাইন পেমেন্ট-ব্যবস্থায় এর কোনো রেকর্ড নেই — তাই কবে জমা হয়েছে বা কে অনুমোদন করেছেন তার তারিখ দেখানো যাচ্ছে না।</span>';
     var p=list.filter(function(x){return x.stage==='done';}).pop() || list[list.length-1];
     function d(v){ return (v&&v!=='—')?('<b>'+v+'</b>'):'<i>এখনো হয়নি</i>'; }
     var col=(DATA.collectorName||'সংগ্রাহক'), s='<br>🗓 পেমেন্টের তারিখ: '+d(p.paymentDate)+(p.method==='নগদ'?' (নগদ)':'');
