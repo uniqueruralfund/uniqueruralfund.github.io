@@ -3820,11 +3820,10 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
   ];
   function body(){ return document.getElementById('hdBody'); }
   function add(html, me){ var d=document.createElement('div'); d.className='hd-msg'+(me?' me':''); d.innerHTML=html; body().appendChild(d); body().scrollTop=body().scrollHeight; return d; }
-  function backBtn(label){ var b=document.createElement('button'); b.type='button'; b.className='hd-q'; b.style.marginTop='.5rem'; b.textContent=label; b.onclick=menu; body().appendChild(b); body().scrollTop=body().scrollHeight; }
+  function backBtn(label){ return; var b=document.createElement('button'); b.type='button'; b.className='hd-q'; b.style.marginTop='.5rem'; b.textContent=label; b.onclick=menu; body().appendChild(b); body().scrollTop=body().scrollHeight; }
   function menu(){
     var b=body(); b.innerHTML='';
-    add('নমস্কার! 👋 <b>আমি কীভাবে সাহায্য করতে পারি?</b><br>নিচের প্রশ্ন বেছে নিন, অথবা নিজের প্রশ্ন লিখুন।');
-    FAQ.forEach(function(f,i){ var x=document.createElement('button'); x.type='button'; x.className='hd-q'; x.textContent=f.q; x.onclick=function(){ hdPick(i); }; b.appendChild(x); });
+    add('নমস্কার! 👋 <b>আমি কীভাবে সাহায্য করতে পারি?</b><br>নিচের বক্সে আপনার প্রশ্ন লিখুন (বাংলা বা Banglish), আমি উত্তর দেব।');
   }
   function reply(f){
     var d=add(f.a());
