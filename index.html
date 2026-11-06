@@ -440,14 +440,22 @@
   /* ===== সাহায্য মেনু (May I help you?) ===== */
   .hd-fab{position:fixed; right:16px; bottom:16px; z-index:9000; background:var(--green); color:#fff; border:0; border-radius:999px; padding:.7rem 1.1rem; font:600 .95rem 'Hind Siliguri',sans-serif; box-shadow:0 6px 18px rgba(0,0,0,.28); cursor:pointer; display:flex; gap:.4rem; align-items:center;}
   .hd-fab:hover{background:var(--green-dark);}
-  .hd-panel{position:fixed; right:16px; bottom:70px; z-index:9001; width:min(94vw,370px); max-height:78vh; background:#fff; border-radius:16px; box-shadow:0 12px 40px rgba(0,0,0,.35); display:flex; flex-direction:column; overflow:hidden; font-family:'Hind Siliguri',sans-serif;}
+  .sathi-top{all:unset; display:flex; align-items:center; gap:.4rem; font:700 .85rem 'Hind Siliguri',sans-serif; color:#fff; background:linear-gradient(135deg,#1E6B3A,#0B3D1E); border:1px solid #E7C877; padding:.4rem .85rem; border-radius:999px; cursor:pointer; box-shadow:0 2px 8px rgba(0,60,20,.25); white-space:nowrap;}
+  .sathi-top:hover{filter:brightness(1.12);}
+  .hd-panel{position:fixed; right:16px; top:70px; z-index:9001; width:min(94vw,390px); max-height:calc(100vh - 90px); background:#fff; border-radius:16px; box-shadow:0 12px 40px rgba(0,0,0,.35); display:flex; flex-direction:column; overflow:hidden; font-family:'Hind Siliguri',sans-serif;}
   .hd-panel[hidden]{display:none;}
-  .hd-head{background:var(--green-dark); color:#fff; padding:1rem 1.1rem .95rem; display:flex; justify-content:space-between; align-items:flex-start; gap:.6rem;}
-  .hd-head .hd-title{font:700 1.35rem 'Hind Siliguri',sans-serif; line-height:1.2;}
-  .hd-head .hd-tag{display:block; margin-top:.35rem; color:#E7C877; font-weight:600; font-size:.88rem;}
-  .hd-head .hd-hello{display:block; margin-top:.6rem; font-size:.88rem; line-height:1.5; color:#fff;}
-  .hd-head .hd-spark{color:#E7C877; font-size:1.3rem; line-height:1; margin-right:.2rem;}
-  .hd-x{background:none; border:0; color:#fff; font-size:1.2rem; cursor:pointer; line-height:1;}
+  .hd-head{position:relative; background:linear-gradient(180deg,#014F23 0%,#00421D 100%); color:#fff; padding:.9rem 1rem 1rem;}
+  .hd-top{display:flex; align-items:center; gap:.5rem;}
+  .hd-art{width:96px; height:auto; flex:0 0 96px; -webkit-mask-image:radial-gradient(ellipse at 50% 50%,#000 68%,transparent 100%); mask-image:radial-gradient(ellipse at 50% 50%,#000 68%,transparent 100%);}
+  .hd-titles{flex:1; min-width:0;}
+  .hd-welcome{display:block; font:italic 400 1.15rem 'Tiro Bangla',Georgia,serif; color:#fff; line-height:1.1;}
+  .hd-title{display:block; font:700 1.95rem 'Hind Siliguri',sans-serif; line-height:1.05; color:#fff; letter-spacing:.2px;}
+  .hd-tag{display:block; margin-top:.2rem; font:italic 700 .82rem 'Hind Siliguri',sans-serif; color:#F5C800;}
+  .hd-swoosh{display:block; width:100%; height:22px; margin-top:-2px;}
+  .hd-hello{display:block; margin-top:.2rem; font-size:.95rem; line-height:1.55; color:#fff;}
+  .hd-tools{position:absolute; top:.6rem; right:.7rem; display:flex; align-items:center; gap:.45rem;}
+  .hd-spark{font-size:1.3rem; line-height:1;}
+  .hd-x{background:none; border:0; color:#fff; font-size:1.35rem; cursor:pointer; line-height:1; padding:.1rem .2rem;}
   .hd-body{padding:.8rem; overflow-y:auto; flex:1; background:var(--content-bg);}
   .hd-msg{background:#fff; border:1px solid var(--line); border-radius:12px; padding:.65rem .8rem; margin-bottom:.6rem; font-size:.92rem; line-height:1.55; color:var(--ink);}
   .hd-msg.me{background:var(--green); color:#fff; border-color:var(--green); margin-left:2rem;}
@@ -566,7 +574,6 @@
   </div>
   <nav class="navlist" id="navlist"></nav>
   <div class="edit-toggle">
-    <button class="edit-btn" id="helpMenuBtn" style="margin-bottom:.5rem;" onclick="hdToggle()">🤝 URF Sathi</button>
     <button class="edit-btn" id="memberBtn" style="margin-bottom:.5rem;">👤 ব্যক্তিগত তথ্য দেখুন</button>
     <button class="edit-btn" id="approveBtn" style="margin-bottom:.5rem;" hidden onclick="openApprovalOverlay()">🧾 মাসিক জমার অনুমোদন</button>
     <button class="edit-btn" id="loanApproveBtn" style="margin-bottom:.5rem;" hidden onclick="openLoanApprovalOverlay()">🏦 ঋণ অনুমোদন</button>
@@ -586,6 +593,7 @@
       <h2 class="page-title serif" id="pageTitle"></h2>
     </div>
     <div class="topbar-right">
+      <button type="button" class="sathi-top" id="sathiTopBtn" onclick="hdToggle()" title="URF Sathi — প্রশ্ন করুন">🤝 URF Sathi</button>
       <div class="user-chip" id="userChip" hidden><span class="uc-ico">👤</span> <span id="userChipName"></span> <button type="button" class="uc-out" onclick="memberLogout()" title="লগআউট">লগআউট</button></div>
       <button class="refresh-btn" id="refreshBtn" title="সর্বশেষ ডেটা লোড করুন"><span class="ic">⟳</span> রিফ্রেশ</button>
       <div class="saved-indicator" id="savedIndicator"><span class="dot"></span> <span id="savedText">সংরক্ষিত</span></div>
@@ -3786,7 +3794,15 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
 </script>
 
 <div class="hd-panel" id="hdPanel" hidden>
-  <div class="hd-head"><div><span class="hd-title">🤝 URF Sathi</span><span class="hd-tag">Your Trusted Financial Companion</span><span class="hd-hello">নমস্কার! 👋 আমি URF Sathi। আপনার সঞ্চয়, ঋণ ও আর্থিক তথ্য জানতে আমি আপনাকে সাহায্য করতে প্রস্তুত।</span></div><div style="display:flex; align-items:flex-start;"><span class="hd-spark" aria-hidden="true">✨</span><button class="hd-x" type="button" onclick="hdToggle()" aria-label="বন্ধ করুন">✕</button></div></div>
+  <div class="hd-head">
+    <div class="hd-tools"><span class="hd-spark" aria-hidden="true">✨</span><button class="hd-x" type="button" onclick="hdToggle()" aria-label="বন্ধ করুন">✕</button></div>
+    <div class="hd-top">
+      <img class="hd-art" src="assets/urf-sathi.png" alt="Welcome" width="96" height="88">
+      <div class="hd-titles"><span class="hd-welcome">Welcome to</span><span class="hd-title">URF Sathi</span><span class="hd-tag">Your Trusted Financial Companion</span></div>
+    </div>
+    <svg class="hd-swoosh" viewBox="0 0 360 22" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="hdSw" x1="0" x2="1"><stop offset="0" stop-color="#7BC043" stop-opacity="0"/><stop offset=".35" stop-color="#A8D93A"/><stop offset=".7" stop-color="#F5E100"/><stop offset="1" stop-color="#F5E100" stop-opacity=".9"/></linearGradient></defs><path d="M20 18 C110 4, 250 6, 352 2 C260 12, 130 20, 20 18 Z" fill="url(#hdSw)"/></svg>
+    <span class="hd-hello">নমস্কার! 🤝 আমি URF Sathi। আপনার সঞ্চয়, ঋণ ও আর্থিক তথ্য জানতে আমি আপনাকে সাহায্য করতে প্রস্তুত।</span>
+  </div>
   <div class="hd-body" id="hdBody"></div>
   <form class="hd-input" onsubmit="hdAsk(event)"><input id="hdText" type="text" placeholder="এখানে প্রশ্ন লিখুন…" autocomplete="off"><button type="submit">পাঠান</button></form>
 </div>
@@ -3826,7 +3842,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
   function backBtn(label){ return; var b=document.createElement('button'); b.type='button'; b.className='hd-q'; b.style.marginTop='.5rem'; b.textContent=label; b.onclick=menu; body().appendChild(b); body().scrollTop=body().scrollHeight; }
   function menu(){
     var b=body(); b.innerHTML='';
-    add('নিচের বক্সে আপনার প্রশ্ন লিখুন (বাংলা বা Banglish) — যেমন <i>"আমার জমা কত"</i>, <i>"kon kon member loan niyeche"</i>, <i>"balance koto"</i>। আমি সাথে সাথে উত্তর দেব।');
+    add('নিচের বক্সে আপনার প্রশ্ন লিখুন — যেমন <i>"আমার জমা কত"</i>, <i>"kon kon member loan niyeche"</i>, <i>"balance koto"</i>। আমি সাথে সাথে উত্তর দেব।');
   }
   function reply(f){
     var d=add(f.a());
