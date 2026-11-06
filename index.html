@@ -3791,7 +3791,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
 <script>
 /* ===== সাহায্য মেনু — Quick Reply (সার্ভার লাগে না, সাথে সাথে উত্তর) ===== */
 (function(){
-  function lr(){ var r=(window.DATA&&DATA.loanRules)||{}; return {p:r.percent||60, cap:r.cap||25000, i:r.interestPercent}; }
+  function lr(){ var r=((typeof DATA!=='undefined'&&DATA)&&DATA.loanRules)||{}; return {p:r.percent||60, cap:r.cap||25000, i:r.interestPercent}; }
   var FAQ = [
     {q:'🔑 কীভাবে লগইন করব?', k:'লগইন login user id password পাসওয়ার্ড ঢুকব প্রবেশ',
      a:function(){return '<b>User ID</b> = Sheet-এ লেখা আপনার নিজের নাম (যেমন Satyajit Das)।<br><b>Password</b> = শুরুতে আপনার মোবাইল নম্বর। "মনে রাখুন" টিক দিলে পরের বার আর দিতে হবে না।';}},
@@ -3857,7 +3857,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     return scored.filter(function(x){return x.s===top;}).map(function(x){return x.m;});
   }
   function dataAnswer(t){
-    if(!window.DATA || !DATA.contributions) return null;
+    if(typeof DATA==='undefined' || !DATA || !DATA.contributions) return null;
     var found=findMembers(t);
     if(!found.length) return null;
     if(found.length>1) return 'একাধিক সদস্যের নাম মিলেছে: <b>'+found.map(function(m){return m.name;}).join(', ')+'</b>।<br>পুরো নাম লিখে আবার জিজ্ঞেস করুন।';
