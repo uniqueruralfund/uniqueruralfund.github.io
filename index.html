@@ -437,6 +437,23 @@
     body:not(.mv-content) .main{display:none;}
     .back-menu-btn{display:inline-flex;}
   }
+  /* ===== সাহায্য মেনু (May I help you?) ===== */
+  .hd-fab{position:fixed; right:16px; bottom:16px; z-index:9000; background:var(--green); color:#fff; border:0; border-radius:999px; padding:.7rem 1.1rem; font:600 .95rem 'Hind Siliguri',sans-serif; box-shadow:0 6px 18px rgba(0,0,0,.28); cursor:pointer; display:flex; gap:.4rem; align-items:center;}
+  .hd-fab:hover{background:var(--green-dark);}
+  .hd-panel{position:fixed; right:16px; bottom:70px; z-index:9001; width:min(94vw,370px); max-height:78vh; background:#fff; border-radius:16px; box-shadow:0 12px 40px rgba(0,0,0,.35); display:flex; flex-direction:column; overflow:hidden; font-family:'Hind Siliguri',sans-serif;}
+  .hd-panel[hidden]{display:none;}
+  .hd-head{background:var(--green-dark); color:#fff; padding:.8rem 1rem; display:flex; justify-content:space-between; align-items:center;}
+  .hd-head b{font-size:1.02rem;} .hd-head small{display:block; opacity:.8; font-size:.74rem;}
+  .hd-x{background:none; border:0; color:#fff; font-size:1.2rem; cursor:pointer;}
+  .hd-body{padding:.8rem; overflow-y:auto; flex:1; background:var(--content-bg);}
+  .hd-msg{background:#fff; border:1px solid var(--line); border-radius:12px; padding:.65rem .8rem; margin-bottom:.6rem; font-size:.92rem; line-height:1.55; color:var(--ink);}
+  .hd-msg.me{background:var(--green); color:#fff; border-color:var(--green); margin-left:2rem;}
+  .hd-q{display:block; width:100%; text-align:left; background:#fff; border:1px solid var(--line); border-radius:10px; padding:.55rem .75rem; margin-bottom:.4rem; font:500 .9rem 'Hind Siliguri',sans-serif; color:var(--ink); cursor:pointer;}
+  .hd-q:hover{border-color:var(--green); background:#F1F7F3;}
+  .hd-go{display:inline-block; margin-top:.4rem; background:var(--active-bg); color:#fff; border:0; border-radius:8px; padding:.35rem .7rem; font:600 .85rem 'Hind Siliguri',sans-serif; cursor:pointer;}
+  .hd-input{display:flex; gap:.4rem; padding:.6rem; border-top:1px solid var(--line); background:#fff;}
+  .hd-input input{flex:1; border:1px solid var(--line); border-radius:8px; padding:.5rem .6rem; font:.92rem 'Hind Siliguri',sans-serif;}
+  .hd-input button{background:var(--green); color:#fff; border:0; border-radius:8px; padding:0 .9rem; font-weight:600; cursor:pointer;}
 </style>
 </head>
 <body>
@@ -546,6 +563,7 @@
   </div>
   <nav class="navlist" id="navlist"></nav>
   <div class="edit-toggle">
+    <button class="edit-btn" id="helpMenuBtn" style="margin-bottom:.5rem;" onclick="hdToggle()">💬 May I help you?</button>
     <button class="edit-btn" id="memberBtn" style="margin-bottom:.5rem;">👤 ব্যক্তিগত তথ্য দেখুন</button>
     <button class="edit-btn" id="approveBtn" style="margin-bottom:.5rem;" hidden onclick="openApprovalOverlay()">🧾 মাসিক জমার অনুমোদন</button>
     <button class="edit-btn" id="loanApproveBtn" style="margin-bottom:.5rem;" hidden onclick="openLoanApprovalOverlay()">🏦 ঋণ অনুমোদন</button>
@@ -3762,6 +3780,75 @@ document.getElementById('loadingScreen').classList.add('hidden');
   }
 })();
 setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
+</script>
+
+<div class="hd-panel" id="hdPanel" hidden>
+  <div class="hd-head"><div><b>👋 May I help you?</b><small>প্রশ্ন বেছে নিন বা লিখুন — সাথে সাথে উত্তর পাবেন</small></div><button class="hd-x" type="button" onclick="hdToggle()" aria-label="বন্ধ করুন">✕</button></div>
+  <div class="hd-body" id="hdBody"></div>
+  <form class="hd-input" onsubmit="hdAsk(event)"><input id="hdText" type="text" placeholder="এখানে প্রশ্ন লিখুন…" autocomplete="off"><button type="submit">পাঠান</button></form>
+</div>
+
+<script>
+/* ===== সাহায্য মেনু — Quick Reply (সার্ভার লাগে না, সাথে সাথে উত্তর) ===== */
+(function(){
+  function lr(){ var r=(window.DATA&&DATA.loanRules)||{}; return {p:r.percent||60, cap:r.cap||25000, i:r.interestPercent}; }
+  var FAQ = [
+    {q:'🔑 কীভাবে লগইন করব?', k:'লগইন login user id password পাসওয়ার্ড ঢুকব প্রবেশ',
+     a:function(){return '<b>User ID</b> = Sheet-এ লেখা আপনার নিজের নাম (যেমন Satyajit Das)।<br><b>Password</b> = শুরুতে আপনার মোবাইল নম্বর। "মনে রাখুন" টিক দিলে পরের বার আর দিতে হবে না।';}},
+    {q:'🔒 Password ভুলে গেছি', k:'ভুলে forgot otp রিসেট পাসওয়ার্ড বদল',
+     a:function(){return 'লগইন ফর্মে <b>"Password ভুলে গেছেন?"</b>-তে চাপুন। Sheet-এ থাকা আপনার নিজের ইমেইলে OTP যাবে, সেই OTP দিয়ে নতুন Password দিন। ইমেইল না এলে Prasun Jyoti-কে জানান।';}},
+    {q:'💰 মাসিক জমা কীভাবে দেব?', k:'জমা পেমেন্ট payment টাকা দেব upi ব্যাংক নগদ',
+     a:function(){return 'লগইন করে <b>০৫ পেমেন্ট</b> পাতায় যান → "মাসিক জমা" বেছে মাস টিক দিন → অনলাইনে (UPI/ব্যাংক) পাঠালে স্ক্রিনশট দিন, নগদ দিলে কাকে দিলেন বেছে নিন → <b>✅ পেমেন্ট করেছি</b> চাপুন। অনুমোদনের পর হিসাবে উঠবে।';}, go:['payment','পেমেন্ট পাতায় যান']},
+    {q:'🏦 ঋণ কীভাবে নেব? কত পাব?', k:'ঋণ লোন loan আবেদন নেব সর্বোচ্চ কত',
+     a:function(){var r=lr(); return '<b>ঋণের আবেদন</b> পাতায় আবেদন করুন। সর্বোচ্চ ঋণ = আপনার Available Balance-এর <b>'+r.p+'%</b>, তবে <b>₹'+Number(r.cap).toLocaleString('en-IN')+'</b>-এর বেশি নয়'+(r.i?'। মাসিক সুদ '+r.i+'%':'')+'। অনুমোদনের পর সংগ্রাহক টাকা দেবেন।';}, go:['loanrequest','ঋণের আবেদন পাতায় যান']},
+    {q:'🚨 জরুরি টাকা দরকার', k:'জরুরি urgent emergency বিপদ হঠাৎ',
+     a:function(){return '<b>🚨 জরুরি আবেদন</b> মেনুতে আবেদন করুন — এতে সাধারণ সীমা প্রযোজ্য নয়, তবে কারণ লিখতে হবে। আবেদন আগে Prasun Jyoti দেখবেন (দরকারে টাকার পরিমাণ বদলাতে পারেন), তারপর সংগ্রাহক টাকা দেবেন।';}, go:['urgentloan','জরুরি আবেদন পাতায় যান']},
+    {q:'📉 ঋণের সুদ / ঋণ পরিশোধ', k:'সুদ interest পরিশোধ শোধ কিস্তি আসল principal',
+     a:function(){return 'মাসিক সুদ দিতে <b>০৫ পেমেন্ট</b> → "চলতি ঋণের সুদ"। আসল টাকা শোধ করতে <b>ঋণ পরিশোধ</b> পাতা — তবে আগে বকেয়া সুদ মিটিয়ে নিতে হবে। পুরো টাকা একসাথে শোধ করলে অনুমোদনের সাথে সাথে ঋণ বন্ধ (Closed) হয়ে যায়।';}, go:['loanrepay','ঋণ পরিশোধ পাতায় যান']},
+    {q:'⚠️ ফাইন (জরিমানা) কখন হয়?', k:'ফাইন fine জরিমানা বকেয়া দেরি',
+     a:function(){return 'মাসিক জমা বা ঋণের সুদ পরপর <b>২ মাস</b> বকেয়া থাকলে (১৬ তারিখের পর) ফাইন প্রযোজ্য। ফাইন আগে মেটাতে হয়, তারপর বকেয়া জমা/সুদ দেওয়া যায়। নিজের ফাইন ও নিয়ম ফাইন পাতায় দেখুন।';}, go:['fine','ফাইন পাতায় যান']},
+    {q:'📊 আমার হিসাব / ব্যালেন্স কোথায়?', k:'হিসাব ব্যালেন্স balance কত আমার তথ্য ব্যক্তিগত',
+     a:function(){return 'সাইডবারের <b>👤 ব্যক্তিগত তথ্য দেখুন</b>-এ আপনার জমা, ঋণ ও সুদের পুরো হিসাব পাবেন। সবার সারসংক্ষেপ <b>Overview</b> ও <b>মাসিক জমা</b> পাতায়।';}, go:['overview','Overview-তে যান']},
+    {q:'⏳ আমার পেমেন্ট আটকে আছে কেন?', k:'অনুমোদন approve অপেক্ষা pending আটকে স্ট্যাটাস status',
+     a:function(){return 'পেমেন্ট পাঠানোর পর ধাপ: সংগ্রাহক যাচাই → Prasun Jyoti চূড়ান্ত অনুমোদন। নগদ অন্য কাউকে দিলে তিনি আগে নিশ্চিত করবেন। কয়েকদিনেও না হলে সংগ্রাহককে ফোন করুন।';}},
+    {q:'📱 অ্যাপ কীভাবে নামাব?', k:'অ্যাপ app apk ডাউনলোড download মোবাইল',
+     a:function(){return 'লগইনের আগের পাতায় <b>📱 অ্যাপ ডাউনলোড করুন</b> বোতামে চাপুন (Android)। ডাউনলোড হলে খুলে Install করুন।';}},
+    {q:'📖 নিয়মাবলী ও ব্যবহারবিধি', k:'নিয়ম rules নিয়মাবলী কীভাবে ব্যবহার guide',
+     a:function(){return 'ফান্ডের সব নিয়ম <b>নিয়মাবলী</b> পাতায়, আর ধাপে ধাপে ব্যবহার শেখা <b>কীভাবে ব্যবহার করবেন</b> পাতায়।';}, go:['rules','নিয়মাবলী পাতায় যান']},
+    {q:'📞 যোগাযোগ করতে চাই', k:'যোগাযোগ contact ফোন ইমেইল ঠিকানা email সমস্যা অভিযোগ',
+     a:function(){return '📧 <a href="mailto:uniqueruralfund21@gmail.com">uniqueruralfund21@gmail.com</a><br>📍 Dhwaja, Alipur, Shyampur, Howrah – 711315, West Bengal<br>লগইনের পর সংগ্রাহক বা Prasun Jyoti-কে সরাসরি জানাতে পারেন।';}}
+  ];
+  function body(){ return document.getElementById('hdBody'); }
+  function add(html, me){ var d=document.createElement('div'); d.className='hd-msg'+(me?' me':''); d.innerHTML=html; body().appendChild(d); body().scrollTop=body().scrollHeight; return d; }
+  function backBtn(label){ var b=document.createElement('button'); b.type='button'; b.className='hd-q'; b.style.marginTop='.5rem'; b.textContent=label; b.onclick=menu; body().appendChild(b); body().scrollTop=body().scrollHeight; }
+  function menu(){
+    var b=body(); b.innerHTML='';
+    add('নমস্কার! 👋 <b>আমি কীভাবে সাহায্য করতে পারি?</b><br>নিচের প্রশ্ন বেছে নিন, অথবা নিজের প্রশ্ন লিখুন।');
+    FAQ.forEach(function(f,i){ var x=document.createElement('button'); x.type='button'; x.className='hd-q'; x.textContent=f.q; x.onclick=function(){ hdPick(i); }; b.appendChild(x); });
+  }
+  function reply(f){
+    var d=add(f.a());
+    if(f.go){
+      var logged=!!(typeof memberSession!=='undefined' && memberSession);
+      var g=document.createElement('button'); g.type='button'; g.className='hd-go';
+      g.textContent = logged ? f.go[1] : '🔑 আগে লগইন করুন';
+      g.onclick=function(){ hdToggle(); if(!logged){ if(typeof showWcLoginForm==='function') showWcLoginForm(); return; } var bt=document.querySelector('#navlist button[data-page="'+f.go[0]+'"]'); if(bt) bt.click(); };
+      d.appendChild(document.createElement('br')); d.appendChild(g);
+    }
+    backBtn('⬅ অন্য প্রশ্ন');
+  }
+  window.hdPick=function(i){ add(FAQ[i].q,true); reply(FAQ[i]); };
+  window.hdAsk=function(e){
+    e.preventDefault(); var inp=document.getElementById('hdText'); var t=inp.value.trim(); if(!t) return; inp.value='';
+    add(t.replace(/</g,'&lt;'),true);
+    var w=t.toLowerCase().split(/\s+/).filter(function(x){return x.length>1;});
+    var best=-1, sc=0;
+    FAQ.forEach(function(f,i){ var keys=(f.k+' '+f.q).toLowerCase(), s=0; w.forEach(function(x){ if(keys.indexOf(x)>=0) s++; }); if(s>sc){sc=s;best=i;} });
+    if(best>=0){ reply(FAQ[best]); }
+    else { add('দুঃখিত, এই প্রশ্নের উত্তর আমার কাছে নেই। 🙏<br>📧 <a href="mailto:uniqueruralfund21@gmail.com?subject='+encodeURIComponent('Unique Rural Fund - প্রশ্ন')+'&body='+encodeURIComponent(t)+'">ইমেইলে প্রশ্নটা পাঠান</a> — সংগ্রাহক/অ্যাডমিন উত্তর দেবেন।'); backBtn('⬅ মেনুতে ফিরুন'); }
+  };
+  window.hdToggle=function(){ var p=document.getElementById('hdPanel'); p.hidden=!p.hidden; if(!p.hidden && !body().children.length) menu(); };
+})();
 </script>
 
 </body>
