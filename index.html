@@ -442,6 +442,7 @@
   .hd-fab:hover{background:var(--green-dark);}
   .sathi-top{all:unset; display:flex; align-items:center; gap:.4rem; font:700 .85rem 'Hind Siliguri',sans-serif; color:#fff; background:linear-gradient(135deg,#1E6B3A,#0B3D1E); border:1px solid #E7C877; padding:.4rem .85rem; border-radius:999px; cursor:pointer; box-shadow:0 2px 8px rgba(0,60,20,.25); white-space:nowrap;}
   .sathi-top:hover{filter:brightness(1.12);}
+  .sathi-ico{width:22px; height:22px; flex:0 0 22px; display:block;}
   .hd-panel{position:fixed; right:16px; top:70px; z-index:9001; width:min(94vw,390px); max-height:calc(100vh - 90px); background:#fff; border-radius:16px; box-shadow:0 12px 40px rgba(0,0,0,.35); display:flex; flex-direction:column; overflow:hidden; font-family:'Hind Siliguri',sans-serif;}
   .hd-panel[hidden]{display:none;}
   .hd-head{position:relative; background:linear-gradient(180deg,#014F23 0%,#00421D 100%); color:#fff; padding:.9rem 1rem 1rem;}
@@ -593,7 +594,7 @@
       <h2 class="page-title serif" id="pageTitle"></h2>
     </div>
     <div class="topbar-right">
-      <button type="button" class="sathi-top" id="sathiTopBtn" onclick="hdToggle()" title="URF Sathi — প্রশ্ন করুন">🤝 URF Sathi</button>
+      <button type="button" class="sathi-top" id="sathiTopBtn" onclick="hdToggle()" title="URF Sathi — প্রশ্ন করুন"><svg class="sathi-ico" aria-hidden="true"><use href="#urfMark"/></svg> URF Sathi</button>
       <div class="user-chip" id="userChip" hidden><span class="uc-ico">👤</span> <span id="userChipName"></span> <button type="button" class="uc-out" onclick="memberLogout()" title="লগআউট">লগআউট</button></div>
       <button class="refresh-btn" id="refreshBtn" title="সর্বশেষ ডেটা লোড করুন"><span class="ic">⟳</span> রিফ্রেশ</button>
       <div class="saved-indicator" id="savedIndicator"><span class="dot"></span> <span id="savedText">সংরক্ষিত</span></div>
@@ -3926,6 +3927,74 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     return s;
   }
   var HD={ctx:null};
+  // শুধু নাম লিখলে (কোনো প্রশ্নের শব্দ ছাড়া) — পুরো প্রোফাইল
+  function isBareName(t,m){
+    var w=t.toLowerCase().split(/[^a-zঀ-৿]+/).filter(Boolean);
+    var nameToks=m.name.toLowerCase().split(/\s+/);
+    var rest=w.filter(function(x){ return nameToks.indexOf(x)<0 && !nameToks.some(function(tk){return x.length>=4&&osa(x,tk)<=1;}) && ['er','ar','r','ke','kon','ki','hoyeche','bolo','dekhao'].indexOf(x)<0; });
+    return rest.length===0;
+  }
+  var MON3b={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+  function dueInfo2(s){ var q=String(s||'').split('-'); var mi=MON3b[(q[1]||'').toLowerCase().slice(0,3)]||0; return {d:new Date(+q[2],mi,+q[0]), t:BN_MONTHS[mi]+' '+q[2]}; }
+  function dd2(v){ return (v&&v!=='—')?('<b>'+v+'</b>'):'<i>এখনো হয়নি</i>'; }
+  // ফাইন প্রযোজ্য কি (সাইটের নিজস্ব নিয়ম: ২টি বা বেশি মাস বকেয়া, ১৬ তারিখ পার)
+  function fineStatus(name, overdueCount, rate, label){
+    if(overdueCount<2) return '✅ ফাইন প্রযোজ্য নয় ('+label+')';
+    var claim=(DATA.paymentRequests||[]).filter(function(p){return p.typeLabel==='ফাইন' && String(p.member||'').toLowerCase()===name.toLowerCase() && String(p.monthLabel||'').indexOf(label)>-1;})[0];
+    if(claim && (claim.stage==='admin'||claim.stage==='done')) return '✅ '+label+' জমা/অনুমোদিত ('+(claim.paymentDate||claim.askedAt||'')+')';
+    if(claim && (claim.stage==='collector'||claim.stage==='recipient')) return '⏳ '+label+' জমা দেওয়া হয়েছে, অনুমোদনের অপেক্ষায়';
+    return '⚠️ <b>'+label+' প্রযোজ্য</b> — '+overdueCount+' মাস বকেয়া, আনুমানিক ফাইন <b>'+rs(Math.floor(overdueCount/2)*rate)+'</b> (সঠিক অঙ্ক ফাইন পাতায়)';
+  }
+  function loanSummary(m){
+    var ln=(DATA.activeLoans||[]).filter(function(x){return x.name===m.name;})[0];
+    if(!ln){
+      var cl=(DATA.closedLoans||[]).filter(function(x){return x.name===m.name;});
+      return '🏦 <b>চলতি ঋণ:</b> নেই'+(cl.length?' (আগে '+cl.length+' বার ঋণ নিয়ে শোধ করেছেন)':'');
+    }
+    var ms=(ln.months||[]).filter(Boolean), today=new Date();
+    var paidInst=ms.filter(function(x){return x.amount!==null;});
+    var lateInst=ms.filter(function(x){return x.amount===null && dueInfo2(x.due).d<=today;});
+    var out='🏦 <b>চলতি ঋণ: '+rs(ln.amount)+'</b> (নেওয়া '+ln.date+'), মাসিক সুদ '+rs(ln.monthlyInterest)+', শেষ হবে '+(ln.closingDate||'—');
+    if(!paidInst.length) out+='<br>• এখনো কোনো মাসের সুদ জমা পড়েনি';
+    else {
+      var lp=paidInst[paidInst.length-1];
+      out+='<br>• সুদ জমা: <b>'+paidInst.length+' মাসের</b> (মোট '+rs(paidInst.reduce(function(s,x){return s+(Number(x.amount)||0);},0))+')'+'<br>• 📌 সর্বশেষ সুদ জমা: <b>'+dueInfo2(lp.due).t+'</b> মাসের ('+rs(lp.amount)+')';
+      var rq=(DATA.paymentRequests||[]).filter(function(p){ return p && String(p.member||'').toLowerCase()===m.name.toLowerCase() && p.typeLabel==='চলতি ঋণের সুদ' && String(p.monthLabel||'').indexOf(lp.due)>=0; });
+      var pr=rq.filter(function(x){return x.stage==='done';}).pop()||rq[rq.length-1];
+      if(pr) out+='<br>&nbsp;&nbsp;🗓 পেমেন্ট '+dd2(pr.paymentDate)+(pr.method==='নগদ'?' (নগদ)':'')+' • '+(DATA.collectorName||'সংগ্রাহক')+' '+dd2(pr.collectorApprovedAt)+' • Prasun '+dd2(pr.adminApprovedAt);
+      else out+='<br>&nbsp;&nbsp;<span style="opacity:.75">ℹ️ সরাসরি Sheet-এ লেখা, অনলাইন রেকর্ড নেই</span>';
+    }
+    out+= lateInst.length ? '<br>• ⚠️ <b>সুদ বকেয়া: '+lateInst.map(function(x){return dueInfo2(x.due).t;}).join(', ')+'</b> ('+lateInst.length+' মাস, '+rs(lateInst.length*ln.monthlyInterest)+')' : '<br>• ✅ কোনো সুদ বকেয়া নেই';
+    out+='<br>• '+fineStatus(m.name, lateInst.length, ln.monthlyInterest, 'ঋণের সুদের ফাইন');
+    return out;
+  }
+  function fullProfile(m){
+    var year=DATA.year, pay=m.pay||[], now=new Date();
+    var cur=(String(year)===String(now.getFullYear()))?(now.getMonth()+(now.getDate()>=16?1:0)):12;
+    var paidIdx=[]; pay.forEach(function(p,i){ if(p>0) paidIdx.push(i); });
+    var total=pay.reduce(function(s,p){return s+(p>0?p:0);},0);
+    var unpaid=[]; for(var i=0;i<Math.min(cur,12);i++){ if(!(pay[i]>0)) unpaid.push(BN_MONTHS[i]); }
+    var bd=(DATA.birthdays||[]).filter(function(b){return b.name===m.name;})[0];
+    var out='👤 <b>'+m.name+' — পুরো হিসাব</b>';
+    if(bd&&bd.mobile) out+='<br>📞 '+bd.mobile;
+    if(bd&&bd.md){ var q=bd.md.split('-'); out+=' &nbsp;🎂 '+parseInt(q[1],10)+' '+BN_MONTHS[parseInt(q[0],10)-1]; }
+    out+='<br><br>💰 <b>মাসিক জমা ('+year+')</b>';
+    if(!paidIdx.length) out+='<br>• এখনো কোনো মাসিক জমা নেই';
+    else {
+      var li=paidIdx[paidIdx.length-1];
+      HD.ctx={name:m.name,idx:li};
+      out+='<br>• 📌 সর্বশেষ জমা: <b>'+BN_MONTHS[li]+'</b> মাসের ('+rs(pay[li])+')'+payDetail(m,li,false).replace(/<br>/g,'<br>&nbsp;&nbsp;');
+      out+='<br>• মোট জমা: <b>'+rs(total)+'</b> ('+paidIdx.length+' মাস)';
+    }
+    out+= unpaid.length ? '<br>• ⚠️ <b>বকেয়া মাস: '+unpaid.join(', ')+'</b> ('+unpaid.length+' মাস)' : '<br>• ✅ কোনো মাস বকেয়া নেই';
+    out+='<br>• '+fineStatus(m.name, unpaid.length, DATA.monthlyContribution||100, 'মাসিক জমার ফাইন');
+    var fp=(DATA.paymentRequests||[]).filter(function(p){return p.typeLabel==='ফাইন' && String(p.member||'').toLowerCase()===m.name.toLowerCase();});
+    if(fp.length) out+='<br>• এ পর্যন্ত ফাইন জমার অনুরোধ: '+fp.length+'টি (সর্বশেষ: '+(fp[0].paymentDate||fp[0].askedAt||'—')+', '+(fp[0].status||'')+')';
+    out+='<br><br>'+loanSummary(m);
+    var rp=(DATA.loanRepayments||[]).filter(function(r){return r.member===m.name && r.stage==='done';});
+    if(rp.length) out+='<br>• আসল ঋণ পরিশোধ করেছেন: '+rp.map(function(r){return rs(r.amount)+' ('+(r.paymentDate||r.askedAt||'—')+')';}).join(', ');
+    return out;
+  }
   function detailQ0(l){ return has(l,['detail','details','bistarito','বিস্তারিত','kobe','kon date','date','tarikh','tarik','তারিখ','কবে','approve','approved','onumodon','অনুমোদন']); }
   function dataAnswer(t){
     if(typeof DATA==='undefined' || !DATA || !DATA.contributions) return null;
@@ -3937,6 +4006,8 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
       found=(DATA.contributions||[]).filter(function(x){return x.name===HD.ctx.name;});
     }
     if(!found.length) return null;
+    var fullQ=has(t.toLowerCase(),['details','detail','bistarito','বিস্তারিত','sob','সব','somosto','shomosto','সমস্ত','profile','প্রোফাইল','hisab','হিসাব','tothyo','তথ্য','report','summary','sarongsho','সারাংশ','sob kichu','sobkichu']) && !has(t.toLowerCase(),['kobe','kon date','tarikh','তারিখ','কবে','approve','onumodon','অনুমোদন','phone','mobile','number','ফোন','মোবাইল']) && !has(t.toLowerCase(),['loan','rin','ঋণ','sud','সুদ','baki','bokeya','বাকি','বকেয়া','fine','ফাইন','joma','জমা']) && monthAsked(t.toLowerCase())<0;
+    if(found.length===1 && (fullQ || isBareName(t,found[0]))) return fullProfile(found[0]);
     if(found.length>1) return 'একাধিক সদস্যের নাম মিলেছে: <b>'+found.map(function(m){return m.name;}).join(', ')+'</b>।<br>পুরো নাম লিখে আবার জিজ্ঞেস করুন।';
     var m=found[0], l=t.toLowerCase(), pay=m.pay||[];
     var months=DATA.months||[], year=DATA.year;
