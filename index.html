@@ -458,6 +458,10 @@
   .hd-hi{display:block; font:700 1.08rem 'Hind Siliguri',sans-serif; line-height:1.35; color:#FFE9A8; overflow-wrap:anywhere;}
   .hd-hi .hd-em{font-size:1.25rem; vertical-align:-2px; margin-left:.15rem;}
   .hd-sub{display:block; margin-top:.25rem; font-size:.88rem; line-height:1.6; color:rgba(255,255,255,.9);}
+  .hd-bye{background:linear-gradient(135deg,#FFF9E6,#F1F8EC); border:1px solid #E7C877; border-left:4px solid #1E6B3A; border-radius:12px; padding:.65rem .8rem; line-height:1.6;}
+  .hd-bye b{color:#0B3D1E;}
+  .hd-bye .bye-wish{display:block; margin-top:.35rem; font-weight:600; color:#7A5A00;}
+  .hd-bye .bye-sign{display:block; margin-top:.35rem; font-size:.82rem; opacity:.75; font-style:italic;}
   .hd-tools{position:absolute; top:.6rem; right:.7rem; display:flex; align-items:center; gap:.45rem;}
   .hd-spark{font-size:1.3rem; line-height:1;}
   .hd-x{background:none; border:0; color:#fff; font-size:1.35rem; cursor:pointer; line-height:1; padding:.1rem .2rem;}
@@ -4455,7 +4459,40 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     }
     return null;
   }
+  /* ===== কথা শেষ করার বার্তা (ok / ঠিক আছে / ধন্যবাদ / bye …) → সুন্দর বিদায়-বার্তা ===== */
+  var CL_ACK=['ok','okay','okk','okey','k','kk','thik','achha','accha','acha','hmm','hm','hmmm','hmmmm','bujhlam','bujhechi','bujhe','parlam','valo','bhalo','good','nice','great','super','perfect','cool','done','ঠিক','ওকে','অকে','আচ্ছা','হুম','বুঝলাম','বুঝেছি','ভালো','ভাল','দারুণ','সুন্দর'];
+  var CL_THX=['thanks','thank','thnx','tnx','thx','thanku','thankyou','dhonnobad','dhanyabad','dhonyobad','shukriya','ধন্যবাদ','থ্যাঙ্কস','থ্যাংক'];
+  var CL_BYE=['bye','byee','goodbye','tata','chalo','cholo','ashi','asi','ghumabo','ratri','night','gn','বিদায়','চলি','আসি','রাত্রি'];
+  var CL_FILL=['laglo','lagche','lagelo','লাগলো','লাগল','ache','achhe','you','ar','r','kichu','na','nei','nai','lagbe','proshno','ei','tuku','ebar','tahole','then','so','ji','haan','ha','hya','hyan','tobe','moto','jonno','onek','khub','darun','besh','dada','bhai','sir','didi','apni','tumi','tomake','apnake','ami','amar','sathi','urf','etai','chilo','tai','shubho','subho','ta','pore','abar','dekha','hobe','kotha','আছে','আর','কিছু','না','নেই','লাগবে','প্রশ্ন','এই','টুকু','এবার','তাহলে','জি','হ্যাঁ','হা','তবে','দাদা','ভাই','স্যার','দিদি','আপনি','তুমি','আমি','আমার','সাথী','খুব','বেশ','অনেক','এটাই','হয়েছে','শুভ','আবার','দেখা','হবে','পরে','কথা'];
+  var CL_PHR=['ar kichu na','ar kichu lagbe na','ar proshno nei','ar proshno nai','ar kono proshno nei','kichu janar nei','ar kichu janar nei','etai chilo','abar dekha hobe','pore kotha hobe','ta ta','shubho ratri','subho ratri','আর কিছু না','আর কিছু লাগবে না','আবার দেখা হবে','পরে কথা হবে','এটাই ছিল','শুভ রাত্রি'];
+  function closingKind(t){
+    var l=String(t).toLowerCase().replace(/[^a-zঀ-৿\s]+/g,' ').replace(/\s+/g,' ').trim(); if(!l) return null;
+    var w=l.split(' ');
+    if(w.length>7) return null;
+    var phr=CL_PHR.some(function(p){return l===p||l.indexOf(p)>=0;});
+    var allKnown=w.every(function(x){return CL_ACK.indexOf(x)>=0||CL_THX.indexOf(x)>=0||CL_BYE.indexOf(x)>=0||CL_FILL.indexOf(x)>=0;});
+    if(!phr && !allKnown) return null;
+    var hasBye=phr||w.some(function(x){return CL_BYE.indexOf(x)>=0;}), hasThx=w.some(function(x){return CL_THX.indexOf(x)>=0;}), hasAck=w.some(function(x){return CL_ACK.indexOf(x)>=0;});
+    if(!hasBye && !hasThx && !hasAck) return null;
+    
+    return hasThx?'thx':(hasBye?'bye':'ack');
+  }
+  function closingMsg(kind){
+    var n=''; try{ n=String((typeof memberSession!=='undefined'&&memberSession&&memberSession.userId)||'').trim().replace(/[<>&]/g,''); }catch(e){}
+    var d=new Date(), x=d.getHours()+d.getMinutes()/60, wish;
+    if(x>=5&&x<12) wish='আপনার সকালটা শুভ হোক ☀️';
+    else if(x>=12&&x<15.5) wish='দুপুরটা ভালো কাটুক 🌤️';
+    else if(x>=15.5&&x<18) wish='বিকেলটা সুন্দর কাটুক ☕';
+    else if(x>=18&&x<20) wish='সন্ধ্যাটা শান্তিতে কাটুক 🪔';
+    else wish='শুভ রাত্রি, ভালো ঘুম হোক 🌙';
+    var nm=n?', '+n:'';
+    var open= kind==='thx' ? 'আপনাকেও ধন্যবাদ'+nm+'! 🙏' : (kind==='bye' ? 'বিদায়'+nm+'! 👋' : 'ঠিক আছে'+nm+'! 😊');
+    var mids=['আপনার সঞ্চয়, ঋণ বা ফান্ডের যেকোনো তথ্য লাগলে URF Sathi সবসময় এখানেই আছে।','আবার কিছু জানার থাকলে নির্দ্বিধায় একটা প্রশ্ন লিখে দেবেন — সাথে সাথে উত্তর পাবেন।','আপনার সঙ্গে কথা বলে ভালো লাগল। যখনই দরকার, আমি তৈরি।'];
+    var mid=mids[Math.floor(Math.random()*mids.length)];
+    return '<div class="hd-bye"><b>'+open+'</b><br>'+mid+'<span class="bye-wish">'+wish+' — আবার দেখা হবে! 🤝</span><span class="bye-sign">— আপনার URF Sathi</span></div>';
+  }
   function hdAnswer(t0){
+    var ck=closingKind(t0); if(ck) return closingMsg(ck);
     var t=nz(t0), r=null;
     try{ r=approvalAnswer(t); }catch(e){ r=null; }
     if(!r){ try{ r=topicAnswer(t); }catch(e2){ r=null; } }
