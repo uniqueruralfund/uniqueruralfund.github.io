@@ -443,6 +443,7 @@
   .sathi-top{all:unset; display:flex; align-items:center; gap:.4rem; font:700 .85rem 'Hind Siliguri',sans-serif; color:#fff; background:linear-gradient(135deg,#1E6B3A,#0B3D1E); border:1px solid #E7C877; padding:.4rem .85rem; border-radius:999px; cursor:pointer; box-shadow:0 2px 8px rgba(0,60,20,.25); white-space:nowrap;}
   .sathi-top:hover{filter:brightness(1.12);}
   .sathi-ico{width:22px; height:22px; flex:0 0 22px; display:block;}
+  .sathi-bot{width:30px; height:30px; flex:0 0 30px; display:block; border-radius:50%; object-fit:cover; border:1.5px solid #E7C877; margin:-3px 0 -3px -6px; background:#0b3a8a;}
   .hd-panel{position:fixed; right:16px; top:70px; z-index:9001; width:min(94vw,390px); max-height:calc(100vh - 90px); background:#fff; border-radius:16px; box-shadow:0 12px 40px rgba(0,0,0,.35); display:flex; flex-direction:column; overflow:hidden; font-family:'Hind Siliguri',sans-serif;}
   .hd-panel[hidden]{display:none;}
   .hd-head{position:relative; background:linear-gradient(180deg,#014F23 0%,#00421D 100%); color:#fff; padding:.9rem 1rem 1rem;}
@@ -594,7 +595,7 @@
       <h2 class="page-title serif" id="pageTitle"></h2>
     </div>
     <div class="topbar-right">
-      <button type="button" class="sathi-top" id="sathiTopBtn" onclick="hdToggle()" title="URF Sathi — প্রশ্ন করুন"><svg class="sathi-ico" aria-hidden="true"><use href="#urfMark"/></svg> URF Sathi</button>
+      <button type="button" class="sathi-top" id="sathiTopBtn" onclick="hdToggle()" title="URF Sathi — প্রশ্ন করুন"><img class="sathi-bot" src="assets/urf-sathi-bot.png" alt="" aria-hidden="true"> URF Sathi</button>
       <div class="user-chip" id="userChip" hidden><span class="uc-ico">👤</span> <span id="userChipName"></span> <button type="button" class="uc-out" onclick="memberLogout()" title="লগআউট">লগআউট</button></div>
       <button class="refresh-btn" id="refreshBtn" title="সর্বশেষ ডেটা লোড করুন"><span class="ic">⟳</span> রিফ্রেশ</button>
       <div class="saved-indicator" id="savedIndicator"><span class="dot"></span> <span id="savedText">সংরক্ষিত</span></div>
