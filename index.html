@@ -3866,7 +3866,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
       // বানান ভুল/উল্টোপাল্টা হলেও ধরার চেষ্টা (যেমন Utapl → Utpal)
       (DATA.contributions||[]).forEach(function(m){
         var toks=m.name.toLowerCase().split(/\s+/).filter(function(x){return x.length>=4;}), s=0;
-        toks.forEach(function(tk){ if(words.some(function(w){ return w.length>=4 && /^[a-z]+$/.test(w) && osa(w,tk)<=(tk.length>=7?2:1); })) s++; });
+        toks.forEach(function(tk){ if(words.some(function(w){ return w.length>=4 && /^[a-z]+$/.test(w) && ['amar','amake','nijer','ager','taka','joma','kobe','kota','koto','last','list','sobar','date'].indexOf(w)<0 && osa(w,tk)<=(tk.length>=7?2:1); })) s++; });
         if(s>0) scored.push({m:m,s:s});
       });
     }
@@ -3911,6 +3911,9 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
   function dataAnswer(t){
     if(typeof DATA==='undefined' || !DATA || !DATA.contributions) return null;
     var found=findMembers(t);
+    if(!found.length && typeof memberSession!=='undefined' && memberSession && has(t.toLowerCase(),['amar','amr','amake','nijer','আমার','আমি','আমাকে','নিজের','ami'])){
+      found=(DATA.contributions||[]).filter(function(x){return x.name.toLowerCase()===String(memberSession.userId||'').toLowerCase();});
+    }
     if(!found.length && HD.ctx && detailQ0(t.toLowerCase())){
       found=(DATA.contributions||[]).filter(function(x){return x.name===HD.ctx.name;});
     }
@@ -3926,9 +3929,20 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     var unpaidQ=has(l,['baki','bokeya','bakeya','বাকি','বকেয়া','dei ni','den ni','দেয়নি','দেননি']);
     var totalQ=has(l,['mot ','total','মোট','koto','কত']);
     var lastQ=has(l,['last','shesh','sesh','সর্বশেষ','শেষ','letest','latest']);
+    var bd=(DATA.birthdays||[]).filter(function(b){return b.name===m.name;})[0];
+    if(has(l,['phone','mobile','number','nambar','nombor','whatsapp','ফোন','মোবাইল','নম্বর','নাম্বার'])){
+      return bd&&bd.mobile ? '📞 <b>'+m.name+'</b>-এর মোবাইল: <b>'+bd.mobile+'</b>' : '<b>'+m.name+'</b>-এর মোবাইল নম্বর পাইনি।';
+    }
+    if(has(l,['birthday','jonmodin','janmadin','জন্মদিন','bday'])){
+      if(!bd||!bd.md) return '<b>'+m.name+'</b>-এর জন্মদিনের তথ্য পাইনি।';
+      var bq=bd.md.split('-'); return '🎂 <b>'+m.name+'</b>-এর জন্মদিন: <b>'+parseInt(bq[1],10)+' '+BN_MONTHS[parseInt(bq[0],10)-1]+'</b>'+(typeof daysUntil==='function'?' ('+(daysUntil(bd.md)===0?'আজ!':daysUntil(bd.md)+' দিন বাকি')+')':'');
+    }
     if(loanQ){
       var ln=(DATA.activeLoans||[]).filter(function(x){return x.name===m.name;})[0];
-      if(!ln) return '<b>'+m.name+'</b>-এর এখন কোনো চলতি ঋণ নেই।';
+      if(!ln){
+        var cl=(DATA.closedLoans||[]).filter(function(x){return x.name===m.name;});
+        return '<b>'+m.name+'</b>-এর এখন কোনো চলতি ঋণ নেই।'+(cl.length?'<br>আগে ঋণ শোধ করেছেন '+cl.length+' বার: '+cl.map(function(x){return x.closedOn+' (মোট সুদ '+rs(x.totalInterest)+')';}).join(', '):'');
+      }
       var ms=(ln.months||[]).filter(Boolean), today=new Date();
       var MON3={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
       function dueInfo(s){ var q=String(s||'').split('-'); var mi=MON3[(q[1]||'').toLowerCase().slice(0,3)]; return {d:new Date(+q[2],mi,+q[0]), t:BN_MONTHS[mi]+' '+q[2], raw:s}; }
@@ -3971,7 +3985,8 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     if(detailQ && !totalQ) return lastTxt;
     if(lastQ && !totalQ) return lastTxt;
     if(totalQ && !lastQ) return '<b>'+m.name+'</b> '+year+' সালে মোট জমা দিয়েছেন <b>'+rs(total)+'</b> ('+paidIdx.length+' মাসে)।';
-    return lastTxt+'<br>'+year+' সালে মোট জমা: <b>'+rs(total)+'</b> ('+paidIdx.length+' মাস)।'+(unpaid.length?'<br>বকেয়া মাস: '+unpaid.join(', '):'<br>কোনো মাস বকেয়া নেই ✅');
+    var ln2=(DATA.activeLoans||[]).filter(function(x){return x.name===m.name;})[0];
+    return lastTxt+'<br>'+year+' সালে মোট জমা: <b>'+rs(total)+'</b> ('+paidIdx.length+' মাস)।'+(unpaid.length?'<br>বকেয়া মাস: '+unpaid.join(', '):'<br>কোনো মাস বকেয়া নেই ✅')+(ln2?'<br>🏦 চলতি ঋণ: '+rs(ln2.amount)+(ln2.interestOverdue?' (সুদ বকেয়া ⚠️)':'')+' — বিস্তারিত জানতে "loan" লিখে জিজ্ঞেস করুন।':'');
   }
   /* ---- পুরো গ্রুপ/ফান্ড নিয়ে প্রশ্ন (কারা ঋণ নিয়েছে, কার সুদ বাকি, ব্যালেন্স, জন্মদিন…) ---- */
   function loanOverdue(x){ try{ return !!(x.interestOverdue || (typeof loanStatus==='function' && loanStatus(x).overdue)); }catch(e){ return !!x.interestOverdue; } }
@@ -3984,11 +3999,66 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     var sudW=has(l,['sud','sod','sood','shud','shod','sudh','সুদ','interest','intrest']);
     var bakiW=has(l,['baki','bokeya','bakeya','বাকি','বকেয়া','dey ni','dei ni','den ni','দেয়নি','দেননি','koreni','korena','korenni','kore ni','dey na','dei na','দেয়নি','করেনি','করে নি','দেয় নি','দেন নি','overdue','pay kore ni']);
     var jomaW=has(l,['joma','jama','জমা','chanda','চাঁদা','chada','taka','টাকা']);
-    var totalW=has(l,['mot','total','মোট','koto','kto','কত']);
+    var totalW=has(l,['mot','total','মোট','koto','kto','কত','koyjon','koyjan','kotojon','কয়জন','কতজন','koyta','কয়টা','কতজন']);
     var listW=has(l,['list','talika','তালিকা','kon kon','ke ke','কারা','কে কে','kara','sob','সব','sokol','সকল','all','who','amabe','dao','din']);
     var niyecheW=has(l,['niyache','niyeche','niyechhe','niyechi','neyeche','নিয়েছে','নিয়েছেন','nichhe','niya','nia','নিচ্ছে','ache','আছে','achhe','achey']);
     var paidThisMonth=has(l,['ei mase','ei mas','এই মাসে','this month','ai mase']);
     function rsx(n){ return rs(Math.round(Number(n)||0)); }
+    var RL=(DATA.rules||[]).map(function(r){return r.text;});
+    function ruleAns(n,extra){ return RL[n-1] ? '📜 <b>নিয়ম '+n+':</b> '+RL[n-1]+(extra||'') : null; }
+    // ---- শুভেচ্ছা / ধন্যবাদ / কী জিজ্ঞেস করা যায় ----
+    if(l.length<30 && has(l,['hi','hello','hey','namaskar','nomoskar','nomoshkar','নমস্কার','হ্যালো','হাই','salam','সালাম','assalamu'])) return 'নমস্কার! 🙏 বলুন, ফান্ড বা কোনো সদস্যের হিসাব নিয়ে কী জানতে চান?';
+    if(has(l,['thanks','thank','dhonnobad','dhanyabad','ধন্যবাদ','থ্যাঙ্কস','shukriya'])) return 'আপনাকেও ধন্যবাদ! 😊 আর কিছু জানার থাকলে লিখুন।';
+    if(has(l,['help','sahajyo','shahajjo','সাহায্য','ki ki','কী কী','ki jante','what can'])){
+      return 'আমি এগুলো বলতে পারি 👇<br>• কোনো সদস্যের জমা, বকেয়া, ঋণ, সুদ, পেমেন্টের তারিখ ও অনুমোদন<br>• কারা ঋণ নিয়েছে, কার সুদ/জমা বাকি<br>• ফান্ডের ব্যালেন্স, সুদ-ফাইন আয়, খরচ, SIP<br>• নিয়মাবলী (ফাইন, ঋণের সীমা, SIP, ১০% সুদ…)<br>• জন্মদিন, মোবাইল নম্বর, সংগ্রাহক/অ্যাডমিন<br>বাংলা বা Banglish — যেভাবে খুশি লিখুন।';
+    }
+    // ---- নিয়মাবলীর নির্দিষ্ট প্রশ্ন (আসল নিয়ম থেকে) ----
+    var ra=null;
+    if(has(l,['sip','এসআইপি'])) ra=ruleAns(7,(fs.sip?'<br>এ পর্যন্ত SIP-এ জমা: <b>'+rsx(fs.sip)+'</b>':''));
+    else if(has(l,['mrittu','mrityu','moron','death','মৃত্যু','মারা','mara'])) ra=ruleAns(8);
+    else if(has(l,['ber','beriye','berie','bere','leave','exit','বেরিয়ে','ছেড়ে','chere','chhere']) && has(l,['group','grup','fund','গ্রুপ','ফান্ড'])) ra=ruleAns(3);
+    else if(has(l,['10%','১০%','dosh','দশ','10 percent']) || (loanW && has(l,['bochor','bosor','বছর','year']) && !has(l,['kon','কোন']))) ra=ruleAns(5);
+    else if(has(l,['late','fee','fine','ফাইন','jorimana','জরিমানা']) && !has(l,['bochor','bosor','বছর','mot','মোট','aay','আয়','income','year','ei','এই','akhon','এখন','ekhon'])) ra=ruleAns(1,'<br>'+year+' সালে এ পর্যন্ত মোট ফাইন আদায়: <b>'+rsx(fs.earningsFine)+'</b>');
+    else if(loanW && has(l,['nile','niye','nite','neoar','neyar','নেওয়া','নিলে','নেয়']) && has(l,['20','২০','21','২১','tarikh','তারিখ','date'])) ra=ruleAns(9);
+    else if(has(l,['screenshot','screen','স্ক্রিন']) || (has(l,['online','অনলাইন']) && (jomaW||has(l,['payment','pement','পেমেন্ট'])))) ra=ruleAns(2);
+    else if(has(l,['bhul','vul','ভুল','mistake','error','5 din','৫ দিন']) && !loanW && !has(l,['password','pass','pin','otp','পাসওয়ার্ড','পাসওয়ার্ড'])) ra=ruleAns(6);
+    else if((jomaW||has(l,['payment','পেমেন্ট'])) && (has(l,['15','১৫','deadline','somoysima','সময়সীমা','last date','kon tarikh','কত তারিখ']) || (has(l,['tarikh','tarikhe','তারিখ','date']) && has(l,['dite','dibo','hobe','দিতে','দিব','moddhe','modhye','মধ্যে'])))) ra=ruleAns(1);
+    if(ra) return ra;
+    // ---- ঋণ কত পাব (লাইভ নিয়ম + এখনকার ব্যালেন্স) ----
+    if(loanW && has(l,['pabo','pabe','pari','pete','nibo','nebo','পাব','পারব','নিতে','নেব','limit','sima','সীমা','maximum','sorbocho','সর্বোচ্চ','percent','60'])){
+      var rl0=DATA.loanRules||{}, pc=rl0.percent||60, cp=rl0.cap||25000, av=fs.availableBalance||0;
+      var mx=Math.min(av*pc/100, cp);
+      return 'ঋণের সর্বোচ্চ সীমা = Available Balance-এর <b>'+pc+'%</b>, তবে <b>'+rsx(cp)+'</b>-এর বেশি নয়।<br>এখন Available Balance <b>'+rsx(av)+'</b> — তাই এখন সর্বোচ্চ ঋণ প্রায় <b>'+rsx(mx)+'</b>।'+(rl0.interestPercent?'<br>মাসিক সুদ '+rl0.interestPercent+'%।':'')+'<br>এর বেশি জরুরি হলে "🚨 জরুরি আবেদন" ব্যবহার করুন।';
+    }
+    // ---- জরুরি ঋণ (কারণ না দেখিয়ে) ----
+    if(loanW && has(l,['urgent','jaruri','joruri','জরুরি'])){
+      var ur=(DATA.loanRequests||[]).filter(function(r){return r.urgent;});
+      if(!ur.length) return 'কোনো জরুরি ঋণের আবেদনের তথ্য নেই।';
+      return '<b>জরুরি ঋণের আবেদন ('+ur.length+'টি):</b><br>'+bullets(ur.map(function(r){return r.member+' — '+rsx(r.amount)+' ('+(r.askedAt||'—')+') — '+(r.status||'');}));
+    }
+    // ---- শোধ হয়ে যাওয়া (বন্ধ) ঋণ ----
+    if(loanW && has(l,['closed','bondho','bandho','বন্ধ','shodh','sesh hoye','শোধ করেছে','purono','puran','পুরনো','পুরোনো','ager','age','আগের','history'])){
+      var cls=DATA.closedLoans||[];
+      if(!cls.length) return 'শোধ হয়ে যাওয়া কোনো ঋণের তথ্য পাইনি।';
+      return '<b>এ পর্যন্ত '+cls.length+'টি ঋণ শোধ হয়ে বন্ধ হয়েছে:</b><br>'+bullets(cls.slice(-15).reverse().map(function(x){return x.name+' — বন্ধ '+x.closedOn+', মোট সুদ '+rsx(x.totalInterest);}))+(cls.length>15?'<br>…সবচেয়ে সাম্প্রতিক ১৫টি দেখানো হলো।':'');
+    }
+    // ---- সবচেয়ে বেশি ঋণ ----
+    if(loanW && has(l,['sobcheye','sobchaite','সবচেয়ে','beshi','besi','বেশি','most','highest','boro','বড়']) && loans.length){
+      var top=loans.slice().sort(function(a,b){return b.amount-a.amount;})[0];
+      return 'সবচেয়ে বেশি চলতি ঋণ: <b>'+top.name+'</b> — '+rsx(top.amount)+' (মাসিক সুদ '+rsx(top.monthlyInterest)+')।';
+    }
+    // ---- খরচ / দান ----
+    if(has(l,['khoroch','kharcha','khorcha','expense','expenses','খরচ','meeting','মিটিং','picnic','পিকনিক'])){
+      var ex=fs.expenses||[]; if(!ex.length) return 'খরচের কোনো তথ্য পাইনি।';
+      return '<b>ফান্ডের খরচ:</b><br>'+bullets(ex.map(function(e){return e.label+' — '+rsx(e.amount);}))+'<br>মোট খরচ: <b>'+rsx(ex.reduce(function(s,e){return s+(Number(e.amount)||0);},0))+'</b>';
+    }
+    if(has(l,['donation','dan','daan','দান','সাহায্য খাতে'])) return 'দান/সাহায্য খাতে এ পর্যন্ত: <b>'+rsx(fs.donation)+'</b>।';
+    // ---- নিয়মিত (কোনো বকেয়া নেই) ----
+    if(has(l,['regular','niyomito','নিয়মিত','kono baki nei','sob joma diyeche','ঠিকঠাক'])){
+      var cur2=(String(year)===String(N.getFullYear()))?(N.getMonth()+(N.getDate()>=16?1:0)):12;
+      var ok=mem.filter(function(m){ for(var i=0;i<Math.min(cur2,12);i++){ if(!(m.pay[i]>0)) return false; } return true; });
+      return '✅ এ পর্যন্ত কোনো মাসিক জমা বকেয়া নেই <b>'+ok.length+' জনের</b> (মোট '+mem.length+' জনের মধ্যে)'+(ok.length&&ok.length<=30?':<br>'+ok.map(function(m){return m.name;}).join(', '):'।');
+    }
     // সদস্য সংখ্যা
     if(has(l,['member','sodosyo','sadosya','সদস্য']) && totalW && !loanW && !bakiW){
       return 'ফান্ডে মোট সদস্য <b>'+mem.length+' জন</b>।';
@@ -4023,7 +4093,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     if(has(l,['balance','byalans','ব্যালেন্স','tohobil','tohobila','তহবিল','fund','cash','হাতে'])){
       return '💰 মোট ব্যালেন্স: <b>'+rsx(fs.totalBalance)+'</b><br>হাতে থাকা (Available) ব্যালেন্স: <b>'+rsx(fs.availableBalance)+'</b><br>'+year+' সালে চাঁদা সংগ্রহ: '+rsx(fs.totalCollectedThisYear)+'<br>'+year+'-এ সুদ আয়: '+rsx(fs.earningsInterest)+', ফাইন আয়: '+rsx(fs.earningsFine);
     }
-    if(has(l,['fine','ফাইন','jorimana','জরিমানা']) && (totalW||has(l,['aay','আয়','ay','income']))){
+    if(has(l,['fine','ফাইন','jorimana','জরিমানা']) && (totalW||has(l,['aay','আয়','ay','income']))){ // ফাইন আয়
       return year+' সালে এ পর্যন্ত মোট ফাইন আদায়: <b>'+rsx(fs.earningsFine)+'</b>।';
     }
     if(sudW && (totalW||has(l,['aay','আয়','income']))){
@@ -4058,10 +4128,11 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
       if(y) return '<b>'+y.year+' সাল:</b><br>সেই বছরের চাঁদা: '+rsx(y.annualCollection)+'<br>ক্রমসঞ্চিত চাঁদা: '+rsx(y.cumulativeCollection)+'<br>হাতে থাকা ব্যালেন্স: '+rsx(y.availableBalance)+(y.totalBalance?'<br>মোট ব্যালেন্স: '+rsx(y.totalBalance):'');
     }
     // অপেক্ষমাণ অনুরোধ (শুধু অ্যাডমিন/সংগ্রাহক)
-    if(has(l,['pending','opekkhay','অপেক্ষায়','অপেক্ষমাণ','approve','onumodon','অনুমোদন']) && typeof canApprove==='function' && canApprove()){
+    if(has(l,['pending','opekkhay','opekha','opekkha','অপেক্ষায়','অপেক্ষমাণ','approve','onumodon','অনুমোদন'])){
       var pr=(DATA.paymentRequests||[]).filter(function(p){return p.stage==='collector'||p.stage==='admin'||p.stage==='recipient';});
       var lr2=(DATA.loanRequests||[]).filter(function(r){return ['urgent','collector','ack','admin'].indexOf(r.stage)>=0;});
-      return '⏳ অপেক্ষায় আছে: পেমেন্ট <b>'+pr.length+'টি</b>, ঋণের আবেদন <b>'+lr2.length+'টি</b>।'+(pr.length?'<br>'+bullets(pr.slice(0,10).map(function(p){return p.member+' — '+p.typeLabel+' ('+p.monthLabel+') '+rsx(p.amount)+' — '+p.status;})):'');
+      var isAp=(typeof canApprove==='function' && canApprove());
+      return '⏳ এখন অপেক্ষায় আছে: পেমেন্ট <b>'+pr.length+'টি</b>, ঋণের আবেদন <b>'+lr2.length+'টি</b>।'+(isAp&&pr.length?'<br>'+bullets(pr.slice(0,10).map(function(p){return p.member+' — '+p.typeLabel+' ('+p.monthLabel+') '+rsx(p.amount)+' — '+p.status;})):'');
     }
     return null;
   }
@@ -4078,7 +4149,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     var best=-1, sc=0;
     FAQ.forEach(function(f,i){ var keys=(f.k+' '+f.q).toLowerCase(), s=0; w.forEach(function(x){ if(keys.indexOf(x)>=0) s++; }); if(s>sc){sc=s;best=i;} });
     if(best>=0){ reply(FAQ[best]); }
-    else { add('দুঃখিত, এই প্রশ্নের উত্তর আমার কাছে নেই। 🙏<br>📧 <a href="mailto:uniqueruralfund21@gmail.com?subject='+encodeURIComponent('Unique Rural Fund - প্রশ্ন')+'&body='+encodeURIComponent(t)+'">ইমেইলে প্রশ্নটা পাঠান</a> — সংগ্রাহক/অ্যাডমিন উত্তর দেবেন।'); backBtn('⬅ মেনুতে ফিরুন'); }
+    else { add('দুঃখিত, প্রশ্নটা ঠিক বুঝতে পারিনি। 🙏<br>এভাবে লিখে দেখুন: <i>"Utpal er loan koto", "kon kon member loan niyeche", "kar joma baki", "balance koto", "SIP niyom"</i>।<br>তবুও না হলে 📧<a href="mailto:uniqueruralfund21@gmail.com?subject='+encodeURIComponent('Unique Rural Fund - প্রশ্ন')+'&body='+encodeURIComponent(t)+'">ইমেইলে প্রশ্নটা পাঠান</a> — সংগ্রাহক/অ্যাডমিন উত্তর দেবেন।'); backBtn('⬅ মেনুতে ফিরুন'); }
   };
   window.hdToggle=function(){ var p=document.getElementById('hdPanel'); p.hidden=!p.hidden; if(!p.hidden && !body().children.length) menu(); };
 })();
