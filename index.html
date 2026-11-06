@@ -3928,12 +3928,107 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     if(totalQ && !lastQ) return '<b>'+m.name+'</b> '+year+' সালে মোট জমা দিয়েছেন <b>'+rs(total)+'</b> ('+paidIdx.length+' মাসে)।';
     return lastTxt+'<br>'+year+' সালে মোট জমা: <b>'+rs(total)+'</b> ('+paidIdx.length+' মাস)।'+(unpaid.length?'<br>বকেয়া মাস: '+unpaid.join(', '):'<br>কোনো মাস বকেয়া নেই ✅');
   }
+  /* ---- পুরো গ্রুপ/ফান্ড নিয়ে প্রশ্ন (কারা ঋণ নিয়েছে, কার সুদ বাকি, ব্যালেন্স, জন্মদিন…) ---- */
+  function loanOverdue(x){ try{ return !!(x.interestOverdue || (typeof loanStatus==='function' && loanStatus(x).overdue)); }catch(e){ return !!x.interestOverdue; } }
+  function bullets(arr){ return arr.map(function(s){return '• '+s;}).join('<br>'); }
+  function groupAnswer(t){
+    if(typeof DATA==='undefined' || !DATA) return null;
+    var l=t.toLowerCase(), N=new Date();
+    var fs=DATA.fundSummary||{}, loans=DATA.activeLoans||[], mem=DATA.contributions||[], year=DATA.year;
+    var loanW=has(l,['loan','lone','lon','rin','rinn','ঋণ','লোন','ধার','dhar']);
+    var sudW=has(l,['sud','sod','sood','shud','shod','sudh','সুদ','interest','intrest']);
+    var bakiW=has(l,['baki','bokeya','bakeya','বাকি','বকেয়া','dey ni','dei ni','den ni','দেয়নি','দেননি','koreni','korena','korenni','kore ni','dey na','dei na','দেয়নি','করেনি','করে নি','দেয় নি','দেন নি','overdue','pay kore ni']);
+    var jomaW=has(l,['joma','jama','জমা','chanda','চাঁদা','chada','taka','টাকা']);
+    var totalW=has(l,['mot','total','মোট','koto','kto','কত']);
+    var listW=has(l,['list','talika','তালিকা','kon kon','ke ke','কারা','কে কে','kara','sob','সব','sokol','সকল','all','who','amabe','dao','din']);
+    var niyecheW=has(l,['niyache','niyeche','niyechhe','niyechi','neyeche','নিয়েছে','নিয়েছেন','nichhe','niya','nia','নিচ্ছে','ache','আছে','achhe','achey']);
+    var paidThisMonth=has(l,['ei mase','ei mas','এই মাসে','this month','ai mase']);
+    function rsx(n){ return rs(Math.round(Number(n)||0)); }
+    // সদস্য সংখ্যা
+    if(has(l,['member','sodosyo','sadosya','সদস্য']) && totalW && !loanW && !bakiW){
+      return 'ফান্ডে মোট সদস্য <b>'+mem.length+' জন</b>।';
+    }
+    // কার সুদ বাকি
+    if(loanW && (bakiW || (sudW && bakiW)) || (sudW && bakiW)){
+      var od=loans.filter(loanOverdue);
+      if(!od.length) return 'এখন কারও ঋণের সুদ বকেয়া নেই ✅';
+      return '<b>সুদ বকেয়া আছে ('+od.length+' জনের):</b><br>'+bullets(od.map(function(x){ return x.name+' — ঋণ '+rsx(x.amount)+', মাসিক সুদ '+rsx(x.monthlyInterest); }));
+    }
+    // কারা ঋণ নিয়েছে / ঋণের মোট
+    if(loanW && !sudW && (listW || niyecheW || totalW)){
+      if(!loans.length) return 'এখন কারও কোনো চলতি ঋণ নেই।';
+      var sum=loans.reduce(function(s,x){return s+(Number(x.amount)||0);},0);
+      if(totalW && !listW && !niyecheW) return 'মোট চলতি ঋণ <b>'+rsx(sum)+'</b> ('+loans.length+' জনের কাছে)।';
+      return '<b>এখন চলতি ঋণ আছে '+loans.length+' জনের</b> (মোট '+rsx(sum)+'):<br>'+bullets(loans.map(function(x){ return x.name+' — '+rsx(x.amount)+' (মাসিক সুদ '+rsx(x.monthlyInterest)+(loanOverdue(x)?', সুদ বকেয়া ⚠️':'')+', শেষ '+(x.closingDate||'—')+')'; }));
+    }
+    // কার মাসিক জমা বাকি
+    if(bakiW && (jomaW || !loanW)){
+      var cur=(String(year)===String(N.getFullYear()))?(N.getMonth()+(N.getDate()>=16?1:0)):12, rows=[];
+      mem.forEach(function(m){ var u=[]; for(var i=0;i<Math.min(cur,12);i++){ if(!(m.pay[i]>0)) u.push(BN_MONTHS[i]); } if(u.length) rows.push({n:m.name,u:u}); });
+      rows.sort(function(a,b){return b.u.length-a.u.length;});
+      if(!rows.length) return 'এ পর্যন্ত সবার মাসিক জমা হালনাগাদ আছে ✅';
+      return '<b>মাসিক জমা বাকি ('+rows.length+' জনের):</b><br>'+bullets(rows.map(function(r){ return r.n+' — '+r.u.length+' মাস ('+r.u.join(', ')+')'; }));
+    }
+    // এই মাসে কারা জমা দিয়েছে
+    if(paidThisMonth && (jomaW||listW)){
+      var mi=N.getMonth(), p=mem.filter(function(m){return m.pay[mi]>0;}), np=mem.filter(function(m){return !(m.pay[mi]>0);});
+      return '<b>'+BN_MONTHS[mi]+' মাসে জমা দিয়েছেন '+p.length+' জন</b>, বাকি '+np.length+' জন।'+(np.length&&np.length<=15?'<br>বাকি: '+np.map(function(m){return m.name;}).join(', '):'');
+    }
+    // ব্যালেন্স
+    if(has(l,['balance','byalans','ব্যালেন্স','tohobil','tohobila','তহবিল','fund','cash','হাতে'])){
+      return '💰 মোট ব্যালেন্স: <b>'+rsx(fs.totalBalance)+'</b><br>হাতে থাকা (Available) ব্যালেন্স: <b>'+rsx(fs.availableBalance)+'</b><br>'+year+' সালে চাঁদা সংগ্রহ: '+rsx(fs.totalCollectedThisYear)+'<br>'+year+'-এ সুদ আয়: '+rsx(fs.earningsInterest)+', ফাইন আয়: '+rsx(fs.earningsFine);
+    }
+    if(has(l,['fine','ফাইন','jorimana','জরিমানা']) && (totalW||has(l,['aay','আয়','ay','income']))){
+      return year+' সালে এ পর্যন্ত মোট ফাইন আদায়: <b>'+rsx(fs.earningsFine)+'</b>।';
+    }
+    if(sudW && (totalW||has(l,['aay','আয়','income']))){
+      return year+' সালে এ পর্যন্ত সুদ আয়: <b>'+rsx(fs.earningsInterest)+'</b>।';
+    }
+    if(has(l,['chanda','চাঁদা','sonchoy','সঞ্চয়','songroho','সংগ্রহ','collection','collected']) && totalW){
+      return year+' সালে এ পর্যন্ত চাঁদা সংগ্রহ: <b>'+rsx(fs.totalCollectedThisYear)+'</b> (মাসিক জমা '+rsx(DATA.monthlyContribution||100)+' করে, '+mem.length+' জন সদস্য)।';
+    }
+    // সংগ্রাহক / অ্যাডমিন
+    if(has(l,['collector','songrahok','sangrahak','সংগ্রাহক','kalektor'])){
+      return 'সংগ্রাহক: <b>'+(DATA.collectorName||'—')+'</b>। চূড়ান্ত অনুমোদনকারী (অ্যাডমিন): <b>'+ADMIN_NAME_SAFE()+'</b>।';
+    }
+    if(has(l,['admin','অ্যাডমিন','এডমিন'])){
+      return 'অ্যাডমিন: <b>'+ADMIN_NAME_SAFE()+'</b>; সংগ্রাহক: <b>'+(DATA.collectorName||'—')+'</b>।';
+    }
+    // জন্মদিন
+    if(has(l,['birthday','jonmodin','janmadin','জন্মদিন','bday'])){
+      var bl=(DATA.birthdays||[]).filter(function(b){return b.md;}).map(function(b){ var mm=b.md.split('-'); return {n:b.name,d:(typeof daysUntil==='function'?daysUntil(b.md):999),t:parseInt(mm[1],10)+' '+BN_MONTHS[parseInt(mm[0],10)-1]}; }).sort(function(a,b){return a.d-b.d;});
+      if(!bl.length) return 'জন্মদিনের তথ্য পাইনি।';
+      if(has(l,['aj','আজ','today'])){ var td=bl.filter(function(x){return x.d===0;}); return td.length?'🎂 আজ জন্মদিন: <b>'+td.map(function(x){return x.n;}).join(', ')+'</b>':'আজ কারও জন্মদিন নেই।'; }
+      return '🎂 <b>সবচেয়ে কাছের জন্মদিন:</b><br>'+bullets(bl.slice(0,5).map(function(x){ return x.n+' — '+x.t+(x.d===0?' (আজ!)':' ('+x.d+' দিন বাকি)'); }));
+    }
+    // নিয়মাবলী
+    if(has(l,['niyom','niyomaboli','নিয়ম','নিয়মাবলী','rule','rules'])){
+      var rl=(DATA.rules||[]).map(function(r){return r.text;}).filter(Boolean);
+      if(rl.length) return '<b>ফান্ডের নিয়মাবলী:</b><br>'+rl.slice(0,12).map(function(x,i){return (i+1)+'. '+x;}).join('<br>')+(rl.length>12?'<br>…বাকিগুলো নিয়মাবলী পাতায়।':'');
+    }
+    // বছরভিত্তিক ইতিহাস
+    var ym=l.match(/20[2-3][0-9]/);
+    if(ym && DATA.yearlySummary){
+      var y=DATA.yearlySummary.filter(function(z){return String(z.year)===ym[0];})[0];
+      if(y) return '<b>'+y.year+' সাল:</b><br>সেই বছরের চাঁদা: '+rsx(y.annualCollection)+'<br>ক্রমসঞ্চিত চাঁদা: '+rsx(y.cumulativeCollection)+'<br>হাতে থাকা ব্যালেন্স: '+rsx(y.availableBalance)+(y.totalBalance?'<br>মোট ব্যালেন্স: '+rsx(y.totalBalance):'');
+    }
+    // অপেক্ষমাণ অনুরোধ (শুধু অ্যাডমিন/সংগ্রাহক)
+    if(has(l,['pending','opekkhay','অপেক্ষায়','অপেক্ষমাণ','approve','onumodon','অনুমোদন']) && typeof canApprove==='function' && canApprove()){
+      var pr=(DATA.paymentRequests||[]).filter(function(p){return p.stage==='collector'||p.stage==='admin'||p.stage==='recipient';});
+      var lr2=(DATA.loanRequests||[]).filter(function(r){return ['urgent','collector','ack','admin'].indexOf(r.stage)>=0;});
+      return '⏳ অপেক্ষায় আছে: পেমেন্ট <b>'+pr.length+'টি</b>, ঋণের আবেদন <b>'+lr2.length+'টি</b>।'+(pr.length?'<br>'+bullets(pr.slice(0,10).map(function(p){return p.member+' — '+p.typeLabel+' ('+p.monthLabel+') '+rsx(p.amount)+' — '+p.status;})):'');
+    }
+    return null;
+  }
+  function ADMIN_NAME_SAFE(){ return (typeof ADMIN_NAME!=='undefined')?ADMIN_NAME:'Prasun Jyoti'; }
   window.hdPick=function(i){ add(FAQ[i].q,true); reply(FAQ[i]); };
   window.hdAsk=function(e){
     e.preventDefault(); var inp=document.getElementById('hdText'); var t=inp.value.trim(); if(!t) return; inp.value='';
     add(t.replace(/</g,'&lt;'),true);
     var da=null; try{ da=dataAnswer(t); }catch(err){ da=null; }
-    if(da){ add(da); backBtn('⬅ মেনুতে ফিরুন'); return; }
+    if(da){ add(da); return; }
+    var ga=null; try{ ga=groupAnswer(t); }catch(err2){ ga=null; }
+    if(ga){ add(ga); return; }
     var w=t.toLowerCase().split(/\s+/).filter(function(x){return x.length>1;});
     var best=-1, sc=0;
     FAQ.forEach(function(f,i){ var keys=(f.k+' '+f.q).toLowerCase(), s=0; w.forEach(function(x){ if(keys.indexOf(x)>=0) s++; }); if(s>sc){sc=s;best=i;} });
