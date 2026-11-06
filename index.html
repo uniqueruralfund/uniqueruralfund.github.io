@@ -3929,8 +3929,26 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     if(loanQ){
       var ln=(DATA.activeLoans||[]).filter(function(x){return x.name===m.name;})[0];
       if(!ln) return '<b>'+m.name+'</b>-এর এখন কোনো চলতি ঋণ নেই।';
-      var sp=(ln.months||[]).filter(function(x){return x&&x.amount!==null;}).length;
-      return '<b>'+m.name+'</b>-এর চলতি ঋণ: <b>'+rs(ln.amount)+'</b> (নেওয়া হয়েছে '+ln.date+')।<br>মাসিক সুদ: '+rs(ln.monthlyInterest)+' — এ পর্যন্ত '+sp+' মাসের সুদ জমা পড়েছে'+(ln.interestOverdue?', <b>সুদ বকেয়া আছে</b>':'')+'।'+(ln.closingDate?'<br>ঋণ শেষ হবে: '+ln.closingDate:'');
+      var ms=(ln.months||[]).filter(Boolean), today=new Date();
+      var MON3={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+      function dueInfo(s){ var q=String(s||'').split('-'); var mi=MON3[(q[1]||'').toLowerCase().slice(0,3)]; return {d:new Date(+q[2],mi,+q[0]), t:BN_MONTHS[mi]+' '+q[2], raw:s}; }
+      var paidInst=ms.filter(function(x){return x.amount!==null;});
+      var lateInst=ms.filter(function(x){return x.amount===null && dueInfo(x.due).d<=today;});
+      var out='<b>'+m.name+'</b>-এর চলতি ঋণ: <b>'+rs(ln.amount)+'</b> (নেওয়া হয়েছে '+ln.date+')।<br>মাসিক সুদ: '+rs(ln.monthlyInterest);
+      if(!paidInst.length){ out+='<br>এখনো কোনো মাসের সুদ জমা পড়েনি।'; }
+      else {
+        var lp=paidInst[paidInst.length-1], di=dueInfo(lp.due);
+        out+='<br>সুদ জমা পড়েছে <b>'+paidInst.length+' মাসের</b> (মোট '+rs(paidInst.reduce(function(s,x){return s+(Number(x.amount)||0);},0))+')।<br>📌 সর্বশেষ সুদ জমা: <b>'+paidInst.length+'ম কিস্তি — '+di.t+'</b> মাসের ('+rs(lp.amount)+', নির্ধারিত তারিখ '+lp.due+')';
+        var rq=(DATA.paymentRequests||[]).filter(function(p){ return p && String(p.member||'').toLowerCase()===m.name.toLowerCase() && p.typeLabel==='চলতি ঋণের সুদ' && String(p.monthLabel||'').indexOf(lp.due)>=0; });
+        var pr=rq.filter(function(x){return x.stage==='done';}).pop()||rq[rq.length-1];
+        function dd(v){ return (v&&v!=='—')?('<b>'+v+'</b>'):'<i>এখনো হয়নি</i>'; }
+        if(pr){ out+='<br>🗓 পেমেন্টের তারিখ: '+dd(pr.paymentDate)+(pr.method==='নগদ'?' (নগদ)':'')+'<br>✅ '+(DATA.collectorName||'সংগ্রাহক')+' অনুমোদন: '+dd(pr.collectorApprovedAt)+'<br>✅ Prasun Jyoti অনুমোদন: '+dd(pr.adminApprovedAt); }
+        else { out+='<br><span style="opacity:.75">ℹ️ এই কিস্তি সরাসরি Sheet-এ লেখা, অনলাইন পেমেন্ট-ব্যবস্থায় এর রেকর্ড নেই — তাই জমার তারিখ দেখানো যাচ্ছে না।</span>'; }
+      }
+      if(lateInst.length){ out+='<br>⚠️ <b>সুদ বকেয়া: '+lateInst.map(function(x){return dueInfo(x.due).t;}).join(', ')+'</b> ('+lateInst.length+' মাস, '+rs(lateInst.length*ln.monthlyInterest)+')'; }
+      else { out+='<br>✅ কোনো সুদ বকেয়া নেই।'; }
+      if(ln.closingDate) out+='<br>ঋণ শেষ হবে: '+ln.closingDate;
+      return out;
     }
     if(unpaidQ){
       return unpaid.length ? '<b>'+m.name+'</b>-এর '+year+' সালের বকেয়া মাস: <b>'+unpaid.join(', ')+'</b> ('+unpaid.length+' মাস)।' : '<b>'+m.name+'</b>-এর '+year+' সালে এ পর্যন্ত কোনো মাসিক জমা বকেয়া নেই। ✅';
