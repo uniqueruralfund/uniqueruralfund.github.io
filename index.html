@@ -4089,6 +4089,94 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
   /* ---- পুরো গ্রুপ/ফান্ড নিয়ে প্রশ্ন (কারা ঋণ নিয়েছে, কার সুদ বাকি, ব্যালেন্স, জন্মদিন…) ---- */
   function loanOverdue(x){ try{ return !!(x.interestOverdue || (typeof loanStatus==='function' && loanStatus(x).overdue)); }catch(e){ return !!x.interestOverdue; } }
   function bullets(arr){ return arr.map(function(s){return '• '+s;}).join('<br>'); }
+  /* ---- শুধু সংগ্রাহক (Satyajit Das) ও অ্যাডমিন (Prasun Jyoti): "আমার কোনো অনুমোদন বাকি আছে?" ---- */
+  function apprWho(){
+    var c=false,a=false;
+    try{ c=(typeof isCollector==='function')&&isCollector(); }catch(e){}
+    try{ a=(typeof isAdminMember==='function')&&isAdminMember(); }catch(e){}
+    return {c:c,a:a};
+  }
+  function apprDays(s){
+    var q=String(s||'').split('-'), M={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11}, mi=M[(q[1]||'').toLowerCase().slice(0,3)];
+    if(mi===undefined||!q[2]) return null;
+    var d=new Date(+q[2],mi,+q[0]||1), n=new Date(); n=new Date(n.getFullYear(),n.getMonth(),n.getDate());
+    return Math.max(0,Math.round((n-d)/86400000));
+  }
+  function apprAge(s){ var d=apprDays(s); return d===null?'':(' · '+(d===0?'আজ':d+' দিন আগে')+(d>=3?' ⚠️':'')); }
+  function approvalAnswer(t){
+    if(typeof DATA==='undefined' || !DATA) return null;
+    var l=t.toLowerCase(), w=apprWho();
+    if(!w.c && !w.a) return null;
+    var appW=has(l,['approval','approve','approved','onumodon','onumoddon','anumodan','অনুমোদন','pending','opekkha','opekha','opekkhoman','অপেক্ষা','অপেক্ষমাণ','অপেক্ষায়','abedon','abedan','abason','abeden','আবেদন','request','অনুরোধ','anurodh']);
+    var selfW=has(l,['amar','amr','আমার','amake','আমাকে','ami','আমি','amader','আমাদের']);
+    var todoW=has(l,['baki','বাকি','korte hobe','করতে হবে','ache','আছে','achhe','koyta','কয়টা','koyti','কয়টি','list','talika','তালিকা','dekhao','dekhan','দেখাও','bolo','বলো','kar','কার','kon','কোন','ki ki','কী কী']);
+    var kajW=has(l,['kaj','কাজ','dayitto','দায়িত্ব','to do','todo','task']) && (selfW||has(l,['baki','বাকি','ache','আছে']));
+    if(!( (appW && (selfW||todoW)) || kajW )) return null;
+    if(findMembers(t).length) return null;                 // নির্দিষ্ট সদস্যের approval-এর তারিখ জানতে চাইলে সদস্যের উত্তর যাবে
+    if(monthAsked(l)>=0) return null;
+    if(has(l,['kobe','কবে','kon date','tarikh','তারিখ','kokhon','কখন','niyom','নিয়ম','kivabe','kibhabe','কীভাবে','koto din','কত দিন','kotodin','lage','লাগে'])) return null;   // নিয়ম/পদ্ধতির প্রশ্ন আলাদা উত্তর পাবে
+    var loanQ=has(l,['loan','lone','rin','rinn','ঋণ','লোন','abedon','abedan','আবেদন','abason','abeden','request','repay','porishodh','পরিশোধ','sodh','shodh','শোধ']);
+    var payQ=has(l,['joma','jama','জমা','payment','pement','পেমেন্ট','chanda','চাঁদা','cash','nogod','নগদ','fine','ফাইন']);
+    var wantPay=payQ||!loanQ, wantLoan=loanQ||!payQ;
+    var me=String((typeof memberSession!=='undefined'&&memberSession&&memberSession.userId)||'').toLowerCase();
+    var collName=DATA.collectorName||'Satyajit Das', admName=(typeof ADMIN_NAME_SAFE==='function')?ADMIN_NAME_SAFE():'Prasun Jyoti';
+    var mine=[], others=[];
+    function put(isMine,text,amt){ (isMine?mine:others).push({t:text,a:Number(amt)||0}); }
+    function line(r,extra){ return '<b>'+r.member+'</b>'+(extra||'')+' — '+rs(r.amount)+(r.method?' · '+r.method:'')+apprAge(r.askedAt); }
+    function stageOwner(stg, r){
+      if(stg==='collector'){
+        if(w.c) return {mine:true,note:''};
+        return {mine:true,note:' <i>(এটা '+collName+'-এর ধাপ; আপনি চাইলে তাঁর হয়ে অনুমোদন দিতে পারেন)</i>'};
+      }
+      if(stg==='admin'){ return w.a ? {mine:true,note:''} : {mine:false,note:' <i>('+admName+'-র অপেক্ষায়)</i>'}; }
+      if(stg==='recipient'){
+        var cr=String(r.cashRecipient||'');
+        if(cr && cr.toLowerCase()===me) return {mine:true,note:' <i>(নগদ টাকা আপনার হাতে পৌঁছেছে কি না নিশ্চিত করুন)</i>'};
+        return {mine:false,note:' <i>(নগদ গ্রহণকারী '+(cr||'—')+'-র নিশ্চিতকরণের অপেক্ষায়)</i>'};
+      }
+      return null;
+    }
+    var nPay=0, nLoan=0, nRep=0;
+    if(wantPay) (DATA.paymentRequests||[]).forEach(function(p){
+      var o=stageOwner(p.stage,p); if(!o) return; nPay++;
+      put(o.mine, '🧾 '+line(p,' — '+(p.typeLabel||'জমা')+(p.monthLabel?' ('+p.monthLabel+')':''))+o.note, p.amount);
+    });
+    if(wantLoan){
+      (DATA.loanRequests||[]).forEach(function(r){
+        var s=r.stage, o=null, tag='';
+        if(s==='urgent'){ o = w.a ? {mine:true,note:''} : {mine:false,note:' <i>('+admName+'-র সিদ্ধান্তের অপেক্ষায়)</i>'}; tag='🚨 জরুরি আবেদন'; }
+        else if(s==='collector'){ o = w.c ? {mine:true,note:' <i>(ঋণের টাকা হাতে দেওয়ার ধাপ)</i>'} : {mine:false,note:' <i>('+collName+'-এর টাকা দেওয়ার অপেক্ষায়)</i>'}; tag='🏦 ঋণের আবেদন'; }
+        else if(s==='ack'){ o={mine:false,note:' <i>(সদস্যের স্বীকৃতির অপেক্ষায়)</i>'}; tag='🏦 ঋণ (টাকা দেওয়া হয়েছে)'; }
+        else if(s==='admin'){ o = w.a ? {mine:true,note:' <i>(চূড়ান্ত ধাপ / সদস্যের আপত্তি থাকতে পারে)</i>'} : {mine:false,note:' <i>('+admName+'-র অপেক্ষায়)</i>'}; tag='🏦 ঋণের আবেদন'; }
+        else return;
+        nLoan++;
+        var ex='';
+        if(r.urgent && r.urgentReason) ex+='<br>&nbsp;&nbsp;কারণ: '+r.urgentReason;
+        if(r.neededByDate) ex+='<br>&nbsp;&nbsp;কবে লাগবে: '+r.neededByDate;
+        if(r.maxEligible) ex+=(r.neededByDate?' · ':'<br>&nbsp;&nbsp;')+'সর্বোচ্চ যোগ্য: '+rs(r.maxEligible);
+        if(r.originalAmount && r.originalAmount!==r.amount) ex+=' · প্রথমে চেয়েছিলেন '+rs(r.originalAmount);
+        put(o.mine, tag+' '+line(r)+o.note+ex, r.amount);
+      });
+      (DATA.loanRepayments||[]).forEach(function(r){
+        var o=stageOwner(r.stage,r); if(!o) return; nRep++;
+        put(o.mine, '💵 ঋণ পরিশোধ '+line(r)+o.note, r.amount);
+      });
+    }
+    var what=(wantPay&&wantLoan)?'':(wantLoan?' (ঋণ সংক্রান্ত)':' (জমা/পেমেন্ট সংক্রান্ত)');
+    var who=(w.c&&w.a)?'আপনার':(w.c?collName+'-এর':admName+'-র');
+    var out='📋 <b>'+who+' অনুমোদনের তালিকা'+what+'</b>';
+    function section(title,arr){
+      if(!arr.length) return '';
+      var sum=arr.reduce(function(s,x){return s+x.a;},0), shown=arr.slice(0,10).map(function(x){return x.t;});
+      return '<br><br><b>'+title+' ('+arr.length+'টি, মোট '+rs(sum)+')</b><br>'+bullets(shown)+(arr.length>10?'<br>…আরও '+(arr.length-10)+'টি':'');
+    }
+    if(!mine.length && !others.length) return out+'<br><br>🎉 এখন কোনো অনুমোদন বাকি নেই — সব ঠিকঠাক।'+(wantPay&&wantLoan?'':'<br><span style="opacity:.75">অন্য ধরনের (জমা/ঋণ) অনুরোধ দেখতে "amar kono approval baki ache" লিখুন।</span>');
+    out+=section('✅ আপনার সিদ্ধান্ত/অনুমোদন দরকার',mine);
+    if(!mine.length) out+='<br><br>✅ আপনার নিজের ধাপে এখন কিছু বাকি নেই।';
+    out+=section('⏳ অন্যের ধাপে অপেক্ষায়',others);
+    if(mine.length) out+='<br><br>👉 অনুমোদন দিতে বাঁদিকের মেনু থেকে '+((nPay&&wantPay)?'<b>🧾 মাসিক জমার অনুমোদন</b>':'')+((nLoan&&wantLoan)?(nPay&&wantPay?', ':'')+'<b>🏦 ঋণ অনুমোদন</b>':'')+((nRep&&wantLoan)?((nPay&&wantPay)||(nLoan&&wantLoan)?', ':'')+'<b>💵 ঋণ পরিশোধ অনুমোদন</b>':'')+' খুলুন।';
+    return out+'<br><span style="opacity:.7">(⚠️ = ৩ দিন বা তার বেশি অপেক্ষায়)</span>';
+  }
   function groupAnswer(t){
     if(typeof DATA==='undefined' || !DATA) return null;
     var l=t.toLowerCase(), N=new Date();
@@ -4309,6 +4397,8 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
   window.hdAsk=function(e){
     e.preventDefault(); var inp=document.getElementById('hdText'); var t=inp.value.trim(); if(!t) return; inp.value='';
     add(t.replace(/</g,'&lt;'),true);
+    var ap=null; try{ ap=approvalAnswer(t); }catch(errA){ ap=null; }
+    if(ap){ add(ap); return; }
     var da=null; try{ da=dataAnswer(t); }catch(err){ da=null; }
     if(da){ add(da); return; }
     var ga=null; try{ ga=groupAnswer(t); }catch(err2){ ga=null; }
