@@ -4082,7 +4082,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     }
     // আগের প্রশ্নের স্মৃতি শুধু ছোট ফলো-আপে ("kobe?", "approve kobe") — নতুন স্বাধীন প্রশ্নে নয়
     var tw=t.toLowerCase().split(/\s+/).filter(Boolean);
-    if(!found.length && HD.ctx && tw.length<=4 && detailQ0(t.toLowerCase()) && !has(t.toLowerCase(),['sob','সব','mot','মোট','total','group','fund','kara','কারা','kon kon','ke ke','niyom','নিয়ম','lage','লাগে','keno','কেন','kivabe','কীভাবে','koto din','কত দিন'])){
+    if(!found.length && HD.ctx && tw.length<=3 && detailQ0(t.toLowerCase()) && !has(t.toLowerCase(),['kar','কার','kon','কোন','next','porer','পরের','sip','এসআইপি','donation','দান','khoroch','খরচ','meeting','মিটিং','picnic','পিকনিক','ferot','ফেরত','update','আপডেট','tarikher','তারিখের','moddhe','মধ্যে','sob','সব','mot','মোট','total','group','grup','গ্রুপ','fund','ফান্ড','tohobil','তহবিল','urf','shuru','শুরু','established','প্রতিষ্ঠা','sobar','সবার','sokol','সকল','kara','কারা','kon kon','ke ke','কে কে','কোন কোন','member','সদস্য','sodosyo','niyom','নিয়ম','lage','লাগে','keno','কেন','kivabe','কীভাবে','koto din','কত দিন','collector','সংগ্রাহক','admin','অ্যাডমিন','balance','ব্যালেন্স'])){
       found=(DATA.contributions||[]).filter(function(x){return x.name===HD.ctx.name;});
     }
     if(!found.length) return null;
@@ -4449,6 +4449,18 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     if(!named && loanW && has(l,['shodh','sodh','শোধ','porishodh','পরিশোধ','repay','sesh','শেষ']) && (has(l,['na korle','na dile','na hole','না করলে','না দিলে','না হলে','na dey','na kori','na kore']) || has(l,['koto din','koto mas','koto bochor','কত দিন','কত মাস','কত বছর','kotodin','koto somoy','কত সময়','koto bochore','bochor e','bochor er moddhe']))) return ruleTxt(5,'<br>'+(ruleTxt(9)||''));
     // ২ মাস জমা না দিলে
     if(!named && jomaW && has(l,['na dile','na dei','na dey','na diye','na dite','dite na','না দিলে','না দিয়ে','না দেয়','miss','2 mas','২ মাস','pore pore','porepor']) && !has(l,['ke ke','kara','কারা','list'])) return ruleTxt(1,'<br>এ বছর মোট ফাইন আদায়: <b>'+rs(Math.round(fs.earningsFine||0))+'</b>');
+    // জমার শেষ তারিখ (বাংলা/Banglish)
+    if(!named && !loanW && jomaW && has(l,['tarikh','তারিখ','date','deadline','somoy','সময়','last date']) && has(l,['moddhe','মধ্যে','modhye','dite hobe','দিতে হবে','dite hoy','দিতে হয়','kokhon','কখন','kobe','কবে','porjonto','পর্যন্ত']) && !has(l,['amar','আমার','kobe dilo','কবে দিয়েছে','diyeche','দিয়েছে','koreche','করেছে','baki','বাকি'])){
+      return ruleTxt(1)||null;
+    }
+    // টাকা ফেরত / গ্রুপ ছাড়লে
+    if(!named && has(l,['ferot','ferat','ফেরত','refund','taka ferot']) && has(l,['taka','টাকা','joma','জমা','sip','pabo','পাব','pete','পেতে','paoa','পাওয়া'])){
+      return (ruleTxt(3)||'')+'<br>💡 SIP-এর টাকা ফেরত নিয়ে আলাদা নিয়ম নিয়মাবলীতে লেখা নেই — জানতে সংগ্রাহক/অ্যাডমিনকে জিজ্ঞেস করুন।';
+    }
+    // হিসাবের মাসিক আপডেট
+    if(!named && has(l,['update','আপডেট']) && has(l,['hisab','হিসাব','fund','ফান্ড','kobe','কবে','hoy','হয়','den','দেন','dey','দেয়','pathan','পাঠান'])){
+      return (ruleTxt(6)||'')+'<br>📅 আপডেট ঠিক কোন তারিখে পাঠানো হয়, সেটা ডেটায় নেই।';
+    }
     // নমিনি / উত্তরাধিকারী
     if(has(l,['nominee','nomini','nomine','warish','ওয়ারিশ','উত্তরাধিকারী','নমিনি','pariwar','পরিবার']) ) return ruleTxt(8);
     // সাইট/অ্যাপ কাজ করছে না
