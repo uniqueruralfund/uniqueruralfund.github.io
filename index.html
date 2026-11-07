@@ -598,6 +598,7 @@
     <button class="edit-btn" id="loanRepayApproveBtn" style="margin-bottom:.5rem;" hidden onclick="openLoanRepayApprovalOverlay()">💵 ঋণ পরিশোধ অনুমোদন</button>
     <button class="edit-btn" id="sheetOpenBtn" style="margin-bottom:.5rem;" hidden onclick="window.open('https://docs.google.com/spreadsheets/d/1C-BdlaRHCjyAARCzKwGTstwvro2sKpPSH1FLZs_3XQo/edit','_blank')">📊 Google Sheet খুলুন</button>
     <button class="edit-btn" id="loginLogBtn" style="margin-bottom:.5rem;" hidden onclick="openLoginLogOverlay()">🕓 লগইন লগ</button>
+    <button class="edit-btn" id="sathiLogBtn" style="margin-bottom:.5rem;" hidden onclick="openSathiLogOverlay()">🤖 URF Sathi ব্যবহার</button>
     <button class="edit-btn" id="loanNotifAdminBtn" style="margin-bottom:.5rem;" hidden onclick="openLoanNotifAdminOverlay()">🔔 ঋণ নোটিফিকেশন</button>
     <button class="edit-btn" id="adminOverviewBtn" style="margin-bottom:.5rem;" hidden onclick="openAdminOverviewOverlay()">📊 অ্যাডমিন ওভারভিউ</button>
     <button class="edit-btn" id="editBtn">🔒 এডিট মোড</button>
@@ -729,6 +730,16 @@
       <button type="button" class="overlay-close" onclick="closeLoginLogOverlay()" aria-label="বন্ধ করুন">✕</button>
     </div>
     <div id="loginLogOverlayBody"></div>
+  </div>
+</div>
+
+<div class="pin-overlay" id="sathiLogOverlay" hidden>
+  <div class="pin-box" style="width:min(90vw,520px); max-height:85vh; overflow-y:auto;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:.8rem;">
+      <h3 style="margin:0;">🤖 URF Sathi — কে কে খুলেছেন</h3>
+      <button type="button" class="overlay-close" onclick="closeSathiLogOverlay()" aria-label="বন্ধ করুন">✕</button>
+    </div>
+    <div id="sathiLogOverlayBody"></div>
   </div>
 </div>
 
@@ -1026,6 +1037,8 @@ function updateEditBtn(){
   if(sheetBtn) sheetBtn.hidden = !isAdminMember();   // only Prasun Jyoti
   const logBtn = document.getElementById('loginLogBtn');
   if(logBtn) logBtn.hidden = !isPrasunOnly();       // only Prasun Jyoti
+  const sathiBtn = document.getElementById('sathiLogBtn');
+  if(sathiBtn) sathiBtn.hidden = !isPrasunOnly();   // only Prasun Jyoti
   const loanNotifBtn = document.getElementById('loanNotifAdminBtn');
   if(loanNotifBtn) loanNotifBtn.hidden = !canApprove();   // Satyajit Das ও Prasun Jyoti
   const adminOverviewBtn = document.getElementById('adminOverviewBtn');
@@ -1556,6 +1569,44 @@ async function openLoginLogOverlay(){
   }
 }
 function closeLoginLogOverlay(){ document.getElementById('loginLogOverlay').hidden = true; }
+function closeSathiLogOverlay(){ document.getElementById('sathiLogOverlay').hidden = true; }
+async function openSathiLogOverlay(){
+  if(!isPrasunOnly()) return;             // only Prasun Jyoti's own login may open this
+  const body = document.getElementById('sathiLogOverlayBody');
+  body.innerHTML = '<p class="hint-text">লোড হচ্ছে...</p>';
+  document.getElementById('sathiLogOverlay').hidden = false;
+  const esc = x => String(x==null?'':x).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  try{
+    const res = await fetch(SCRIPT_URL, {
+      method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action:'getSathiLog', userId: memberSession.userId, pin: memberSession.pin})
+    });
+    const json = await res.json();
+    if(!json.ok){ body.innerHTML = '<p class="hint-text">'+esc(json.error||'লোড করা যায়নি। (ব্যাকএন্ডে এই সুবিধা এখনও চালু হয়নি হতে পারে)')+'</p>'; return; }
+    const rows = json.rows || [];
+    const allNames = (DATA && DATA.contributions ? DATA.contributions : []).map(c=>c.name);
+    const byName = {};
+    rows.forEach(r=>{ const o = byName[r.name] || (byName[r.name] = {name:r.name, count:0, last:r.at, medium:r.medium}); o.count++; });   // rows arrive newest-first
+    const openers = Object.keys(byName).map(k=>byName[k]);
+    const notYet = allNames.filter(n=>!byName[n]);
+    const med = m => m==='Mobile App' ? '📱 অ্যাপ' : '🌐 ওয়েবসাইট';
+    if(!rows.length){
+      body.innerHTML = '<p class="hint-text">এখনো কেউ URF Sathi খোলেননি (বা রেকর্ড শুরু হয়নি)।</p>' + (allNames.length ? '<p class="hint-text">এখনও খোলেননি ('+allNames.length+' জন): '+allNames.map(esc).join(', ')+'</p>' : '');
+      return;
+    }
+    body.innerHTML =
+      '<div class="card" style="margin-bottom:1rem; padding:1rem;">'
+      + '<div style="font-weight:700; color:var(--green-dark); margin-bottom:.5rem;">✅ খুলেছেন '+openers.length+' জন'+(allNames.length?' (মোট '+allNames.length+' জনের মধ্যে)':'')+'</div>'
+      + openers.map(o=>'<div class="appr-row"><span class="k">'+esc(o.name)+'</span><span class="v hint-text">'+o.count+' বার · সর্বশেষ '+esc(o.last)+' · '+med(o.medium)+'</span></div>').join('')
+      + '</div>'
+      + (notYet.length ? '<div class="card" style="margin-bottom:1rem; padding:1rem;"><div style="font-weight:700; color:#8a5a00; margin-bottom:.4rem;">⏳ এখনও খোলেননি ('+notYet.length+' জন)</div><div class="hint-text">'+notYet.map(esc).join(', ')+'</div></div>' : '')
+      + '<div style="font-weight:700; margin:.2rem 0 .5rem;">সাম্প্রতিক খোলা (সর্বশেষ '+Math.min(rows.length,50)+'টি)</div>'
+      + '<div class="appr-list">'+rows.slice(0,50).map(r=>'<div class="appr-card"><div class="appr-row"><span class="k">সদস্য</span><span class="v">'+esc(r.name)+'</span></div><div class="appr-row"><span class="k">সময়</span><span class="v">'+esc(r.at)+'</span></div><div class="appr-row"><span class="k">মাধ্যম</span><span class="v">'+med(r.medium)+'</span></div></div>').join('')+'</div>'
+      + '<p class="hint-text" style="margin-top:.8rem;">শুধু "খুলেছেন" ধরা হয় — কে কী প্রশ্ন করেছেন তা রেকর্ড হয় না। একই ডিভাইসে ৩০ মিনিটের মধ্যে বারবার খুললে একবার গোনা হয়।</p>';
+  }catch(err){
+    body.innerHTML = '<p class="hint-text">নেটওয়ার্ক সমস্যা, আবার চেষ্টা করুন।</p>';
+  }
+}
 function closeMemberView(){ document.getElementById('memberViewOverlay').hidden = true; }
 
 // A loan that's crossed its overdue deadline gets the same message shown
@@ -5079,7 +5130,18 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     }
   }
   window.hdRe=function(i){ var inp=document.getElementById('hdText'); if(!inp||!HD.choices||!HD.choices[i]) return; inp.value=(HD.lastQ||'')+' '+HD.choices[i]; window.hdAsk({preventDefault:function(){}}); };
-  window.hdToggle=function(){ var p=document.getElementById('hdPanel'); p.hidden=!p.hidden; if(!p.hidden){ hdGreet(); var k=hdKey(); if(HD.histKey!==k || !body().children.length) hdRestore(); else body().scrollTop=body().scrollHeight; } };
+  /* কে URF Sathi খুলল — শুধু নাম ও সময় সার্ভারে যায় (প্রশ্ন নয়); ৩০ মিনিটে একবার; ব্যর্থ হলেও কিছু দেখা যায় না */
+  function hdTrack(){
+    try{
+      if(typeof memberSession==='undefined'||!memberSession||!memberSession.userId||!memberSession.pin||typeof SCRIPT_URL==='undefined') return;
+      var k='urfSathi.track.'+String(memberSession.userId).toLowerCase(), now=Date.now(), last=+(localStorage.getItem(k)||0);
+      if(now-last<30*60*1000) return;
+      localStorage.setItem(k,String(now));
+      fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'logSathiOpen',userId:memberSession.userId,pin:memberSession.pin,platform:(typeof getClientPlatform==='function'?getClientPlatform():'')}),keepalive:true})
+        .then(function(r){ return r.json(); }).then(function(j){ if(!(j&&j.ok)){ try{ localStorage.removeItem(k); }catch(e){} } }).catch(function(){ try{ localStorage.removeItem(k); }catch(e){} });
+    }catch(e){}
+  }
+  window.hdToggle=function(){ var p=document.getElementById('hdPanel'); p.hidden=!p.hidden; if(!p.hidden){ hdTrack(); hdGreet(); var k=hdKey(); if(HD.histKey!==k || !body().children.length) hdRestore(); else body().scrollTop=body().scrollHeight; } };
 })();
 </script>
 
