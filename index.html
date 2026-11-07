@@ -4076,7 +4076,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
   function dataAnswer(t){
     if(typeof DATA==='undefined' || !DATA || !DATA.contributions) return null;
     var found=findMembers(t);
-    var SELF_TOPIC=has(t.toLowerCase(),['joma','jama','জমা','loan','lone','লোন','ঋণ','sud','সুদ','interest','intrest','taka','টাকা','hisab','হিসাব','detail','details','বিস্তারিত','baki','বাকি','bokeya','বকেয়া','fine','ফাইন','payment','পেমেন্ট','birthday','jonmodin','জন্মদিন','number','phone','mobile','নম্বর','profile','প্রোফাইল','sob','সব','tothyo','তথ্য','status','kobe','কবে','balance','approve','onumodon','অনুমোদন','report','summary','last','shesh','sesh','ranking','kotobar','কতবার','repay','principal']);
+    var SELF_TOPIC=has(t.toLowerCase(),['due','total','mot','মোট','dena','দেনা','poriman','পরিমাণ','dite hobe','দিতে হবে','joma','jama','জমা','loan','lone','লোন','ঋণ','sud','সুদ','interest','intrest','taka','টাকা','hisab','হিসাব','detail','details','বিস্তারিত','baki','বাকি','bokeya','বকেয়া','fine','ফাইন','payment','পেমেন্ট','birthday','jonmodin','জন্মদিন','number','phone','mobile','নম্বর','profile','প্রোফাইল','sob','সব','tothyo','তথ্য','status','kobe','কবে','balance','approve','onumodon','অনুমোদন','report','summary','last','shesh','sesh','ranking','kotobar','কতবার','repay','principal']);
     if(!found.length && typeof memberSession!=='undefined' && memberSession && SELF_TOPIC && has(t.toLowerCase(),['amar','amr','amake','nijer','আমার','আমি','আমাকে','নিজের','ami']) && !has(t.toLowerCase(),['ki ki','কী কী','jante','jani','help','sahajyo','সাহায্য','kivabe','kibhabe','কীভাবে','pabo','পাব','nite','নিতে','pari','পারি','parbo','পারব'])){
       found=(DATA.contributions||[]).filter(function(x){return x.name.toLowerCase()===String(memberSession.userId||'').toLowerCase();});
     }
@@ -4086,7 +4086,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
       found=(DATA.contributions||[]).filter(function(x){return x.name===HD.ctx.name;});
     }
     if(!found.length) return null;
-    var fullQ=has(t.toLowerCase(),['details','detail','bistarito','বিস্তারিত','sob','সব','somosto','shomosto','সমস্ত','profile','প্রোফাইল','hisab','হিসাব','tothyo','তথ্য','report','summary','sarongsho','সারাংশ','sob kichu','sobkichu']) && !has(t.toLowerCase(),['kobe','kon date','tarikh','তারিখ','কবে','approve','onumodon','অনুমোদন','phone','mobile','number','ফোন','মোবাইল']) && !has(t.toLowerCase(),['loan','rin','ঋণ','sud','সুদ','baki','bokeya','বাকি','বকেয়া','fine','ফাইন','joma','জমা']) && monthAsked(t.toLowerCase())<0;
+    var fullQ=has(t.toLowerCase(),['obostha','অবস্থা','khobor','খবর','halchal','হালচাল','details','detail','bistarito','বিস্তারিত','sob','সব','somosto','shomosto','সমস্ত','profile','প্রোফাইল','hisab','হিসাব','tothyo','তথ্য','report','summary','sarongsho','সারাংশ','sob kichu','sobkichu']) && !has(t.toLowerCase(),['kobe','kon date','tarikh','তারিখ','কবে','approve','onumodon','অনুমোদন','phone','mobile','number','ফোন','মোবাইল']) && !has(t.toLowerCase(),['loan','rin','ঋণ','sud','সুদ','baki','bokeya','বাকি','বকেয়া','fine','ফাইন','joma','জমা']) && monthAsked(t.toLowerCase())<0 && !dueAllQ(t.toLowerCase()) && !payoffQ(t.toLowerCase());
     if(found.length===1 && (fullQ || isBareName(t,found[0]))) return fullProfile(found[0]);
     if(found.length>1){
       var lm=t.toLowerCase();
@@ -4101,6 +4101,8 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     }
     var m=found[0], l=t.toLowerCase(), pay=m.pay||[];
     if(whoSubmitsQ(l)) return submitterAnswer(m);
+    if(payoffQ(l)) return duesAnswer(m,'payoff');
+    if(dueAllQ(l)) return duesAnswer(m,'all');
     if(has(l,['fine','ফাইন','jorimana','জরিমানা']) && !has(l,['rate','niyom','নিয়ম','koto taka lage','kokhon','কখন']) ) return fineSummary(m);
     if(has(l,['keno','কেন']) && has(l,['approve','onumodon','অনুমোদন','pending','atke','আটকে','hoy ni','hoyni','হয়নি','opekkha','অপেক্ষা'])) return stuckAnswer(m);
     if(has(l,['pending','opekkha','opekha','অপেক্ষায়','আটকে','atke']) && has(l,['payment','পেমেন্ট','joma','জমা','loan','ঋণ'])) return stuckAnswer(m);
@@ -4127,7 +4129,8 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     }
     if(has(l,['repay','principal','asol','আসল','repayment']) && !has(l,['sud','সুদ'])){
       var mr=(DATA.loanRepayments||[]).filter(function(r){return r.member===m.name && r.stage==='done';});
-      return mr.length ? '<b>'+m.name+'</b>-এর আসল ঋণ পরিশোধ:<br>'+mr.map(function(r){return '• '+rs(r.amount)+' ('+(r.paymentDate||r.askedAt||'—')+')';}).join('<br>') : '<b>'+m.name+'</b>-এর আসল ঋণ পরিশোধের কোনো রেকর্ড নেই।';
+      var lnP=(DATA.activeLoans||[]).filter(function(x){return x.name===m.name;})[0], pTxt=lnP?'<br>🏦 চলতি ঋণের আসল (সাইটের হিসাব অনুযায়ী): <b>'+rs(lnP.amount)+'</b>':'<br>🏦 এখন কোনো চলতি ঋণ নেই।';
+      return (mr.length ? '<b>'+m.name+'</b>-এর আসল ঋণ পরিশোধ:<br>'+mr.map(function(r){return '• '+rs(r.amount)+' ('+(r.paymentDate||r.askedAt||'—')+')';}).join('<br>') : '<b>'+m.name+'</b>-এর আসল ঋণ পরিশোধের কোনো রেকর্ড নেই।')+pTxt;
     }
     if(loanQ){
       var ln=(DATA.activeLoans||[]).filter(function(x){return x.name===m.name;})[0];
@@ -4307,6 +4310,50 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     return out+'<br><span style="opacity:.75">হিসাব: প্রতি ২ মাস বকেয়ায় ১ মাসের হারে ফাইন (সাইটের ফাইন পাতার একই নিয়ম); যে মাসের ১৬ তারিখ পার হয়েছে সেটাই বকেয়া।</span>';
   }
   /* নিজের (বা নাম বলা সদস্যের) আটকে থাকা পেমেন্ট/আবেদন */
+  /* অনুমোদনে আসলে কত সময় লেগেছে — ডেটা থেকে */
+  function apprTimeText(){
+    var MM={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+    function P(x){ var q=String(x||'').split('-'), mi=MM[(q[1]||'').toLowerCase().slice(0,3)]; return (mi===undefined||!q[2])?null:new Date(+q[2],mi,+q[0]||1); }
+    var ds=[]; (DATA.paymentRequests||[]).forEach(function(p){ if(p.stage==='done'&&p.askedAt&&p.adminApprovedAt){ var a=P(p.askedAt), b=P(p.adminApprovedAt); if(a&&b) ds.push(Math.max(0,Math.round((b-a)/86400000))); } });
+    if(!ds.length) return '';
+    var same=ds.filter(function(x){return x===0;}).length, one=ds.filter(function(x){return x<=1;}).length, mx=Math.max.apply(null,ds);
+    return 'আগের '+bnd(ds.length)+'টি পেমেন্টের হিসাবে: '+bnd(same)+'টি একই দিনে, '+bnd(one)+'টি ১ দিনের মধ্যে অনুমোদন হয়েছে; সবচেয়ে বেশি '+bnd(mx)+' দিন লেগেছে।';
+  }
+  /* সদস্যের মোট বকেয়া / ঋণ শোধের মোট — সাইটের নিজস্ব নিয়মে */
+  function memberDues(m){
+    var now=new Date(), yr=DATA.year, curM=(String(yr)===String(now.getFullYear()))?(now.getMonth()+(now.getDate()>=16?1:0)):12;
+    var rate=DATA.monthlyContribution||100, un=[]; for(var i=0;i<Math.min(curM,12);i++){ if(!((m.pay||[])[i]>0)) un.push(BN_MONTHS[i]); }
+    var ln=(DATA.activeLoans||[]).filter(function(x){return x.name===m.name;})[0], lateN=0, intAmt=0, post10=0;
+    if(ln){ (ln.months||[]).forEach(function(z){ if(z&&z.amount===null&&dueInfo2(z.due).d<=now){ lateN++; var post=ln.lastRepaymentDate&&z.dueRaw&&new Date(z.dueRaw)>new Date(ln.lastRepaymentDate); if(post) post10++; intAmt+=Math.round((Number(ln.amount)||0)*(post?0.10:0.01)); } }); }
+    var mi=ln?(Number(ln.monthlyInterest)||0):0;
+    function claim(label){ return (DATA.paymentRequests||[]).filter(function(p){return p.typeLabel==='ফাইন'&&String(p.member||'').toLowerCase()===m.name.toLowerCase()&&String(p.monthLabel||'').indexOf(label)>-1;})[0]; }
+    return {rate:rate, un:un, ln:ln, lateN:lateN, intAmt:intAmt, post10:post10, mi:mi, principal:ln?(Number(ln.amount)||0):0,
+      fm:un.length>=2?Math.floor(un.length/2)*rate:0, fl:lateN>=2?Math.floor(lateN/2)*mi:0, cm:claim('মাসিক জমার ফাইন'), cl:claim('ঋণের সুদের ফাইন')};
+  }
+  function fineLine(c,amt,label){
+    if(!amt) return '';
+    if(c) return '<br>• '+label+': '+rs(amt)+' — '+((c.stage==='done'||c.stage==='admin')?'✅ জমা হয়েছে':'⏳ জমা দেওয়া হয়েছে, অনুমোদনের অপেক্ষায়')+' (মোটে ধরা হয়নি)';
+    return '<br>• '+label+': <b>'+rs(amt)+'</b>';
+  }
+  function duesAnswer(m,mode){
+    var d=memberDues(m);
+    var fmDue=(d.fm&&!d.cm)?d.fm:0, flDue=(d.fl&&!d.cl)?d.fl:0;
+    if(mode==='payoff'){
+      if(!d.ln) return '🏦 <b>'+m.name+'</b>-এর এখন কোনো চলতি ঋণ নেই, তাই শোধ করার মতো কিছু বাকি নেই। ✅';
+      var tot=d.principal+d.intAmt+flDue;
+      return '🏦 <b>'+m.name+'-এর ঋণ পুরো শোধ করতে মোট '+rs(tot)+'</b><br>• আসল ঋণ: '+rs(d.principal)+'<br>• বকেয়া সুদ: '+rs(d.intAmt)+(d.lateN?' ('+bnd(d.lateN)+' মাস'+(d.post10?', এর মধ্যে '+bnd(d.post10)+' মাস ১০% হারে':' × '+rs(d.mi))+')':' (কোনো মাস বকেয়া নেই)')+(flDue?'<br>• ঋণের সুদের ফাইন: '+rs(flDue)+' (আগে এটা দিতে হয়)':'')+'<br><span style="opacity:.8">ঋণ শেষ হওয়ার তারিখ '+(d.ln.closingDate||'—')+'। হিসাব: আসল + যে মাসের সুদের তারিখ পার হয়েছে অথচ দেওয়া হয়নি সেই মাসগুলোর সুদ (+ প্রযোজ্য ফাইন) — সাইটের নিয়মে। আগে বকেয়া সুদ মিটিয়ে তারপর আসল দিতে হয়; শোধের পর আর সুদ লাগে না।</span>';
+    }
+    var now=fmDue+flDue+d.intAmt+d.un.length*d.rate;
+    var out='💳 <b>'+m.name+'-এর এখন মোট দেওয়া বাকি: '+rs(now)+'</b>';
+    out+='<br>• মাসিক জমা বকেয়া: '+(d.un.length?'<b>'+rs(d.un.length*d.rate)+'</b> ('+bnd(d.un.length)+' মাস × '+rs(d.rate)+': '+d.un.join(', ')+')':'নেই ✅');
+    if(d.ln) out+='<br>• ঋণের সুদ বকেয়া: '+(d.lateN?'<b>'+rs(d.intAmt)+'</b> ('+bnd(d.lateN)+' মাস'+(d.post10?', এর মধ্যে '+bnd(d.post10)+' মাস ১০% হারে':' × '+rs(d.mi))+')':'নেই ✅');
+    out+=fineLine(d.cm,d.fm,'মাসিক জমার ফাইন')+fineLine(d.cl,d.fl,'ঋণের সুদের ফাইন');
+    if(!d.un.length && !d.lateN) out+='<br>✅ কোনো বকেয়া বা ফাইন নেই।';
+    if(d.ln) out+='<br>🏦 চলতি ঋণের আসল: '+rs(d.principal)+' (শেষ তারিখ '+(d.ln.closingDate||'—')+') — এটা উপরের মোটে ধরা নেই। ঋণ পুরো বন্ধ করতে চাইলে সব মিলিয়ে লাগবে <b>'+rs(now+d.principal)+'</b>।';
+    return out+'<br><span style="opacity:.75">হিসাব: যে মাসের ১৬ তারিখ (ঋণের সুদে নির্ধারিত তারিখ) পার হয়েছে সেটাই বকেয়া; ফাইন প্রতি ২ মাস বকেয়ায় ১ মাসের হার — সাইটের নিজস্ব নিয়ম।</span>';
+  }
+  function payoffQ(l){ return has(l,['loan','lone','লোন','ঋণ','rin']) && has(l,['shodh','sodh','শোধ','close','ক্লোজ','bondho','বন্ধ','sesh','শেষ','clear','repay','porishodh','পরিশোধ','mot','মোট','total']) && has(l,['koto','কত','lagbe','লাগবে','dite hobe','দিতে হবে','dite hoy','দিতে হয়','total','মোট','mot','amount','poriman','পরিমাণ']) && !has(l,['kobe','কবে','date','তারিখ','tarikh','ke ke','kara','কারা','kar kar','কার কার','list','তালিকা']); }
+  function dueAllQ(l){ return has(l,['total','mot','মোট','sob','সব','pura','পুরো']) && has(l,['due','baki','বাকি','bokeya','বকেয়া','dite hobe','দিতে হবে','dite hoy','দিতে হয়','dena','দেনা']) && !has(l,['ke ke','kara','কারা','kar kar','কার কার','list','তালিকা','kon kon','কোন কোন']); }
   function stuckAnswer(m){
     var nm=m.name.toLowerCase(), now=new Date(), items=[], STG={collector:'সংগ্রাহকের',admin:'অ্যাডমিনের',recipient:'নগদ গ্রহণকারীর নিশ্চিতকরণের',urgent:'অ্যাডমিনের সিদ্ধান্তের',ack:'সদস্যের স্বীকৃতির'};
     function age(s){ var d=apprDays(s); return d===null?'':(d===0?' (আজ)':' ('+d+' দিন আগে)'); }
@@ -4320,7 +4367,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     var pend=items.filter(function(x){return x.charAt(0)==='⏳';}), rej=items.filter(function(x){return x.charAt(0)==='❌';}).slice(-2);
     var out='📋 <b>'+m.name+'-এর পেমেন্ট/আবেদনের অবস্থা</b><br>';
     if(!pend.length) out+='✅ এখন কোনো পেমেন্ট বা আবেদন আটকে নেই — সব অনুমোদিত।';
-    else out+=bullets(pend)+'<br><span style="opacity:.8">সাধারণত ১–২ দিনে অনুমোদন হয়; ৩ দিনের বেশি হলে সংগ্রাহক/অ্যাডমিনকে জানান।</span>';
+    else out+=bullets(pend)+'<br><span style="opacity:.8">'+apprTimeText()+' ৩ দিনের বেশি হলে সংগ্রাহক/অ্যাডমিনকে জানান।</span>';
     if(rej.length) out+='<br><br>বাতিল হয়েছে:<br>'+bullets(rej);
     return out;
   }
@@ -4337,6 +4384,111 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     var CONTACT='<br>📧 <a href="mailto:uniqueruralfund21@gmail.com">uniqueruralfund21@gmail.com</a> বা সংগ্রাহক/অ্যাডমিনকে জিজ্ঞেস করুন।';
     function phoneOf(nm){ var b=(DATA.birthdays||[]).filter(function(x){return String(x.name).toLowerCase()===String(nm).toLowerCase();})[0]; return b&&b.mobile?b.mobile:''; }
     if(has(l,['tumi ke','tui ke','apni ke','তুমি কে','আপনি কে','tomar nam','তোমার নাম','apnar nam','আপনার নাম','tumi ki','তুমি কী','who are you']) && !named) return '🤝 আমি <b>URF Sathi</b> — Unique Rural Fund-এর সহায়ক। ফান্ডের হিসাব, কোনো সদস্যের জমা-ঋণ-সুদ, নিয়মাবলী, পেমেন্ট/ঋণ নেওয়ার পদ্ধতি — এসব নিয়ে প্রশ্ন করলে আমি সাইটের লাইভ তথ্য দেখে সাথে সাথে উত্তর দিই। বাংলা বা Banglish — যেভাবে খুশি লিখুন।';
+    // ---- সদস্যদের সম্ভাব্য আরও প্রশ্ন (দ্বিতীয় দফা) ----
+    var lcWords=l.split(' ').filter(Boolean).length;
+    // বেরিয়ে গেলে কত টাকা পাব
+    if(!named && has(l,['bere jai','bere jete','berie jai','বেরিয়ে যাই','বেরিয়ে যেতে','বেরিয়ে গেলে','group chere','গ্রুপ ছেড়ে','chere dile','ছেড়ে দিলে','exit','leave']) && has(l,['koto','কত','taka','টাকা','pabo','পাব','pete','পেতে'])){
+      var mySum=meM?(meM.pay||[]).reduce(function(a,p){return a+(p>0?p:0);},0):0;
+      return (ruleTxt(3)||'')+(meM?'<br>💰 আপনার '+year+' সালের মোট জমা: <b>'+rs(mySum)+'</b> (আগের বছরগুলোর জমা, ঋণ-সুদ সমন্বয় ও লাভ-ক্ষতিসহ ফেরতের সঠিক অঙ্ক নিয়মাবলী বা ডেটায় নেই)।':'')+'<br>সঠিক হিসাব জানতে সংগ্রাহক/অ্যাডমিনকে জিজ্ঞেস করুন।';
+    }
+    if(has(l,['group er nam','গ্রুপের নাম','fund er nam','ফান্ডের নাম','amader group','আমাদের গ্রুপ','amader fund','আমাদের ফান্ড']) && has(l,['nam','নাম','ki','কী'])) return '🌱 আমাদের ফান্ডের নাম: <b>'+(DATA.fundName||'Unique Rural Fund')+'</b>।';
+    if(has(l,['aj ki tarikh','আজ কত তারিখ','aj koto tarikh','আজকের তারিখ','aj ki bar','আজ কী বার','today date','aj tarikh','ajker tarikh'])){
+      var wd=['রবিবার','সোমবার','মঙ্গলবার','বুধবার','বৃহস্পতিবার','শুক্রবার','শনিবার'];
+      return '📅 আজ <b>'+bnd(N.getDate())+' '+BN_MONTHS[N.getMonth()]+' '+bnd(N.getFullYear())+'</b>, '+wd[N.getDay()]+'। (আপনার ডিভাইসের তারিখ অনুযায়ী)';
+    }
+    if(jomaW && has(l,['kobe porjonto','কবে পর্যন্ত','kotodin porjonto','kobe obdi','last e','shesh e','sesh e','মাসের শেষে','mas er last','মাসের শেষ']) && has(l,['dite','দিতে','dile','দিলে','dei','দেই','parbo','পারব','pari','পারি'])) return ruleTxt(1);
+    // সামাজিক কথা
+    if(lcWords<=3 && has(l,['good morning','good afternoon','good evening','শুভ সকাল','শুভ দুপুর','শুভ বিকেল','শুভ সন্ধ্যা','subho sokal','shubho sokal','shubhosokal','gm','good day'])) return '🙏 আপনাকেও শুভেচ্ছা! বলুন, ফান্ড বা আপনার হিসাব নিয়ে কী জানতে চান?';
+    if(lcWords<=4 && has(l,['ki khobor','কী খবর','kemon acho','kemon achen','কেমন আছেন','কেমন আছো','valo achho','valo achen','bhalo achen','bhalo acho','ভালো আছেন','ভালো আছো','kemon aso'])) return '😊 আমি ভালো আছি, ধন্যবাদ! আপনি কেমন আছেন? আপনার সঞ্চয়, ঋণ বা ফান্ডের কোনো তথ্য লাগলে লিখুন।';
+    // অন্যে আমার/অন্যের হিসাব দেখতে পারে কি
+    if(!named && has(l,['dekhte pare','দেখতে পারে','dekhte pari','দেখতে পারি','dekhe','দেখে','dekhte paren','দেখতে পারেন']) && has(l,['hisab','হিসাব','joma','জমা','loan','ঋণ','tothyo','তথ্য']) && has(l,['onno','অন্য','keu','কেউ','sobai','সবাই','member','সদস্য','onner','অন্যের','onyer'])){
+      return '👁️ <b>কে কী দেখতে পারে</b><br>• সাইটের সাধারণ তথ্য (কার কত জমা, ঋণ, সুদ ইত্যাদি) সদস্যদের জন্য খোলা — সবাই সবার হিসাব দেখতে পারেন।<br>• পেমেন্টের তারিখ, কে অনুমোদন করেছে — লগইন করা যেকোনো সদস্য URF Sathi-তে নাম লিখে দেখতে পারেন।<br>• আপনার পাসওয়ার্ড শুধু আপনার কাছে; অন্য কেউ আপনার হয়ে লগইন করতে পারবেন না।';
+    }
+    // তথ্যে ভুল / তথ্য বদলানো
+    if(!has(l,['diyechi','pathiye','পাঠিয়ে','dilam','দিলাম']) && has(l,['vul','ভুল','bhul']) && has(l,['tothyo','তথ্য','profile','nam','নাম','jonmodin','জন্মদিন','number','নম্বর','mobile','মোবাইল','hisab','হিসাব']) && (selfW||has(l,['amar','আমার']))){
+      return '✏️ আপনার তথ্যে ভুল দেখলে নিয়ম অনুযায়ী জানাতে হবে:<br>'+(ruleTxt(6)||'')+'<br>কাকে জানাবেন: সংগ্রাহক ('+(DATA.collectorName||'')+') বা অ্যাডমিন (Prasun Jyoti)।'+CONTACT;
+    }
+    if(has(l,['bodlate','বদলাতে','bodlabo','বদলাব','change','poriborton','পরিবর্তন','update korbo']) && has(l,['number','mobile','নম্বর','মোবাইল','email','ইমেইল','nam','নাম','jonmodin','জন্মদিন'])){
+      return 'ℹ️ আপনার নম্বর, নাম বা জন্মদিন নিজে সাইটে বদলানোর কোনো ব্যবস্থা আছে কি না — এটা আমার ডেটায় নেই। সদস্যদের তথ্য Sheet-এ থাকে, তাই অ্যাডমিন (Prasun Jyoti)-কে জানান।'+CONTACT;
+    }
+    if(has(l,['password','pass','পাসওয়ার্ড','pasword']) && has(l,['change','bodlabo','বদলাব','bodlate','বদলাতে','notun','নতুন','reset','রিসেট','badalbo'])) return faqA(1);
+    if(has(l,['user id','userid','user-id','ইউজার আইডি','id ki','আইডি কী','amar id','আমার আইডি','amar user','আমার user'])) return '🔑 '+(meM?'আপনার User ID: <b>'+meM.name+'</b><br>':'')+faqA(0);
+    // অনলাইন পেমেন্ট ব্যর্থ / দুবার হয়ে গেছে
+    if(has(l,['fail','ফেইল','byartho','ব্যর্থ','kete geche','কেটে গেছে','kete gelo','কেটে গেল']) && has(l,['payment','pement','পেমেন্ট','taka','টাকা','upi'])){
+      return '⚠️ অনলাইন পেমেন্ট ব্যর্থ হলে: ১) টাকা না কেটে থাকলে আবার চেষ্টা করুন। ২) টাকা কেটে গিয়ে থাকলে পেমেন্টের স্ক্রিনশট রেখে সংগ্রাহক ('+(DATA.collectorName||'')+') বা অ্যাডমিনকে জানান। ৩) সাইটে জমা নিশ্চিত করতে পেমেন্টের স্ক্রিনশট লাগে (নিয়ম ২)।<br>নিজের অনুরোধের অবস্থা দেখতে লিখুন: <i>"amar payment approve hoy ni keno"</i>।';
+    }
+    if(has(l,['duplicate','dublicate','dobar','দুবার','dui bar','2 bar','duibar','ek mase 2']) && (jomaW||has(l,['payment','pement','পেমেন্ট']))){
+      return 'ℹ️ একই মাসের জমা দুবার হয়ে গেলে সংগ্রাহক ('+(DATA.collectorName||'')+') বা অ্যাডমিনকে জানান। সাইটে নিজে বাতিল করার ব্যবস্থা আছে কি না, তা আমার ডেটায় নেই।'+CONTACT;
+    }
+    // ঋণের টাকা কীভাবে/কবে পাব
+    if(!named && loanW && has(l,['taka kivabe pabo','taka kobe pabo','taka kokhon pabo','টাকা কীভাবে পাব','টাকা কবে পাব','taka pabo kivabe','taka hate pabo','kivabe pabo','kibhabe pabo']) && !has(l,['apply','abedon','আবেদন','korechi','করেছি'])){
+      return '🏦 <b>ঋণের টাকা পাওয়ার ধাপ:</b> আবেদনের পর সংগ্রাহক ('+(DATA.collectorName||'')+') টাকা দেন (নগদে বা অনলাইনে, রসিদসহ), তারপর সাইটে আপনাকে টাকা পাওয়ার স্বীকৃতি দিতে হয়। জরুরি আবেদন হলে আগে অ্যাডমিন (Prasun Jyoti) দেখেন।<br>নিজের আবেদনের অবস্থা: <i>"amar loan request er status"</i>।';
+    }
+    if(!named && has(l,['emergency','jaruri','joruri','জরুরি','urgent','dorkar','দরকার','ekhoni','এখনই']) && has(l,['taka','টাকা','loan','ঋণ','lagbe','লাগবে','chai','চাই','nite','নিতে'])) return faqA(4);
+    // আংশিক/কিস্তিতে শোধ, আগে শোধ
+    if(!named && has(l,['ektu ektu','একটু একটু','kisti','কিস্তি','kistite','কিস্তিতে','bhag kore','ভাগ করে','ongsho','অংশ','ektu kore','installment','dhape dhape','ধাপে ধাপে']) && has(l,['shodh','শোধ','repay','dite','দিতে','porishodh','পরিশোধ'])){
+      return '✅ হ্যাঁ — ঋণ পরিশোধ পাতায় আসলের যত টাকা দিতে চান তত দিতে পারেন (আগের পরিশোধগুলোতেও আংশিক টাকা দেওয়া হয়েছে)। শুধু আগে বকেয়া সুদ (ও প্রযোজ্য ফাইন) মিটিয়ে নিতে হয়। পুরো টাকা একসাথে শোধ করলে অনুমোদনের সাথে সাথে ঋণ বন্ধ হয়ে যায়।<br>'+(meM?'নিজের পুরো শোধের হিসাব: <i>"loan shodh korte hole koto taka dite hobe"</i>':'');
+    }
+    if(!named && meM && loanW && has(l,['shodh','শোধ','sesh','শেষ','close','বন্ধ']) && has(l,['chai','চাই','agei','আগেই','early','age','আগে','tade','taratari','তাড়াতাড়ি']) && !has(l,['sud','সুদ','kombe','কমবে'])) return duesAnswer(meM,'payoff')+'<br><br>'+faqA(5);
+    if(!named && has(l,['sud','সুদ']) && has(l,['kombe','কমবে','kom hobe','কম হবে','lagbe na','লাগবে না','ar lagbe','আর লাগবে']) && has(l,['shodh','শোধ','sesh','শেষ','agei','আগেই'])){
+      return '💡 ঋণ শোধ করলে সেই পর্যন্ত বকেয়া সুদ মিটিয়ে দিতে হয়; পুরো টাকা একসাথে শোধ করলে অনুমোদনের সাথে সাথে ঋণ বন্ধ হয়ে যায় — বন্ধের পর আর সুদ লাগে না। আংশিক আসল শোধ করলে মাসিক সুদের অঙ্ক কীভাবে বদলায়, তা আমার ডেটায় নেই।<br>'+(meM?'নিজের হিসাব: <i>"loan shodh korte hole koto taka dite hobe"</i>':'');
+    }
+    // মওকুফ / মাফ
+    if(!named && has(l,['mukub','মওকুফ','maf','মাফ','waive','chhar','ছাড়','kome','কমে']) && has(l,['fine','ফাইন','sud','সুদ','jorimana','জরিমানা'])) return 'ℹ️ ফাইন বা সুদ মওকুফ/মাফের কোনো নিয়ম নিয়মাবলী বা ডেটায় লেখা নেই। এ বিষয়ে সংগ্রাহক ('+(DATA.collectorName||'')+') বা অ্যাডমিন (Prasun Jyoti)-কে জিজ্ঞেস করুন।'+CONTACT;
+    if(!named && has(l,['fine','ফাইন']) && has(l,['na dile','না দিলে','na dei','না দেই','na dey','না দেয়'])) return (ruleTxt(1)||'')+'<br>🔒 ফাইন প্রযোজ্য থাকলে সাইটে আগে ফাইন জমা না দিলে পরের মাসিক জমা বা ঋণের সুদ জমা দেওয়া যায় না — নিয়ম অনুযায়ী আগে ফাইন দিতে হয়।';
+    if(!named && has(l,['fine','ফাইন']) && has(l,['kivabe','কীভাবে','kemne']) && has(l,['dite','দিতে','dibo','দেব','dei','দেই','joma','জমা'])){
+      return '💸 <b>ফাইন কীভাবে দেবেন:</b> পেমেন্ট পাতায় ধরন হিসেবে <b>"ফাইন"</b> বেছে "কিসের ফাইন?" থেকে <i>মাসিক জমার ফাইন</i> বা <i>ঋণের সুদের ফাইন</i> বাছুন — অঙ্ক নিজে থেকে বসে (প্রতি ২ মাস বকেয়ায় ১ মাসের হার)। অনুমোদনের পর আবার জমা দেওয়া যাবে।<br>'+(meM?'আপনার ফাইনের অবস্থা: <i>"amar fine ache ki"</i>':'');
+    }
+    // টাকা দিলাম (নগদ) — কাকে দিলেন নাম লিখে
+    if(meM && !has(l,['loan','ঋণ','sud','সুদ']) && has(l,['dilam','দিলাম','diyechi','দিয়েছি','diyeci']) && has(l,['cash','nogod','নগদ','taka','টাকা'])){
+      return (groupAnswer('nogod dile ki korbo')||'')+'<br><br>'+stuckAnswer(meM);
+    }
+    if(!named && has(l,['collector','songrahok','সংগ্রাহক','sangrahak']) && has(l,['taka dite','টাকা দিতে','joma dite','জমা দিতে','taka dibo','টাকা দেব'])) return groupAnswer('nogod dile ki korbo');
+    // অ্যাডমিন/সংগ্রাহকের সঙ্গে কথা
+    if(!named && has(l,['admin','অ্যাডমিন','এডমিন','collector','songrahok','সংগ্রাহক']) && has(l,['kotha','কথা','phone korbo','ফোন করব','jogajog','যোগাযোগ','phone korte','ফোন করতে','bolte chai','বলতে চাই'])){
+      var cN2=DATA.collectorName||'Satyajit Das';
+      return '📞 সংগ্রাহক <b>'+cN2+'</b>: '+(phoneOf(cN2)||'নম্বর নেই')+'<br>📞 অ্যাডমিন <b>Prasun Jyoti</b>: '+(phoneOf('Prasun Jyoti')||'নম্বর নেই');
+    }
+    // ফান্ডের হিসাব কে রাখে / টাকা কোথায়
+    if(!named && has(l,['hisab','হিসাব']) && has(l,['rakhe','রাখে','dekhe','দেখে','sambhale','সামলায়','maintain','dekhbhal','দেখভাল']) && has(l,['ke','কে','kara','কারা'])) return '🧾 ফান্ডের হিসাবের দায়িত্বে: সংগ্রাহক <b>'+(DATA.collectorName||'')+'</b> (যাচাই ও টাকা গ্রহণ) আর অ্যাডমিন <b>Prasun Jyoti</b> (চূড়ান্ত অনুমোদন)।';
+    if(!named && has(l,['kothay','কোথায়']) && has(l,['rakha','রাখা','ache','আছে','jama','জমা','thake','থাকে']) && has(l,['taka','টাকা','fund','ফান্ড','tohobil','তহবিল']) && !has(l,['amar','আমার','kar','কার'])){
+      var outL=(DATA.activeLoans||[]).reduce(function(a,x){return a+(Number(x.amount)||0);},0);
+      return '💰 <b>ফান্ডের টাকার অবস্থা</b><br>• মোট ব্যালেন্স: '+rs(Math.round(fs.totalBalance||0))+'<br>• চলতি ঋণ হিসেবে সদস্যদের কাছে আছে: '+rs(outL)+'<br>• হাতে থাকা (Available): '+rs(Math.round(fs.availableBalance||0))+'<br><span style="opacity:.75">টাকা ব্যাংকে না নগদে কোথায় রাখা আছে — এটা আমার ডেটায় নেই; সংগ্রাহক/অ্যাডমিনকে জিজ্ঞেস করুন।</span>';
+    }
+    if(!named && loanW && has(l,['nile','nite','neoar','neyar','নিলে','নিতে','নেওয়ার','nebo','নেব','nei','নেই']) && has(l,['sud','সুদ','interest']) && has(l,['kobe theke','কবে থেকে','suru','shuru','শুরু','tarikh','তারিখ','date','kon mas','কোন মাস']) && !has(l,['amar loan','আমার ঋণ','baki','বাকি','dite hobe','দিতে হবে','kar kar','kara','কারা'])) return ruleTxt(9);
+    // ---- তালিকার বর্ণনা-ধরনের / প্যারামিটারহীন প্রশ্ন ----
+    var nTok=l.split(' ').filter(Boolean).length;
+    if(!named && jomaW && has(l,['nirdisto','নির্দিষ্ট','kono mas','কোনো মাস','kon mas','কোন মাস','kon masher','কোন মাসের','kono masher','কোনো মাসের','ekta mas','একটা মাস']) && monthAsked(l)<0){
+      return '📅 কোন মাসের কথা জানতে চান? মাসের নাম দিয়ে লিখুন, যেমন:<br>• <i>"amar october er joma kobe"</i> (নিজের)<br>• <i>"Utpal er september er joma kobe"</i> (অন্য সদস্যের)<br>• <i>"october e koto joma poreche"</i> (সবার মোট)';
+    }
+    if(!named && meM && nTok<=4 && jomaW && has(l,['kobe','কবে','tarikh','তারিখ','date','hoyeche','হয়েছে']) && !has(l,['sob','সব','kara','কারা','ke ke','kar kar','kon kon','fund','ফান্ড','group','গ্রুপ','late','deri','দেরি','sesh tarikh','শেষ তারিখ','last date','sesh date','deadline'])) return dataAnswer('amar '+l);
+    if(!named && meM && nTok<=3 && (loanW||sudW) && !has(l,['kar','কার','kara','কারা','kon','কোন','sob','সব','niyom','নিয়ম','kivabe','কীভাবে','limit','সীমা','har','হার','dhore','ধরে','ongko','অঙ্ক','angko'])) return dataAnswer('amar loan koto');
+    if(!named && meM && has(l,['puro','পুরো','full','poorna','পূর্ণ','sob','সব']) && has(l,['hisab','হিসাব','tothyo','তথ্য']) && nTok<=3) return dataAnswer('amar sob details bolo');
+    if(!named && meM && has(l,['fine','ফাইন','jorimana','জরিমানা']) && has(l,['obostha','অবস্থা','status','poristhiti','পরিস্থিতি']) && nTok<=4) return fineSummary(meM);
+    if(!named && has(l,['ongko','অঙ্ক','angko','amount','poriman','পরিমাণ','taka er','টাকার']) && has(l,['dhore','ধরে','onujayi','অনুযায়ী','filter','ফিল্টার']) && loanW){
+      return '🔢 কত টাকার ঋণ খুঁজতে চান? অঙ্ক দিয়ে লিখুন, যেমন:<br>• <i>"10000 er upore loan"</i> (১০,০০০-এর বেশি)<br>• <i>"10000 er niche loan"</i> (১০,০০০-এর কম)';
+    }
+    if(!named && has(l,['sud','সুদ']) && has(l,['fine','ফাইন']) && has(l,['aay','আয়','income','ay'])){
+      return '📈 '+year+' সালে এ পর্যন্ত: সুদ আয় <b>'+rs(Math.round(fs.earningsInterest||0))+'</b>, ফাইন আয় <b>'+rs(Math.round(fs.earningsFine||0))+'</b>।';
+    }
+    if(!named && meM && selfW && has(l,['jonmodin','জন্মদিন','birthday']) && has(l,['mobile','মোবাইল','phone','ফোন','number','নম্বর'])){
+      var bb=(DATA.birthdays||[]).filter(function(x){return String(x.name).toLowerCase()===meM.name.toLowerCase();})[0];
+      if(bb){ var pp=String(bb.md||'').split('-').map(Number); return '👤 <b>'+meM.name+'</b><br>🎂 জন্মদিন: '+(pp.length>=2?(pp[1]+' '+BN_MONTHS[pp[0]-1]):'—')+'<br>📞 মোবাইল: '+(bb.mobile||'—'); }
+    }
+    if(!named && jomaW && has(l,['na dile','না দিলে','na dei','না দেই','na dey','না দেয়']) && has(l,['ki hobe','কী হবে','ki hoy','কী হয়','hobe','হবে']) && !has(l,['loan','ঋণ','sud','সুদ'])){
+      return (ruleTxt(1)||'')+'<br>'+(ruleTxt(5)?'(ঋণ শোধ না করলে: '+ruleTxt(5).replace('<b>','').replace('</b>','')+')':'');
+    }
+    if(!named && nTok<=4 && has(l,['na dile','না দিলে','na dei','না দেই','na korle','না করলে']) && has(l,['ki hobe','কী হবে','ki hoy','কী হয়'])){
+      return '⚠️ কী না দিলে? এভাবে হয়:<br>• জমা না দিলে: '+(ruleTxt(1)||'')+'<br>• ঋণ শোধ না করলে: '+(ruleTxt(5)||'');
+    }
+    if(!named && nTok<=5 && has(l,['koto somoy','কত সময়','koto din','কত দিন','kotodin','koto somoy lage','কত সময় লাগে','somoy lage']) && !has(l,['loan','ঋণ','sud','সুদ','shodh','শোধ','bochor','বছর'])){
+      return '⏳ <b>অনুমোদনে কত সময় লাগে?</b><br>'+apprTimeText()+'<br>ধাপ: প্রথমে সংগ্রাহক ('+(DATA.collectorName||'')+') যাচাই, তারপর অ্যাডমিন (Prasun Jyoti) চূড়ান্ত অনুমোদন। নিজের পেমেন্ট কোন ধাপে আছে দেখতে লিখুন: <i>"amar payment approve hoy ni keno"</i>।';
+    }
+    // কোনো মাসে মোট কত জমা পড়ল (মাস না বলা হলে সব মাসের তালিকা)
+    if(!named && jomaW && has(l,['mas','মাস','mase','মাসে']) && has(l,['mot','মোট','total']) && has(l,['koto','কত','poreche','পড়ল','pore','পড়েছে']) && monthAsked(l)<0 && !has(l,['amar','আমার','ei','এই']) && !loanW){
+      var mtot=[]; for(var mi4=0;mi4<12;mi4++){ var ct=0,sm=0; (DATA.contributions||[]).forEach(function(x){ if((x.pay||[])[mi4]>0){ ct++; sm+=x.pay[mi4]; } }); if(ct) mtot.push(BN_MONTHS[mi4]+' — '+rs(sm)+' ('+bnd(ct)+' জন)'); }
+      return '📅 <b>'+year+' সালে মাসভিত্তিক মোট জমা:</b><br>'+bullets(mtot)+'<br>নির্দিষ্ট মাসের জন্য লিখুন: <i>"october e koto joma poreche"</i>';
+    }
     // নিয়ম নম্বর ধরে (যেমন "rule 5", "৫ নম্বর নিয়ম")
     var l2=l.replace(/[০-৯]/g,function(d){return '০১২৩৪৫৬৭৮৯'.indexOf(d);});
     var rn=l2.match(/(?:rule|niyom|নিয়ম)\s*(?:no|number|nombor|nong|নং|নম্বর)?\s*\.?\s*([1-9])\b/)||l2.match(/\b([1-9])\s*(?:no|number|nombor|nong|নং|নম্বর|ta|টা|নম্বর)?\s*(?:rule|niyom|নিয়ম)/);
@@ -4350,10 +4502,10 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     }
     // ঋণ কীভাবে নেব / কী কী লাগবে
     if(!named && loanW && has(l,['nite','nebo','neoa','nibo','apply','abedon','আবেদন','application','korte chai','chai','চাই','নিতে','নেব']) && has(l,['kivabe','কীভাবে','ki ki lagbe','lagbe','লাগবে','process','poddhoti','kothay','কোথায়','koto din lage','কত দিন লাগে','korbo','করব','hole','hobe','chai','চাই']) && !has(l,['pabo','pete','pari','limit','sima','সীমা','koto taka','koto loan','কত টাকা','কত ঋণ','sud','সুদ','request er','status','approve'])){
-      return faqA(3)+'<br><span style="opacity:.8">আবেদনের পর সংগ্রাহক/অ্যাডমিনের অনুমোদনে সাধারণত ১–২ দিন লাগে।</span>';
+      return faqA(3)+'<br><span style="opacity:.8">আবেদনের পর সংগ্রাহক/অ্যাডমিনের অনুমোদন লাগে। ঋণের আবেদনে কত সময় লাগে তা ডেটায় নেই; তবে '+apprTimeText()+'</span>';
     }
     // নিজের ঋণের আবেদনের অবস্থা
-    if(!named && meM && loanW && has(l,['request','abedon','আবেদন','application','approve','status','hoyeche','হয়েছে','hoy ni','hoyni','হয়নি','pending']) && (selfW||has(l,['hoyeche','hoy ni','hoyni']))){
+    if(!named && meM && loanW && has(l,['request','abedon','আবেদন','application','apply','korechi','করেছি','korsi','approve','status','hoyeche','হয়েছে','hoy ni','hoyni','হয়নি','pending']) && (selfW||has(l,['hoyeche','hoy ni','hoyni']))){
       var lq=(DATA.loanRequests||[]).filter(function(r){return String(r.member).toLowerCase()===meM.name.toLowerCase();}).slice(-3);
       if(!lq.length) return '📋 '+meM.name+'-এর নামে কোনো ঋণের আবেদন নেই।';
       return '📋 <b>'+meM.name+'-এর ঋণের আবেদন</b><br>'+bullets(lq.map(function(r){ return rs(r.amount)+' — '+r.status+' ('+(r.askedAt||'')+')'; }));
@@ -4373,17 +4525,13 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
       return (ruleTxt(1)||'')+'<br>💡 ঋণের মাসিক সুদের ক্ষেত্রেও একই হিসাব — ২ মাস সুদ বকেয়া থাকলে ফাইন প্রযোজ্য হয় (ফাইন পাতায় "ঋণের সুদের ফাইন")। আর একবছরে ঋণ শোধ না হলে মাসিক ১০% সুদ।<br>'+(ruleTxt(5)||'');
     }
     // একসাথে দুটো ঋণ / আগের ঋণ শেষ হলে নতুন ঋণ (সাইটের নিয়ম: চলতি ঋণ থাকলে নতুন আবেদন বন্ধ)
-    if(!named && loanW && has(l,['ek sathe','ekshathe','একসাথে','2 ta','dui ta','২ টা','duita','notun','নতুন','ager','আগের','thakle','থাকলে','shodh korle','শোধ করলে','sesh hole','শেষ হলে','abar','আবার','porer','পরের']) && has(l,['loan','ঋণ','লোন']) && has(l,['pabo','pari','paro','পাব','পারি','nite','নিতে','hobe','হবে','ki','কি']) && !has(l,['kar kar','kara','কারা','ke ke','limit','sima','koto taka','কত টাকা'])){
+    if(!named && loanW && has(l,['ek sathe','ekshathe','একসাথে','2 ta','dui ta','২ টা','duita','notun','নতুন','ager','আগের','thakle','থাকলে','shodh korle','শোধ করলে','sesh hole','শেষ হলে','abar','আবার','porer','পরের','ek bar','ar ek','একবার','আরেকবার','arekbar']) && has(l,['loan','ঋণ','লোন']) && has(l,['pabo','pari','paro','পাব','পারি','nite','নিতে','hobe','হবে','ki','কি']) && !has(l,['kar kar','kara','কারা','ke ke','limit','sima','koto taka','কত টাকা'])){
       var haveLoan=meM && (DATA.activeLoans||[]).filter(function(x){return x.name===meM.name;})[0];
       return '🏦 <b>সাইটের নিয়ম:</b> একজনের একসাথে একটাই ঋণ চলতে পারে — চলতি ঋণ শেষ (শোধ) না হওয়া পর্যন্ত নতুন ঋণের আবেদন করা যায় না। একটা আবেদন প্রক্রিয়াধীন থাকলেও নতুন আবেদন বন্ধ থাকে।<br>ঋণ শোধ হয়ে গেলে আবার নতুন আবেদন করা যায় — তখন Available Balance-এর '+((DATA.loanRules&&DATA.loanRules.percent)||60)+'% পর্যন্ত, সর্বোচ্চ '+rs((DATA.loanRules&&DATA.loanRules.cap)||25000)+'।'+(meM?(haveLoan?'<br>📌 আপনার এখন চলতি ঋণ আছে ('+rs(haveLoan.amount)+')।':'<br>📌 আপনার এখন কোনো চলতি ঋণ নেই, তাই নতুন আবেদন করতে পারেন।'):'');
     }
-    // নিজের ঋণ শোধ করতে কত লাগবে
-    if(!named && meM && loanW && has(l,['shodh','sodh','শোধ','sesh','শেষ','close','clear','bondho','বন্ধ','payoff','pay off','porishodh','পরিশোধ']) && has(l,['korte hole','korle','korte','dite hobe','lagbe','koto taka','ekbare','ek sathe','dile','করতে হলে','করলে','কত টাকা','লাগবে'])){
-      var lnn=(DATA.activeLoans||[]).filter(function(x){return x.name===meM.name;})[0];
-      if(!lnn) return '🏦 '+meM.name+'-এর এখন কোনো চলতি ঋণ নেই, তাই শোধ করার মতো কিছু বাকি নেই। ✅';
-      var tdy=new Date(), lateM=(lnn.months||[]).filter(function(z){return z&&z.amount===null&&dueInfo2(z.due).d<=tdy;}), lt=lateM.length, dueI=lateM.reduce(function(sum,z){ var post=lnn.lastRepaymentDate&&z.dueRaw&&new Date(z.dueRaw)>new Date(lnn.lastRepaymentDate); return sum+Math.round((Number(lnn.amount)||0)*(post?0.10:0.01)); },0), post10=lateM.filter(function(z){return lnn.lastRepaymentDate&&z.dueRaw&&new Date(z.dueRaw)>new Date(lnn.lastRepaymentDate);}).length;
-      return '🏦 <b>'+meM.name+'-এর ঋণ শোধ করতে:</b><br>• আসল ঋণ: <b>'+rs(lnn.amount)+'</b><br>• বকেয়া সুদ: <b>'+rs(dueI)+'</b> ('+lt+' মাস'+(post10?', এর মধ্যে '+post10+' মাস ১০% হারে':' × '+rs(lnn.monthlyInterest))+')<br>• মোট: <b>'+rs((Number(lnn.amount)||0)+dueI)+'</b><br><span style="opacity:.8">হিসাব: আসল ঋণ + যে মাসের সুদের তারিখ পার হয়েছে অথচ দেওয়া হয়নি সেই মাসগুলোর সুদ (সাইটের নিয়মে)। আগে বকেয়া সুদ মিটিয়ে তারপর আসল দিতে হয়; শোধের পর আর সুদ লাগে না।</span>';
-    }
+    // নিজের ঋণ শোধ করতে কত লাগবে (নাম ছাড়া)
+    if(!named && meM && payoffQ(l)) return duesAnswer(meM,'payoff');
+    if(!named && meM && selfW && dueAllQ(l)) return duesAnswer(meM,'all');
     // সদস্য হিসেবে সুবিধা/অধিকার
     if(!named && has(l,['adhikar','অধিকার','sujog','সুযোগ','suvidha','সুবিধা','benefit','fayda','ফায়দা']) && has(l,['fund','ফান্ড','group','গ্রুপ','member','সদস্য','amar','আমার'])){
       var lrr=DATA.loanRules||{};
@@ -4394,7 +4542,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
       return 'ℹ️ লাভ কীভাবে ভাগ হয় বা বছর শেষে কিছু দেওয়া হয় কি না — এটা নিয়মাবলী বা সাইটের ডেটায় লেখা নেই, তাই আমি আন্দাজে বলব না।<br>জানতে সংগ্রাহক/অ্যাডমিনকে জিজ্ঞেস করুন।<br>তথ্য: '+year+' সালে সুদ আয় '+rs(Math.round(fs.earningsInterest||0))+', ফাইন আয় '+rs(Math.round(fs.earningsFine||0))+'।'+CONTACT;
     }
     // মিটিং/পিকনিক কবে
-    if(has(l,['meeting','mitting','মিটিং','picnic','পিকনিক','সভা']) && has(l,['kobe','কবে','kokhon','কখন','next','porer','পরের','hobe','হবে','hoy','হয়','date','tarikh','তারিখ'])){
+    if(has(l,['meeting','mitting','মিটিং','picnic','পিকনিক','সভা']) && has(l,['kobe','কবে','kokhon','কখন','next','porer','পরের','hobe','হবে','hoy','হয়','date','tarikh','তারিখ','ache ki','আছে কি','hobe ki','হবে কি','hoy ki','হয় কি','ache','আছে'])){
       return '📅 মিটিং/পিকনিকের তারিখ সাইটের ডেটায় নেই — গ্রুপে যেভাবে জানানো হয় সেখানে দেখুন, বা সংগ্রাহক/অ্যাডমিনকে জিজ্ঞেস করুন।<br>আগের মিটিং-পিকনিকের খরচ দেখতে লিখুন: <i>"khoroch er hisab"</i>।';
     }
     // নির্দিষ্ট বছরের খরচ
@@ -4450,7 +4598,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     // ২ মাস জমা না দিলে
     if(!named && jomaW && has(l,['na dile','na dei','na dey','na diye','na dite','dite na','না দিলে','না দিয়ে','না দেয়','miss','2 mas','২ মাস','pore pore','porepor']) && !has(l,['ke ke','kara','কারা','list'])) return ruleTxt(1,'<br>এ বছর মোট ফাইন আদায়: <b>'+rs(Math.round(fs.earningsFine||0))+'</b>');
     // জমার শেষ তারিখ (বাংলা/Banglish)
-    if(!named && !loanW && jomaW && has(l,['tarikh','তারিখ','date','deadline','somoy','সময়','last date']) && has(l,['moddhe','মধ্যে','modhye','dite hobe','দিতে হবে','dite hoy','দিতে হয়','kokhon','কখন','kobe','কবে','porjonto','পর্যন্ত']) && !has(l,['amar','আমার','kobe dilo','কবে দিয়েছে','diyeche','দিয়েছে','koreche','করেছে','baki','বাকি'])){
+    if(!named && !loanW && jomaW && has(l,['tarikh','তারিখ','date','deadline','somoy','সময়','last date']) && has(l,['moddhe','মধ্যে','modhye','dite hobe','দিতে হবে','dite hoy','দিতে হয়','kokhon','কখন','kobe','কবে','porjonto','পর্যন্ত','sesh','শেষ','last','ses']) && !has(l,['amar','আমার','kobe dilo','কবে দিয়েছে','diyeche','দিয়েছে','koreche','করেছে','baki','বাকি'])){
       return ruleTxt(1)||null;
     }
     // টাকা ফেরত / গ্রুপ ছাড়লে
@@ -4464,7 +4612,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     // নমিনি / উত্তরাধিকারী
     if(has(l,['nominee','nomini','nomine','warish','ওয়ারিশ','উত্তরাধিকারী','নমিনি','pariwar','পরিবার']) ) return ruleTxt(8);
     // সাইট/অ্যাপ কাজ করছে না
-    if(has(l,['kaj korche na','kaj kore na','kaj korse na','kaj hocche na','open hocche na','open hoy na','khulche na','khule na','load hocche na','load hoy na','hang','atke','atkey','chalche na','cholche na','dekha jachche na','blank','white','sync','সিঙ্ক','কাজ করছে না','খুলছে না','লোড হচ্ছে না','somossa','somosya','samasya','সমস্যা','problem','error','bug','slow','dhimi']) && !has(l,['loan','payment','joma','জমা','ঋণ'])){
+    if(has(l,['show hocche na','dekha jachche na','dekhacche na','kichu dekha','কিছু দেখা','na challe','না চললে','chalche na','চলছে না','chole na','চলে না','khulche na','খুলছে না','dhukte parchi na','ঢুকতে পারছি না','login hocche na','লগইন হচ্ছে না','kaj korche na','kaj kore na','kaj korse na','kaj hocche na','open hocche na','open hoy na','khulche na','khule na','load hocche na','load hoy na','hang','atke','atkey','chalche na','cholche na','dekha jachche na','blank','white','sync','সিঙ্ক','কাজ করছে না','খুলছে না','লোড হচ্ছে না','somossa','somosya','samasya','সমস্যা','problem','error','bug','slow','dhimi']) && !has(l,['loan','payment','joma','জমা','ঋণ'])){
       return '🛠️ <b>সাইট/অ্যাপ ঠিকমতো না চললে এই ধাপগুলো দেখুন:</b><br>১) মোবাইল ডেটা/ওয়াইফাই ঠিক আছে কি দেখুন।<br>২) সাইটে হলে <b>Ctrl + F5</b> (ফোনে: ব্রাউজারের cache clear) করে আবার খুলুন।<br>৩) অ্যাপ হলে সম্পূর্ণ বন্ধ (force-close) করে আবার খুলুন।<br>৪) উপরে "সিঙ্ক ব্যর্থ" দেখালে <b>রিফ্রেশ</b> বোতাম চাপুন।<br>৫) লগইন না হলে ID/পাসওয়ার্ড ঠিক আছে কি দেখুন (ভুলে গেলে লিখুন <i>"password bhule gechi"</i>)।<br>তবুও না হলে 📧 <a href="mailto:uniqueruralfund21@gmail.com">uniqueruralfund21@gmail.com</a>-এ জানান।';
     }
     // যোগাযোগ
@@ -4484,7 +4632,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
       return '💰 মোট ব্যালেন্স: <b>'+rs(Math.round(fs.totalBalance||0))+'</b><br>হাতে থাকা (Available) ব্যালেন্স: <b>'+rs(Math.round(fs.availableBalance||0))+'</b><br>চলতি ঋণ হিসেবে বাইরে আছে: <b>'+rs((DATA.activeLoans||[]).reduce(function(s,x){return s+(Number(x.amount)||0);},0))+'</b>';
     }
     // এ বছর মোট জমা / সবার মোট জমা
-    if(!named && !has(l,['amar','আমার','ami','আমি','mas','মাস','kon','কোন']) && jomaW && has(l,['mot','মোট','total','sobar','সবার','sokoler','সকলের','ei bochor','এই বছর','ei bosor','this year']) && has(l,['koto','কত','poreche','পড়েছে','hoyeche','হয়েছে','joma']) && !loanW && !has(l,['baki','বাকি','ke ke','kara','কারা','beshi','বেশি','kom','কম','sobcheye'])){
+    if(!named && !has(l,['amar','আমার','ami','আমি','mas','মাস','kon','কোন']) && jomaW && has(l,['mot','মোট','total','sobar','সবার','sokoler','সকলের','ei bochor','এই বছর','এ বছর','e bochor','ei bosor','this year']) && has(l,['koto','কত','poreche','পড়েছে','hoyeche','হয়েছে','joma','জমা','taka','টাকা']) && !loanW && !has(l,['baki','বাকি','ke ke','kara','কারা','beshi','বেশি','kom','কম','sobcheye'])){
       return '💵 <b>'+year+' সালে এ পর্যন্ত সবার মোট চাঁদা জমা: '+rs(Math.round(fs.totalCollectedThisYear||0))+'</b><br>শুরু থেকে এ পর্যন্ত মোট চাঁদা: <b>'+rs(Math.round((DATA.yearlySummary||[]).slice(-1)[0]&&(DATA.yearlySummary.slice(-1)[0].cumulativeCollection)||0))+'</b>';
     }
     // আগের বছর / নির্দিষ্ট বছরের হিসাব
@@ -4646,7 +4794,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
       return '💵 <b>নগদ দিলে:</b> পেমেন্ট পাতায় গিয়ে "কাকে টাকা দিলেন" তাঁকে বেছে নিয়ে "পেমেন্ট করেছি" চাপুন → যাঁকে দিয়েছেন তিনি আগে টাকা পাওয়া নিশ্চিত করবেন → '+(DATA.collectorName||'সংগ্রাহক')+' যাচাই করবেন → Prasun Jyoti চূড়ান্ত অনুমোদন দেবেন।<br>নিয়ম ২ অনুযায়ী পেমেন্ট অনলাইনেই করা উচিত।';
     }
     if(has(l,['approve','onumodon','অনুমোদন']) && has(l,['koto din','kotodin','kokhon','kobe hobe','কত দিন','কখন','সময়','time','lage','লাগে'])){
-      return '⏳ অনুমোদনের ধাপ: সংগ্রাহক ('+(DATA.collectorName||'')+') যাচাই → Prasun Jyoti চূড়ান্ত অনুমোদন। কত সময় লাগবে তা তাঁদের ব্যস্ততার উপর নির্ভর করে — আপনার পেমেন্ট কোন ধাপে আছে তা পেমেন্ট পাতায় "অপেক্ষমাণ অনুরোধ"-এ দেখা যায়।';
+      return '⏳ অনুমোদনের ধাপ: সংগ্রাহক ('+(DATA.collectorName||'')+') যাচাই → Prasun Jyoti চূড়ান্ত অনুমোদন। '+apprTimeText()+' আপনার পেমেন্ট কোন ধাপে আছে তা পেমেন্ট পাতায় "অপেক্ষমাণ অনুরোধ"-এ দেখা যায়।';
     }
     if(has(l,['menu','page','pata','পাতা','মেনু']) && has(l,['ki ki','কী কী','list','koyta','ache','আছে','কোথায়','kothay'])){
       var pgs=(typeof pages!=='undefined'?pages:[]).map(function(p){return p.label;});
