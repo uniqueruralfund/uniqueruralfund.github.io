@@ -4338,6 +4338,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
   /* ===== ইংরেজি প্রশ্ন → বটের চেনা শব্দ (যেমন "how much loan do I have" → "koto loan ami ache") ===== */
   var EN_MARK=/\b(what|whats|how|when|who|whose|where|why|which|do|does|did|is|are|can|could|will|would|my|me|i|have|has|please|tell|give)\b/;
   var EN_PHR=[
+    [/(?:i |we )?(?:want|wish|would like|plan|am going|going) to (?:pay|deposit|make (?:a )?payment)|(?:i )?(?:will|shall|ll) (?:pay|deposit)|let me pay|i am paying|i m paying|i would like to pay/g,'joma korbo'],
     [/(?:need|have|has|must|should) to pay(?: now| today| right now)?|how much (?:to|must i|should i) pay|amount to pay|payable (?:amount|now)/g,'total baki dite hobe'],
     [/when is (?:my |the )?next (?:payment|contribution|installment)(?: due)?|next (?:payment|due) date|when (?:is|do i have to|should i|must i) pay (?:next|again)|next due date/g,'joma dewar last date kobe'],
     [/(?:am i|are we|can i be) eligible for (?:a |the )?loan|eligible for (?:a )?loan|loan eligibility/g,'ami koto loan pabo'],
@@ -4857,6 +4858,12 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
   window.hdActGo=async function(id){
     var a=HD.acts[id]; var card=document.getElementById('card-'+id);
     if(!a||!card) return;
+    if(a.kind==='pay'){
+      delete HD.acts[id]; if(card.parentNode) card.parentNode.removeChild(card);
+      var okOpen=false; try{ okOpen=openPay(a); }catch(eO){ okOpen=false; }
+      add(okOpen ? '📝 সাইটের ফর্ম আগে থেকে ভরে খুলে দিয়েছি। পেমেন্ট করে স্ক্রিনশট যুক্ত করে সাইটের <b>✅ পেমেন্ট করেছি</b> বোতাম চাপুন। ফর্ম বন্ধ হয়ে গেলে বাঁদিকের মেনু থেকে ০৫ পেমেন্ট (বা ঋণ পরিশোধ) পাতায় যান।' : '⚠️ ফর্মটা খুলতে পারিনি — বাঁদিকের মেনু থেকে নিজে পেমেন্ট পাতায় যান।');
+      return;
+    }
     var dEl=document.getElementById('date-'+id), today=new Date().toISOString().slice(0,10), needBy=(dEl&&dEl.value)?dEl.value:today;
     if(needBy<today){ add('⚠️ তারিখটা আজকের আগের হতে পারে না — ঠিক করে আবার চাপুন।',false,true); return; }
     delete HD.acts[id];
@@ -4873,9 +4880,128 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
       add('❌ নেটওয়ার্ক সমস্যা — আবেদন পাঠানো গেছে কি না নিশ্চিত নই। <i>"amar loan request er status"</i> লিখে দেখে নিন, না থাকলে আবার চেষ্টা করুন।');
     }
   };
+  /* ===== Sathi টাকা পাঠানোর ফর্ম আগে থেকে ভরে খুলে দেয় — মাসিক জমা / ঋণের সুদ / ফাইন / ঋণের আসল শোধ =====
+     সাইট এগুলোতে পেমেন্টের স্ক্রিনশট (বা নগদে প্রাপকের নিশ্চিতকরণ) বাধ্যতামূলক চায়, তাই Sathi নিজে জমা দেয় না:
+     বুঝে নিয়ে সাইটের নিজের ফর্ম ভরে দেয়, আর সদস্য সাইটের নিজের বোতামে নিশ্চিত করেন (সব নিয়ম আগের মতোই খাটে)। */
+  var PAY_EXCL=['kar','কার','ke','কে','collector','songrahok','সংগ্রাহক','admin','অ্যাডমিন','bhul','vul','ভুল','wrong','mistake','onno','অন্য','kintu','but','dekhacche','dekhachhe','dekhay','baki ache','bakite','approve','hoy ni','hoyni','হয়নি','keno','কেন','kivabe','কীভাবে','kibhabe','kobe','কবে','koto','কত','kothay','কোথায়','kake','কাকে','kon','কোন','kara','কারা','kar kar','list','status','tarikh','তারিখ','ke ke','pabo','পাব','pari','পারি','parbo','পারব','dile','দিলে','upore','niche','ki','কি','কী','hobe ki','kemon','ke kore','ke dey','who','what','when','how','can','ache ki'];
+  function monthsMentioned(l){
+    var out=[]; for(var i=0;i<12;i++){ var en=EN_MONTHS[i], sh=en.slice(0,3); if(l.indexOf(BN_MONTHS[i])>=0 || l.indexOf(en)>=0 || new RegExp('(^| )'+sh+'( |$|e|er)').test(l)) out.push(i); }
+    return out;
+  }
+  function payTargetOf(l){
+    var me=String(memberSession.userId), others=findMembers(l).filter(function(x){return x.name.toLowerCase()!==me.toLowerCase();});
+    if(others.length>1) return {amb:others};
+    if(others.length===1 && !has(l,['amar','আমার'])) return {name:others[0].name, self:false};
+    return {name:me, self:true};
+  }
+  function payNameTxt(t){ return t.self?'আপনার':('<b>'+t.name+'</b>-এর'); }
+  function openPay(a){
+    var d=new Date();
+    function after(fn){ setTimeout(function(){ try{ fn(); }catch(e){} },80); }
+    function openNav(id){ var bt=document.querySelector('#navlist button[data-page="'+id+'"]'); if(!bt) return false; var p=document.getElementById('hdPanel'); if(p) p.hidden=true; bt.click(); return true; }
+    var me=String(memberSession.userId), self=a.target.toLowerCase()===me.toLowerCase();
+    if(a.type==='repay'){
+      loanRepayForName=self?null:a.target;
+      if(!openNav('loanrepay')) return false;
+      after(function(){ var el=document.getElementById('loanRepayAmountInput'); if(el){ var mx=Number(el.max)||a.amount; el.value=Math.min(a.amount,mx); } });
+    } else {
+      payType=a.type; payForName=self?null:a.target; if(a.type==='fine') fineSubType=a.sub||'contribution';
+      if(!openNav('payment')) return false;
+      after(function(){
+        if(a.type!=='fine'){
+          var cbs=Array.prototype.slice.call(document.querySelectorAll('.pay-month-cb')), want={}; (a.months||[]).forEach(function(i){ want[i]=1; });
+          cbs.forEach(function(cb){ cb.checked=!!want[Number(cb.dataset.idx)]; });
+          if(typeof updatePayAmount==='function') updatePayAmount();
+        }
+        if(a.method){ var m=document.getElementById('payMethod'); if(m){ m.value=a.method; if(typeof payMethodChanged==='function') payMethodChanged(); } }
+      });
+    }
+    try{ if(typeof flashSaved==='function') flashSaved('ফর্ম আগে থেকে ভরে দেওয়া হয়েছে — পেমেন্ট করে স্ক্রিনশট যুক্ত করে ✅ চাপুন', false); }catch(e){}
+    return true;
+  }
+  function payAction(t0){
+    if(typeof memberSession==='undefined'||!memberSession||!memberSession.userId||typeof DATA==='undefined'||!DATA) return null;
+    var l=nz(t0);
+    if(has(l,PAY_EXCL)) return null;
+    var want=has(l,['joma korbo','jama korbo','joma dibo','jama dibo','joma debo','dibo','debo','dite chai','korte chai','pay korbo','joma diyechi','pathiyechi','diyechi','dilam','korechi','shodh korbo','shodh korte chai','shodh dibo','dite hobe','joma dite','jama dite','korchi','pathachhi','pathalam','জমা করব','জমা দেব','দিতে চাই','করতে চাই','পাঠিয়েছি','দিয়েছি','দিলাম','করেছি']);
+    if(!want) return null;
+    var loanW=has(l,['loan','ঋণ','লোন']), sudW=has(l,['sud','সুদ','interest']), fineW=has(l,['fine','ফাইন','jorimana','জরিমানা']);
+    var contribW=has(l,['masik','মাসিক','monthly','chanda','চাঁদা','joma','jama','জমা','taka','টাকা']);
+    var amount=parseLoanAmount(l);
+    var type=fineW?'fine':(sudW?'loan':(loanW?'repay':(contribW?'contribution':null)));
+    if(!type) return null;
+    if(type==='repay' && !amount) return null;                       // "loan shodh korte chai" (no amount) → existing payoff answer
+    var tg=payTargetOf(l); if(tg.amb) return {html:'একাধিক সদস্যের নাম মিলেছে — পুরো নাম লিখে আবার বলুন।'};
+    var target=tg.name, who=payNameTxt(tg), today=new Date(), method=has(l,['cash','nogod','নগদ'])?'cash':(has(l,['online','অনলাইন','upi','gpay','phonepe','paytm'])?'online':'');
+    var loan=(typeof activeLoanByName==='function')?activeLoanByName(target):null;
+    function dueLoanIdx(){ var o=[]; (loan.months||[]).forEach(function(m,i){ if(m&&m.amount===null && parseDMY(m.due)<=today) o.push(i); }); return o; }
+    function loanRate(m){ var post=loan.lastRepaymentDate&&m.dueRaw&&new Date(m.dueRaw)>new Date(loan.lastRepaymentDate); return Math.round((Number(loan.amount)||0)*(post?0.10:0.01)); }
+    var id='p'+Date.now().toString(36)+Math.floor(Math.random()*1000), a={kind:'pay',type:type,target:target,months:[],method:method,amount:amount||0,sub:'contribution'}, lines=[], head='', warn='';
+    // ফাইন-তালা: ২+ মাস বকেয়া থাকলে আগে ফাইন (মাসিক জমা ও ঋণের সুদের ক্ষেত্রে)
+    function lockFor(isLoan){ try{ return (typeof fineLockInfo==='function') ? fineLockInfo(target,isLoan) : {locked:false}; }catch(e){ return {locked:false}; } }
+    if(type==='fine'){
+      var md=memberDues(contribRowByName?contribRowByName(target):{name:target,pay:[]});
+      var isLoanFine=!!(loanW||sudW); a.sub=isLoanFine?'loan':'contribution';
+      var amt=isLoanFine?md.fl:md.fm;
+      if(!amt) return {html:'ℹ️ '+who+' '+(isLoanFine?'ঋণের সুদের':'মাসিক জমার')+' ফাইন এখন প্রযোজ্য নয় (২ মাস বা তার বেশি বকেয়া না হলে ফাইন হয় না)।'};
+      head='💸 ফাইন জমা — '+(isLoanFine?'ঋণের সুদের ফাইন':'মাসিক জমার ফাইন'); lines.push('ফাইন (সাইটের হিসাবে): <b>'+fmtMoney(amt)+'</b>');
+    } else if(type==='repay'){
+      if(!loan) return {html:'ℹ️ '+who+' এখন কোনো চলতি ঋণ নেই, তাই আসল শোধ করার মতো কিছু নেই।'};
+      if(!loan.monthsPaid || loan.interestOverdue){
+        // সাইটের নিয়ম: আগে বকেয়া সুদ না মেটালে আসল শোধ করা যায় না → সুদের ফর্মই খুলে দিই
+        var di=dueLoanIdx(); if(!di.length){ var f=(loan.months||[]).findIndex(function(m){return m&&m.amount===null;}); if(f>=0) di=[f]; }
+        var sum=di.reduce(function(x,i){return x+loanRate(loan.months[i]);},0);
+        var lk=lockFor(true);
+        if(lk.locked){ type='fine'; a.type='fine'; a.sub='loan'; head='💸 আগে ঋণের সুদের ফাইন দিতে হবে'; var fl=memberDues({name:target,pay:(contribRowByName(target)||{}).pay||[]}).fl; lines.push('আপনার '+(tg.self?'':'(<b>'+target+'</b>-এর) ')+'আসল শোধের আগে বকেয়া সুদ মেটাতে হবে, আর সুদের ফাইন আগে দিতে হবে'+(fl?' (প্রায় '+fmtMoney(fl)+')':'')+'।'); }
+        else { type='loan'; a.type='loan'; a.months=di; head='📉 আগে বকেয়া সুদ মেটাতে হবে'; lines.push('সাইটের নিয়ম: বকেয়া সুদ না মেটালে ঋণের আসল শোধ করা যায় না।'); lines.push('বকেয়া সুদ: <b>'+di.length+' মাস</b> = <b>'+fmtMoney(sum)+'</b>'); lines.push('সুদ মেটানোর পর আবার বলুন: <i>"amar loan er '+(amount||'')+' taka joma korbo"</i>'); }
+      } else {
+        a.amount=Math.min(amount,Number(loan.amount)||amount);
+        if(amount>a.amount) warn='<br>⚠️ আপনি '+fmtMoney(amount)+' বলেছেন, কিন্তু ঋণের ব্যালেন্স '+fmtMoney(a.amount)+' — তাই '+fmtMoney(a.amount)+' ধরেছি।';
+        head='💵 ঋণের আসল শোধ'; lines.push('পরিমাণ: <b>'+fmtMoney(a.amount)+'</b> ('+bnd(a.amount.toLocaleString('en-IN'))+' টাকা)'); lines.push('ঋণের ব্যালেন্স এখন '+fmtMoney(loan.amount)+(a.amount>=loan.amount?' — পুরোটা শোধ করলে ঋণ বন্ধ হবে':''));
+      }
+    } else if(type==='loan'){
+      if(!loan) return {html:'ℹ️ '+who+' এখন কোনো চলতি ঋণ নেই, তাই সুদ দেওয়ার কিছু নেই।'};
+      var lk2=lockFor(true);
+      if(lk2.locked){ type='fine'; a.type='fine'; a.sub='loan'; head='💸 আগে ঋণের সুদের ফাইন দিতে হবে'; lines.push('সাইটের নিয়ম: সুদ জমার আগে সুদের ফাইন দিতে হয়।'); }
+      else {
+        var un=[]; (loan.months||[]).forEach(function(m,i){ if(m&&m.amount===null) un.push(i); });
+        if(!un.length) return {html:'✅ '+who+' ঋণের সব মাসের সুদ দেওয়া আছে।'};
+        var dueIdx=dueLoanIdx(), allQ=has(l,['sob','সব','all','pura','পুরো']);
+        a.months = allQ&&dueIdx.length ? dueIdx : [un[0]];
+        var tot=a.months.reduce(function(x,i){return x+loanRate(loan.months[i]);},0);
+        head='📉 ঋণের সুদ জমা'; lines.push('মাস: <b>'+a.months.map(function(i){return loan.months[i].due;}).join(', ')+'</b>'); lines.push('মোট: <b>'+fmtMoney(tot)+'</b>');
+        if(amount && amount!==tot) warn='<br>ℹ️ আপনি '+fmtMoney(amount)+' বলেছেন; সাইটের হিসাবে এই মাসগুলোর সুদ '+fmtMoney(tot)+' — ফর্মে মাস বদলে নিতে পারবেন।';
+      }
+    } else { // contribution
+      var row=(typeof contribRowByName==='function')?contribRowByName(target):null;
+      if(!row) return {html:'ℹ️ সদস্য খুঁজে পাইনি।'};
+      var lk3=lockFor(false);
+      if(lk3.locked){ type='fine'; a.type='fine'; a.sub='contribution'; head='💸 আগে মাসিক জমার ফাইন দিতে হবে'; lines.push('সাইটের নিয়ম: ২ মাস বা তার বেশি বকেয়া থাকলে আগে ফাইন দিয়ে তারপর মাসিক জমা দেওয়া যায়।'); }
+      else {
+        var rate=DATA.monthlyContribution||100, unp=[]; (DATA.months||[]).forEach(function(mo,i){ if(!((row.pay||[])[i]>0)) unp.push(i); });
+        if(!unp.length) return {html:'✅ '+who+' সব মাসের জমা দেওয়া আছে।'};
+        var named=monthsMentioned(l).filter(function(i){return unp.indexOf(i)>=0;});
+        var overdue=unp.filter(function(i){ return new Date(Number(DATA.year),i,16)<=today; });
+        if(named.length) a.months=named;
+        else if(has(l,['sob','সব','all','pura','পুরো']) && overdue.length) a.months=overdue;
+        else if(amount){ var n=amount/rate; if(n!==Math.floor(n)||n<1) return {html:'ℹ️ মাসিক জমা প্রতি মাসে '+fmtMoney(rate)+' — '+fmtMoney(amount)+' কত মাসের হিসাবে মিলছে না। কয়মাসের জমা দেবেন বলুন, যেমন <i>"2 maser joma dibo"</i> বা মাসের নাম দিয়ে।'}; if(n>unp.length) return {html:'ℹ️ আপনার বাকি আছে মাত্র '+unp.length+'টি মাস ('+fmtMoney(unp.length*rate)+'); '+fmtMoney(amount)+' হলে ওই সংখ্যা ছাড়ায়।'}; a.months=unp.slice(0,n); }
+        else a.months=[unp[0]];
+        head='💰 মাসিক জমা'; lines.push('মাস: <b>'+a.months.map(function(i){return BN_MONTHS[i];}).join(', ')+'</b>'); lines.push('মোট: <b>'+fmtMoney(a.months.length*rate)+'</b> ('+a.months.length+' মাস × '+fmtMoney(rate)+')');
+        if(overdue.length && a.months.length<overdue.length && !named.length) warn='<br>ℹ️ আপনার '+overdue.length+' মাসের জমা বকেয়া — সবগুলো একসাথে দিতে চাইলে লিখুন: <i>"amar sob baki joma dibo"</i>';
+      }
+    }
+    HD.acts[id]=a;
+    var forTxt = tg.self ? '' : '<br><i>আপনি '+'<b>'+target+'</b>-এর হয়ে টাকা পাঠাচ্ছেন।</i>';
+    return {noSave:true, html:'<div id="card-'+id+'" style="border:1px solid #E7C877;border-left:4px solid #1E6B3A;border-radius:10px;padding:.6rem .75rem;background:#FFFCF2">'
+      +'<b>'+head+'</b>'+forTxt+warn+'<br>'+lines.map(function(x){return '• '+x;}).join('<br>')+'<br>'
+      +'<span style="opacity:.8;font-size:.85em">সাইট পেমেন্টের <b>স্ক্রিনশট</b> (বা নগদ হলে কাকে দিলেন) চায় — তাই আমি সাইটের ফর্মটা আগে থেকে ভরে খুলে দিচ্ছি; আপনি পেমেন্ট করে স্ক্রিনশট দিয়ে সাইটের <b>✅ পেমেন্ট করেছি</b> বোতাম চাপবেন।</span><br>'
+      +'<button type="button" class="hd-go" style="margin:.4rem .4rem 0 0" onclick="hdActGo(\''+id+'\')">📝 ফর্ম খুলে দিন</button>'
+      +'<button type="button" class="hd-go" style="margin:.4rem 0 0 0;background:#999" onclick="hdActNo(\''+id+'\')">❌ না, থাক</button></div>'};
+  }
   function hdAnswer(t0){
     var ck=closingKind(t0); if(ck) return closingMsg(ck);
     var ac=null; try{ ac=loanAction(t0); }catch(eAc){ ac=null; } if(ac) return ac;
+    try{ ac=payAction(t0); }catch(eAc2){ ac=null; } if(ac) return ac;
     var t=nz(t0), r=null;
     try{ r=approvalAnswer(t); }catch(e){ r=null; }
     if(!r){ try{ r=topicAnswer(t); }catch(e2){ r=null; } }
