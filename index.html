@@ -4871,6 +4871,8 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
   window.hdActGo=async function(id){
     var a=HD.acts[id]; var card=document.getElementById('card-'+id);
     if(!a||!card) return;
+    if(a.kind==='logout'||a.kind==='urgent'){ await runTask(id,a,card); return; }
+    if(a.items){ return; }
     if(a.kind==='pay'){
       delete HD.acts[id]; dropCard(card);
       var okOpen=false; try{ okOpen=openPay(a); }catch(eO){ okOpen=false; }
@@ -5011,9 +5013,159 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
       +'<button type="button" class="hd-go" style="margin:.4rem .4rem 0 0" onclick="hdActGo(\''+id+'\')">📝 ফর্ম খুলে দিন</button>'
       +'<button type="button" class="hd-go" style="margin:.4rem 0 0 0;background:#999" onclick="hdActNo(\''+id+'\')">❌ না, থাক</button></div>'};
   }
+  /* ===== মেনুর কাজগুলো Sathi-কে বলে করা — প্রতিটি সাইটের নিজের ব্যাকএন্ড-কাজেই, নিশ্চিত করার কার্ডসহ ===== */
+  var PAGE_ALIAS=[
+    ['urgentloan',['jaruri abedon','জরুরি আবেদন','urgent loan','urgent abedon','emergency loan','jaruri loan','জরুরি ঋণ']],
+    ['loanrequest',['loan abedon','ঋণের আবেদন','loan request','rin abedon','loan er abedon','loan application','abedon page']],
+    ['loanrepay',['loan porishodh','ঋণ পরিশোধ','loan shodh','loan repay','repay page','rin shodh']],
+    ['cashconfirm',['nogod prapti','নগদ প্রাপ্তি','cash confirm','nogod confirm','nogod nishchitokoron','নগদ নিশ্চিত']],
+    ['contrib',['masik joma','মাসিক জমা','joma table','contribution table','jomar table','contrib']],
+    ['loans',['rin hisab','ঋণ হিসাব','ঋণের হিসাব','loan hisab','loan table','loans page']],
+    ['payment',['payment','pement','পেমেন্ট']],
+    ['fine',['fine','ফাইন','jorimana','জরিমানা']],
+    ['usageguide',['kivabe byabohar','কীভাবে ব্যবহার','usage guide','byabohar','guide']],
+    ['history',['bochorer itihas','বছরের ইতিহাস','itihas','ইতিহাস','history']],
+    ['birthdays',['jonmodin','জন্মদিন','birthday']],
+    ['members',['sodosyo talika','সদস্য তালিকা','member list','members list','members page']],
+    ['rules',['niyomaboli','নিয়মাবলী','niyom','নিয়ম','rules']],
+    ['overview',['overview','ওভারভিউ','home','হোম','dashboard','ড্যাশবোর্ড','prothom pata','প্রথম পাতা']]
+  ];
+  var PAGE_LABEL={overview:'Overview',members:'সদস্য তালিকা',contrib:'মাসিক জমা',loans:'ঋণ হিসাব',payment:'পেমেন্ট',loanrequest:'ঋণের আবেদন',urgentloan:'🚨 জরুরি আবেদন',loanrepay:'ঋণ পরিশোধ',fine:'ফাইন',rules:'নিয়মাবলী',birthdays:'জন্মদিন',history:'বছরের ইতিহাস',cashconfirm:'নগদ প্রাপ্তি নিশ্চিতকরণ',usageguide:'কীভাবে ব্যবহার করবেন'};
+  function openMenuPage(id){
+    var bt=document.querySelector('#navlist button[data-page="'+id+'"]'); if(!bt) return false;
+    var p=document.getElementById('hdPanel'); if(p) p.hidden=true; bt.click(); return true;
+  }
+  function navAction(t0){
+    var l=nz(t0);
+    if(!has(l,['kholo','khulo','khule','khulun','open','jao','jete','niye jao','nia jao','go to','খোলো','খুলুন','খুলে','যাও','যান','page','pata','পাতা','menu','মেনু'])) return null;
+    for(var i=0;i<PAGE_ALIAS.length;i++){
+      if(has(l,PAGE_ALIAS[i][1])){
+        var id=PAGE_ALIAS[i][0];
+        if(!openMenuPage(id)) return null;
+        return {html:'📂 <b>"'+PAGE_LABEL[id]+'"</b> পাতা খুলে দিয়েছি। Sathi-তে ফিরতে উপরের <b>URF Sathi</b> বোতাম চাপুন।'};
+      }
+    }
+    return null;
+  }
+  function meLc(){ return String(memberSession.userId||'').toLowerCase(); }
+  function involvesMe(r){ var me=meLc(); return String(r.member||'').toLowerCase()===me || (r.processedBy && String(r.processedBy).toLowerCase()===me); }
+  function wrapCard(id,inner,btns){ return '<div id="card-'+id+'" style="border:1px solid #E7C877;border-left:4px solid #1E6B3A;border-radius:10px;padding:.6rem .75rem;background:#FFFCF2">'+inner+(btns?'<br>'+btns:'')+'</div>'; }
+  function goBtn(id,label){ return '<button type="button" class="hd-go" style="margin:.4rem .4rem 0 0" onclick="hdActGo(\''+id+'\')">'+label+'</button>'; }
+  function noBtn(id,label){ return '<button type="button" class="hd-go" style="margin:.4rem 0 0 0;background:#999" onclick="hdActNo(\''+id+'\')">'+(label||'❌ না, থাক')+'</button>'; }
+  function itemBtn(id,i,mode,label,gray){ return '<button type="button" class="hd-go" style="margin:.3rem .3rem 0 0'+(gray?';background:#999':'')+'" onclick="hdItem(\''+id+'\','+i+',\''+mode+'\')">'+label+'</button>'; }
+  function newId(){ return 't'+Date.now().toString(36)+Math.floor(Math.random()*1000); }
+  var PLEDGE='হ্যাঁ, আমি আমার চাহিদামতো টাকা লোন পেয়েছি। আমি কথা দিচ্ছি, আমি এই টাকা গ্রুপের নিয়ম অনুযায়ী পরিশোধ করতে বাধ্য থাকব।';
+  function taskAction(t0){
+    if(typeof memberSession==='undefined'||!memberSession||!memberSession.userId||typeof DATA==='undefined'||!DATA) return null;
+    var l=nz(t0), me=meLc(), today=new Date().toISOString().slice(0,10);
+    var nTok=l.split(' ').filter(Boolean).length;
+    var Q=has(l,['kintu','but','keno','কেন','kivabe','কীভাবে','kobe','কবে','koto','কত','kothay','কোথায়','kon','কোন','kara','কারা','kar kar','list','ki','কি','কী','who','what','when','how','can','ache ki','hoy ni','hoyni']);
+    // ---- লগআউট ----
+    if(has(l,['logout','log out','sign out','লগআউট','লগ আউট']) && !Q && (nTok<=4||has(l,['korbo','korte chai','kore dao','করব','করতে চাই','করে দাও']))){
+      var id0=newId(); HD.acts[id0]={kind:'logout'};
+      return {noSave:true, html:wrapCard(id0,'<b>🚪 লগআউট করবেন?</b><br><span style="opacity:.8;font-size:.9em">লগআউট করলে এই কথাবার্তা পর্দা থেকে সরে যাবে (সংরক্ষিত থাকবে), আবার ঢুকলে ফিরে আসবে।</span>',goBtn(id0,'✅ হ্যাঁ, লগআউট')+noBtn(id0,'❌ না'))};
+    }
+    // ---- জরুরি ঋণের আবেদন (কারণ আবশ্যক) ----
+    if(has(l,['jaruri','জরুরি','urgent','emergency']) && has(l,['loan','লোন','ঋণ','rin','taka','টাকা']) && has(l,['chai','চাই','lagbe','লাগবে','dorkar','দরকার','apply','abedon','আবেদন','korte chai']) && !Q){
+      var amtU=parseLoanAmount(l);
+      if(!amtU) return {html:'🚨 জরুরি ঋণের জন্য কত টাকা লাগবে আর কেন — লিখুন, যেমন: <i>"jaruri 20000 taka loan lagbe karon chikitsa"</i>। (জরুরি আবেদনে সাধারণ সীমা প্রযোজ্য নয়, তবে কারণ লিখতে হয়; আগে '+ADMIN_NAME+' দেখেন।)'};
+      var tgU=payTargetOf(l); if(tgU.amb) return {html:'একাধিক সদস্যের নাম মিলেছে — পুরো নাম লিখে আবার বলুন।'};
+      var tU=tgU.name, selfU=tgU.self, whoU=payNameTxt(tgU);
+      if(typeof activeLoanByName==='function' && activeLoanByName(tU)) return {html:'ℹ️ '+whoU+' একটি চলতি ঋণ চলছে — সেটি শেষ না হওয়া পর্যন্ত নতুন আবেদন (জরুরিও) করা যায় না।'};
+      if(typeof activeLoanRequestByName==='function' && activeLoanRequestByName(tU)) return {html:'ℹ️ '+whoU+' একটি ঋণের আবেদন আগে থেকেই প্রক্রিয়াধীন — আরেকটা পাঠানো যায় না।'};
+      var rm=/(?:karon|karone|karon holo|because|কারণ|কারণে)[ ]*(.*)$/.exec(String(t0)); var reasonPre=rm?rm[1].trim():'';
+      var idU=newId(); HD.acts[idU]={kind:'urgent',amount:amtU,forMember:tU};
+      return {noSave:true, html:wrapCard(idU,'<b>🚨 জরুরি ঋণের আবেদন — নিশ্চিত করুন</b><br>• সদস্য: '+(selfU?'<b>'+tU+'</b> (আপনি)':'<b>'+tU+'</b> — <i>আপনি তাঁর হয়ে আবেদন করছেন</i>')+'<br>• পরিমাণ: <b style="font-size:1.1em">'+fmtMoney(amtU)+'</b> ('+bnd(amtU.toLocaleString('en-IN'))+' টাকা)<br>• কবে লাগবে: <input type="date" id="date-'+idU+'" value="'+today+'" min="'+today+'" style="font:inherit;padding:.15rem .3rem;border:1px solid #ccc;border-radius:6px"><br>• <b>কারণ (আবশ্যক):</b><br><textarea id="reason-'+idU+'" rows="2" style="width:100%;font:inherit;padding:.3rem;border:1px solid #ccc;border-radius:6px" placeholder="কেন জরুরি টাকা লাগছে?">'+String(reasonPre).replace(/[<>&"]/g,'')+'</textarea><span style="opacity:.75;font-size:.85em">আবেদন আগে '+ADMIN_NAME+'-র কাছে যাবে (তিনি পরিমাণ বদলাতে পারেন), তারপর সংগ্রাহক টাকা দেবেন।</span>',goBtn(idU,'✅ হ্যাঁ, জরুরি আবেদন পাঠান')+noBtn(idU))};
+    }
+    // ---- টাকা পেয়েছি / পাইনি: ঋণের টাকা হাতে পাওয়ার স্বীকৃতি অথবা নগদ প্রাপ্তি নিশ্চিতকরণ ----
+    var gotW=has(l,['peyechi','পেয়েছি','peyeci','peye gechi','পেয়ে গেছি','niyechi','নিয়েছি','pelam','পেলাম']), notGotW=has(l,['paini','পাইনি','pai ni','pachhi na','পাচ্ছি না']);
+    if((gotW||notGotW) && has(l,['taka','টাকা','loan','লোন','ঋণ','cash','nogod','নগদ']) && !Q){
+      var ackP=(DATA.loanRequests||[]).filter(function(r){ return r.stage==='ack' && involvesMe(r); });
+      var cashP=(DATA.paymentRequests||[]).filter(function(p){ return p.stage==='recipient' && p.cashRecipient && String(p.cashRecipient).toLowerCase()===me; }).map(function(p){ return {kind:'pay',r:p}; })
+        .concat((DATA.loanRepayments||[]).filter(function(p){ return p.stage==='recipient' && p.cashRecipient && String(p.cashRecipient).toLowerCase()===me; }).map(function(p){ return {kind:'repay',r:p}; }));
+      var loanTalk=has(l,['loan','লোন','ঋণ']), cashTalk=has(l,['cash','nogod','নগদ']);
+      var wantAck = ackP.length && (loanTalk || !cashTalk) && !(cashTalk&&!loanTalk);
+      var wantCash = cashP.length && (cashTalk || !loanTalk || !ackP.length);
+      if(!ackP.length && !cashP.length) return {html:'ℹ️ এখন আপনার কাছে "টাকা পেয়েছি/পাইনি" জানানোর মতো কিছু অপেক্ষায় নেই। (ঋণের টাকা সংগ্রাহক দিলে, বা কেউ আপনাকে নগদ দিলে, তবেই এটা আসে।)'};
+      var out='';
+      if(wantAck){
+        var idA=newId(); HD.acts[idA]={kind:'ack',items:ackP.map(function(r){return {token:r.token,done:false};})};
+        out+=wrapCard(idA,'<b>🏦 ঋণের টাকা পাওয়ার স্বীকৃতি</b><br>'+ackP.map(function(r,i){ return '<div id="item-'+idA+'-'+i+'" style="margin:.35rem 0;padding:.35rem .5rem;background:#fff;border:1px solid #eee;border-radius:8px">• <b>'+r.member+'</b> — '+fmtMoney(r.amount)+(r.neededByDate?' (লাগবে: '+r.neededByDate+')':'')+'<br>'+itemBtn(idA,i,'ack','✅ টাকা পেয়েছি')+itemBtn(idA,i,'dispute','❌ এখনো পাইনি',true)+'</div>'; }).join('')+'<div style="margin-top:.4rem;padding:.4rem .5rem;background:#FFF3D6;border-radius:8px;font-size:.88em"><b>"✅ টাকা পেয়েছি" চাপলে এই কথা সবার কাছে জানানো হবে:</b><br><i>'+PLEDGE+'</i></div>',noBtn(idA,'বন্ধ করুন'));
+      }
+      if(wantCash){
+        var idC=newId(); HD.acts[idC]={kind:'cash',items:cashP.map(function(c){return {kind:c.kind,token:c.r.token,done:false};})};
+        out+=(out?'<br>':'')+wrapCard(idC,'<b>💵 আপনাকে নগদ টাকা দেওয়া হয়েছে — নিশ্চিত করুন</b><br>'+cashP.map(function(c,i){ var r=c.r; return '<div id="item-'+idC+'-'+i+'" style="margin:.35rem 0;padding:.35rem .5rem;background:#fff;border:1px solid #eee;border-radius:8px">• <b>'+r.member+'</b> — '+(c.kind==='repay'?'ঋণের আসল শোধ':(r.typeLabel||'জমা')+(r.monthLabel?' ('+r.monthLabel+')':''))+' — <b>'+fmtMoney(r.amount)+'</b><br>'+(DATA.collectorName||'সংগ্রাহক')+'-কে কবে দিচ্ছেন/দিয়েছেন? <input type="date" id="hand-'+idC+'-'+i+'" value="'+today+'" max="'+today+'" style="font:inherit;padding:.1rem .3rem;border:1px solid #ccc;border-radius:6px"><br>'+itemBtn(idC,i,'cashok','✅ টাকা পেয়েছি')+itemBtn(idC,i,'cashno','❌ পাইনি',true)+'</div>'; }).join(''),noBtn(idC,'বন্ধ করুন'));
+      }
+      if(!out) return {html:'ℹ️ এখন শুধু নগদ প্রাপ্তির নিশ্চিতকরণ অপেক্ষায় আছে — "cash peyechi" লিখে দেখুন।'};
+      return {noSave:true, html:out};
+    }
+    // ---- ঋণের বার্তা "বুঝেছি" ----
+    if(has(l,['notification','notice','নোটিফিকেশন','নোটিশ','jaruri khobor','বার্তা']) && has(l,['bujhechi','বুঝেছি','porechi','পড়েছি','dekhechi','দেখেছি','dekhao','দেখাও','dekhbo','ache ki','read','mark']) && !has(l,['kobe','কবে','kon','কোন','kara','কারা'])){
+      var un=(DATA.loanNotifications||[]).filter(function(n){ return String(n.member||'').toLowerCase()===me && !n.isRead; });
+      if(!un.length) return {html:'✅ আপনার কোনো অপঠিত ঋণের বার্তা নেই।'};
+      var idN=newId(); HD.acts[idN]={kind:'notif',items:un.map(function(n){return {token:n.token,done:false};})};
+      return {noSave:true, html:wrapCard(idN,'<b>📩 আপনার ঋণের বার্তা ('+un.length+'টি)</b><br>'+un.map(function(n,i){ return '<div id="item-'+idN+'-'+i+'" style="margin:.35rem 0;padding:.35rem .5rem;background:#fff;border:1px solid #eee;border-radius:8px;white-space:pre-line">'+String(n.message||'').replace(/[<>&]/g,'')+'<br>'+itemBtn(idN,i,'read','👍 বুঝেছি')+'</div>'; }).join(''),noBtn(idN,'বন্ধ করুন'))};
+    }
+    // ---- পেমেন্টের রসিদ (স্ক্রিনশট) যুক্ত করা ----
+    if(has(l,['screenshot','receipt','roshid','রসিদ','স্ক্রিনশট']) && has(l,['pathabo','pathai','jukto','যুক্ত','attach','upload','dibo','debo','dite chai','korbo','korte chai','পাঠাব','দেব','দিতে চাই']) && !Q){
+      var np=(DATA.paymentRequests||[]).filter(function(p){ return ['recipient','collector','admin'].indexOf(p.stage)>=0 && involvesMe(p) && !p.receiptUrl; });
+      if(!np.length) return {html:'✅ রসিদ যুক্ত করার মতো আপনার কোনো অপেক্ষমাণ পেমেন্ট নেই (সবগুলোতে রসিদ আছে বা কোনো অনুরোধ অপেক্ষায় নেই)।'};
+      var idR=newId(); HD.acts[idR]={kind:'receipt',items:np.map(function(p){return {token:p.token,done:false};})};
+      return {noSave:true, html:wrapCard(idR,'<b>🧾 রসিদ যুক্ত করুন</b><br>'+np.map(function(p,i){ return '<div id="item-'+idR+'-'+i+'" style="margin:.35rem 0;padding:.35rem .5rem;background:#fff;border:1px solid #eee;border-radius:8px">• <b>'+p.member+'</b> — '+(p.typeLabel||'জমা')+(p.monthLabel?' ('+p.monthLabel+')':'')+' — '+fmtMoney(p.amount)+'<br><button type="button" class="hd-go" style="margin:.3rem 0 0 0" onclick="document.getElementById(\'file-'+idR+'-'+i+'\').click()">📎 স্ক্রিনশট বেছে নিন</button><input type="file" accept="image/*,application/pdf" id="file-'+idR+'-'+i+'" hidden onchange="hdRcpt(\''+idR+'\','+i+',this)"></div>'; }).join(''),noBtn(idR,'বন্ধ করুন'))};
+    }
+    return null;
+  }
+  async function postBody(body){ var res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)}); return await res.json(); }
+  async function refreshAfter(){ try{ if(typeof loadData==='function') await loadData(true); }catch(e){} }
+  function markItemDone(id,i,txt){ var el=document.getElementById('item-'+id+'-'+i); if(el) el.innerHTML=txt; }
+  window.hdItem=async function(id,i,mode){
+    var a=HD.acts[id]; if(!a||!a.items) return; var it=a.items[i]; if(!it||it.done) return;
+    var u={userId:memberSession.userId,pin:memberSession.pin}, body=null, okTxt='';
+    if(mode==='ack'){ body={action:'acknowledgeLoan',token:it.token}; okTxt='✅ টাকা পাওয়ার স্বীকৃতি দেওয়া হয়েছে'; }
+    else if(mode==='dispute'){ body={action:'disputeLoan',token:it.token}; okTxt='✅ জানানো হয়েছে যে টাকা এখনো পাননি'; }
+    else if(mode==='read'){ body={action:'markLoanNotificationRead',token:it.token}; okTxt='👍 পড়া হয়েছে বলে রাখা হলো'; }
+    else if(mode==='cashok'||mode==='cashno'){
+      var dEl=document.getElementById('hand-'+id+'-'+i), hd=(dEl&&dEl.value)?dEl.value:'';
+      if(mode==='cashok'){ if(!hd){ add('⚠️ কবে টাকা দিচ্ছেন/দিয়েছেন সেই তারিখটা বেছে নিন।',false,true); return; } body={action:it.kind==='repay'?'approveLoanRepayment':'approvePayment',token:it.token,stage:'recipient',reason:'',handoverDate:hd}; okTxt='✅ নগদ টাকা পাওয়া নিশ্চিত করা হয়েছে'; }
+      else { var rs=''; while(!rs){ var en=prompt('কেন বাতিল করছেন? কারণ লেখা আবশ্যক।'); if(en===null) return; rs=String(en).trim(); if(!rs) alert('কারণ ছাড়া বাতিল করা যাবে না।'); } body={action:it.kind==='repay'?'rejectLoanRepayment':'rejectPayment',token:it.token,stage:'recipient',reason:rs}; okTxt='✅ "টাকা পাইনি" জানানো হয়েছে'; }
+    }
+    if(!body) return;
+    it.done=true; Object.assign(body,u); markItemDone(id,i,'⏳ হচ্ছে...');
+    try{ var json=await postBody(body); if(!json.ok){ it.done=false; markItemDone(id,i,'❌ হয়নি: '+String(json.error||'আবার চেষ্টা করুন.').replace(/[<>&]/g,'')); return; }
+      markItemDone(id,i,okTxt); add(okTxt+(json.message?' — '+json.message:'')); await refreshAfter();
+    }catch(err){ it.done=false; markItemDone(id,i,'❌ নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।'); }
+  };
+  window.hdRcpt=async function(id,i,input){
+    var a=HD.acts[id]; if(!a||!a.items) return; var it=a.items[i]; if(!it||it.done) return;
+    var file=input.files&&input.files[0]; if(!file) return;
+    it.done=true; markItemDone(id,i,'⏳ রসিদ পাঠানো হচ্ছে...');
+    try{
+      var rc=await compressReceiptFile(file);
+      var json=await postBody({action:'attachPaymentReceipt',token:it.token,userId:memberSession.userId,pin:memberSession.pin,receiptData:rc.data,receiptMime:rc.mime});
+      if(!json.ok){ it.done=false; markItemDone(id,i,'❌ হয়নি: '+String(json.error||'আবার চেষ্টা করুন.').replace(/[<>&]/g,'')); return; }
+      markItemDone(id,i,'✅ রসিদ যুক্ত হয়েছে'); add('✅ রসিদ যুক্ত হয়েছে — '+(DATA.collectorName||'সংগ্রাহক')+' এবার দ্রুত যাচাই করতে পারবেন।'); await refreshAfter();
+    }catch(err){ it.done=false; markItemDone(id,i,'❌ ছবি পাঠানো যায়নি — আবার চেষ্টা করুন।'); }
+  };
+  async function runTask(id,a,card){
+    if(a.kind==='logout'){ delete HD.acts[id]; dropCard(card); try{ if(typeof memberLogout==='function') memberLogout(); }catch(e){} return; }
+    if(a.kind==='urgent'){
+      var rEl=document.getElementById('reason-'+id), dEl=document.getElementById('date-'+id), reason=(rEl&&rEl.value||'').trim(), today=new Date().toISOString().slice(0,10), nb=(dEl&&dEl.value)?dEl.value:today;
+      if(!reason){ add('⚠️ জরুরি আবেদনের কারণ লিখতে হবে — কার্ডের "কারণ" ঘরটা পূরণ করে আবার চাপুন।',false,true); return; }
+      if(nb<today){ add('⚠️ তারিখটা আজকের আগের হতে পারে না।',false,true); return; }
+      delete HD.acts[id]; card.innerHTML='⏳ জরুরি আবেদন পাঠানো হচ্ছে...';
+      try{
+        var json=await postBody({action:'submitUrgentLoanRequest',userId:memberSession.userId,pin:memberSession.pin,amount:a.amount,forMember:a.forMember,neededByDate:nb,reason:reason});
+        dropCard(card);
+        if(!json.ok){ add('❌ জরুরি আবেদন পাঠানো যায়নি: '+String(json.error||'আবার চেষ্টা করুন।').replace(/[<>&]/g,'')); return; }
+        add('✅ <b>'+(json.message||'জরুরি আবেদন পাঠানো হয়েছে।')+'</b><br>'+fmtMoney(a.amount)+' — আগে '+ADMIN_NAME+' দেখবেন, তারপর সংগ্রাহক টাকা দেবেন।'); await refreshAfter();
+      }catch(err){ dropCard(card); add('❌ নেটওয়ার্ক সমস্যা — আবেদন গেছে কি না নিশ্চিত নই। "amar loan request er status" লিখে দেখে নিন।'); }
+    }
+  }
   function hdAnswer(t0){
     var ck=closingKind(t0); if(ck) return closingMsg(ck);
-    var ac=null; try{ ac=loanAction(t0); }catch(eAc){ ac=null; } if(ac) return ac;
+    var ac=null; try{ ac=navAction(t0); }catch(eN){ ac=null; } if(ac) return ac;
+    try{ ac=taskAction(t0); }catch(eT){ ac=null; } if(ac) return ac;
+    try{ ac=loanAction(t0); }catch(eAc){ ac=null; } if(ac) return ac;
     try{ ac=payAction(t0); }catch(eAc2){ ac=null; } if(ac) return ac;
     var t=nz(t0), r=null;
     try{ r=approvalAnswer(t); }catch(e){ r=null; }
@@ -5100,7 +5252,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
       return out2;
     }
     if(has(l,['help','sahajyo','shahajjo','সাহায্য','ki ki','কী কী','ki jante','what can']) && !has(l,['menu','page','pata','পাতা','মেনু','khoroch','খরচ','expense','loan','ঋণ','joma','জমা','niyom','নিয়ম','rule','fine','ফাইন','sud','সুদ','balance','lagbe','লাগবে','member','সদস্য','sujog','সুযোগ'])){
-      return 'আমি এগুলো বলতে পারি 👇<br>• কোনো সদস্যের জমা, বকেয়া, ঋণ, সুদ, পেমেন্টের তারিখ ও অনুমোদন<br>• কারা ঋণ নিয়েছে, কার সুদ/জমা বাকি<br>• ফান্ডের ব্যালেন্স, সুদ-ফাইন আয়, খরচ, SIP<br>• নিয়মাবলী (ফাইন, ঋণের সীমা, SIP, ১০% সুদ…)<br>• জন্মদিন, মোবাইল নম্বর, সংগ্রাহক/অ্যাডমিন<br>বাংলা বা Banglish — যেভাবে খুশি লিখুন।';
+      return 'আমি এগুলো বলতে পারি 👇<br>• কোনো সদস্যের জমা, বকেয়া, ঋণ, সুদ, পেমেন্টের তারিখ ও অনুমোদন<br>• কারা ঋণ নিয়েছে, কার সুদ/জমা বাকি<br>• ফান্ডের ব্যালেন্স, সুদ-ফাইন আয়, খরচ, SIP<br>• নিয়মাবলী (ফাইন, ঋণের সীমা, SIP, ১০% সুদ…)<br>• জন্মদিন, মোবাইল নম্বর, সংগ্রাহক/অ্যাডমিন<br>বাংলা বা Banglish — যেভাবে খুশি লিখুন।<br>🛠️ <b>আপনার হয়ে কাজও করে দিই:</b> ঋণের আবেদন (জরুরিসহ), জমা/সুদ/ফাইন/ঋণ শোধের ফর্ম ভরে দেওয়া, "টাকা পেয়েছি" স্বীকৃতি, নগদ প্রাপ্তি নিশ্চিত, ঋণের বার্তা "বুঝেছি", রসিদ যুক্ত করা, লগআউট, আর মেনুর যেকোনো পাতা খুলে দেওয়া (যেমন "rules page kholo")।';
     }
     // ---- কার ঋণের সময়সীমা পার / ১০% সুদ চলছে ----
     if(has(l,['10%','১০%','dosh','দশ','somoysima','সময়সীমা']) && has(l,['kar','kara','ke','kon','who','কার','কারা','কে']) && (DATA.loanNotifications||[]).length){
