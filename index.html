@@ -4284,11 +4284,70 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     'kno':'keno','deyni':'dey ni','deini':'dey ni','deyna':'dey ni','dayni':'dey ni','nai':'nei','nay':'nei','noy':'nei',
     'loaner':'loan er','loaan':'loan','suder':'sud er','tarikher':'tarikh er','hisaber':'hisab er','memberer':'member er','memberder':'member der',
     'hoya':'hoye','hoie':'hoye','pasword':'password','passowrd':'password','pasward':'password','passwrd':'password','vule':'bhule','vulegechi':'bhulegechi','pare':'pare','paro':'paro','bolen':'bolo','bolun':'bolo','dekhan':'dekhao','jante':'jante','chai':'chai'};
+  /* ===== ইংরেজি প্রশ্ন → বটের চেনা শব্দ (যেমন "how much loan do I have" → "koto loan ami ache") ===== */
+  var EN_MARK=/\b(what|whats|how|when|who|whose|where|why|which|do|does|did|is|are|can|could|will|would|my|me|i|have|has|please|tell|give)\b/;
+  var EN_PHR=[
+    [/(?:need|have|has|must|should) to pay(?: now| today| right now)?|how much (?:to|must i|should i) pay|amount to pay|payable (?:amount|now)/g,'total baki dite hobe'],
+    [/when is (?:my |the )?next (?:payment|contribution|installment)(?: due)?|next (?:payment|due) date|when (?:is|do i have to|should i|must i) pay (?:next|again)|next due date/g,'joma dewar last date kobe'],
+    [/(?:am i|are we|can i be) eligible for (?:a |the )?loan|eligible for (?:a )?loan|loan eligibility/g,'ami koto loan pabo'],
+    [/why (?:was|is|has|did) (?:my )?(?:payment|contribution) (?:been )?(?:rejected|cancel(?:l)?ed|declined|refused|returned)|payment (?:was )?(?:rejected|cancel(?:l)?ed|declined)/g,'amar payment approve hoy ni keno'],
+    [/when (?:did|was|has) the (?:fund|group) (?:start|started|begin|begun|founded|formed|established)|since when (?:is|was) the (?:fund|group)|fund start date/g,'fund kobe shuru'],
+    [/today er date|today s date|todays date|date today|what date is it|current date|what is the date|what is today s date/g,'aj ki tarikh'],
+    [/is there (?:any |a )?meeting|any meeting|meeting (?:today|tomorrow|this week)/g,'meeting ache ki'],
+    [/who (?:pays?|paid|is|are|was) late|who (?:pays?|pay) (?:their )?(?:contribution )?late|late payers?/g,'ke deri te joma dey'],
+    [/who (?:has|have|got|gets|will get) (?:a |any )?fines?|who (?:has|have) to pay (?:a )?fine|members with fines?/g,'kar kar fine ache'],
+    [/who (?:paid|has paid|have paid|contributed|has contributed|pays|deposited) (?:the )?(?:most|more|highest|maximum)|highest contribution|top contributor/g,'ke sobcheye beshi joma diyeche'],
+    [/who (?:are|is) the members? with loans?|members? with loans?|who (?:took|has taken|have taken|has|have) (?:a )?loans?/g,'kar kar loan ache'],
+    [/who (?:will|can|does|do|should) approve|who approves?/g,'ke approve kore'],
+    [/who (?:pays|paid|submits|submitted|deposits|makes|made|does) (?:the |for |on behalf of )?/g,'ke joma kore '],
+    [/how long (?:does|will|do|is|should)? ?(?:the |my |a )?(?:payment |loan )?(?:approval|approve|it)? ?(?:to )?(?:take|takes)|how much time (?:does|will)? ?(?:the |my )?(?:approval|it)? ?(?:take|takes)|how long for approval|how long (?:is|does) (?:the )?approval/g,'koto somoy approve lage'],
+    [/how much (?:loan )?(?:can|could|may) i (?:get|take|borrow|receive)|maximum loan|max loan/g,'ami koto loan pabo'],
+    [/how much (?:interest|sud) (?:did|does|has|have) (?:the )?(?:fund|group) (?:earn(?:ed|s)?|collect(?:ed|s)?|got|get|made?|received?)/g,'ei bochor koto sud pelo'],
+    [/how much fine (?:did|does|has|have) (?:the )?(?:fund|group) (?:earn(?:ed|s)?|collect(?:ed|s)?|got|get|made?|received?)/g,'ei bochor koto fine pelo'],
+    [/what if i (?:pay|paid|deposit|deposited) late|if i (?:pay|paid) late|pay(?:ing)? late|late payment|late fee/g,'16 tarikh e joma dile ki hobe'],
+    [/(?:to|and) (?:close|clear|repay|settle|pay off|finish|end|foreclose)/g,'shodh korte'],
+    [/(?:has|have|is|are|was|been|yet)? ?not (?:yet )?(?:been )?approved|isn t approved|still pending approval|approval (?:is )?pending|payment (?:is )?pending/g,'approve hoy ni'],
+    [/(?:has|have|did) not (?:yet )?(?:paid|pay|deposited|deposit)|not (?:yet )?paid|not deposited|didn t pay|haven t paid|hasn t paid/g,'joma dey ni'],
+    [/if i (?:do not|don t|dont|did not|miss|fail to) pay|if i (?:miss|skip) (?:a |the )?payment|do not pay|don t pay|dont pay|fail to pay|miss (?:a |the )?payment/g,'joma na dile'],
+    [/how (?:to|do i|can i|should i|shall i) pay|where (?:to|do i|can i) pay/g,'kivabe joma dite'],
+    [/how (?:to|do i|can i|should i) (?:take|get|apply for|apply|borrow|avail) (?:a |the )?loan|how to borrow/g,'loan kivabe nite'],
+    [/how (?:to|do i|can i|should i) (?:repay|pay back|settle|close|clear)/g,'loan kivabe shodh korbo'],
+    [/forgot (?:my )?password|forget (?:my )?password|reset (?:my )?password|lost (?:my )?password|password (?:is )?forgotten/g,'password bhule gechi'],
+    [/total (?:contribution|deposit|paid|amount paid|savings)/g,'total joma'],
+    [/this month/g,'ei mase'],[/this year/g,'ei bochor'],[/last month/g,'ager mase'],[/last year/g,'ager bochor'],[/next birthday/g,'next jonmodin'],
+    [/loan (?:balance|outstanding)|remaining loan|loan remaining/g,'loan baki'],
+    [/interest rate|rate of interest/g,'sud er har'],
+    [/how (?:much|many)/g,'koto'],
+    [/who (?:has|have|all)/g,'ke ke'],[/who is|who s/g,'ke']
+  ];
+  var EN_TOK={what:'',whats:'',is:'',are:'',was:'',were:'',the:'',a:'',an:'',of:'',do:'',does:'',did:'',will:'',would:'',can:'',could:'',should:'',shall:'',please:'',tell:'',show:'',give:'',let:'',know:'',want:'',to:'',for:'',in:'',on:'',at:'',any:'',there:'',and:'',or:'',be:'',been:'',am:'',it:'',that:'',about:'',with:'',by:'',from:'',if:'',get:'',got:'',so:'',just:'',also:'',
+    my:'amar',mine:'amar',our:'amader',i:'ami',me:'ami',we:'ami',
+    how:'kivabe',when:'kobe',who:'ke',whose:'kar',where:'kothay',why:'keno',which:'kon',
+    contribution:'joma',contributions:'joma',deposit:'joma',deposits:'joma',deposited:'joma',paid:'joma',pay:'joma',paying:'joma',subscription:'joma',installment:'joma',savings:'joma',
+    payment:'payment',payments:'payment',loan:'loan',loans:'loan',borrow:'loan',borrowed:'loan',interest:'sud',fine:'fine',fines:'fine',penalty:'fine',penalties:'fine',
+    balance:'balance',fund:'fund',due:'baki',dues:'baki',pending:'baki',outstanding:'baki',overdue:'baki',remaining:'baki',unpaid:'baki',owe:'baki',owes:'baki',owed:'baki',
+    total:'total',end:'shesh',ends:'shesh',finish:'shesh',finished:'shesh',close:'shesh',closed:'shesh',repay:'shodh',repayment:'shodh',settle:'shodh',clear:'shodh',
+    month:'mas',months:'mas',monthly:'monthly',year:'bochor',yearly:'bochor',today:'aj',tomorrow:'kal',next:'next',
+    birthday:'jonmodin',birthdays:'jonmodin',phone:'number',mobile:'number',number:'number',
+    expense:'khoroch',expenses:'khoroch',members:'member',member:'member',rules:'niyom',rule:'niyom',deadline:'deadline',approved:'approve',approve:'approve',approval:'approve',
+    have:'ache',has:'ache',had:'ache',collector:'collector',admin:'admin',password:'password',not:'na',no:'na',cash:'cash',limit:'limit',rate:'har',list:'list',all:'sob',everyone:'sob',everybody:'sob',this:'ei',
+    another:'abar',again:'abar',take:'nite',takes:'lage',took:'niyeche',needed:'lagbe',required:'lagbe',cost:'lagbe',need:'lagbe',interest:'sud',amount:'',details:'details',detail:'details',history:'history',status:'status',paid:'joma'};
+  function enToBn(t0){
+    var t=String(t0).toLowerCase();
+    if(!EN_MARK.test(t)) return t0;
+    t=t.replace(/[?!.,;:"]/g,' ').replace(/([a-z]+)'s\b/g,'$1 er').replace(/'/g,' ');
+    t=' '+t.replace(/\s+/g,' ')+' ';
+    EN_PHR.forEach(function(p){ t=t.replace(p[0],' '+p[1]+' '); });
+    var out=t.split(' ').filter(Boolean).map(function(w){ return EN_TOK.hasOwnProperty(w)?EN_TOK[w]:w; }).filter(Boolean);
+    var res=out.join(' ');
+    if(/\bapprove\b/.test(res)) res=res.replace(/\bnite\b/g,'lage');
+    return res;
+  }
   var NZ_VOCAB=['balance','payment','approve','member','jonmodin','bokeya','kothay','kokhon'];
   function nzNames(){ var s={}; ((DATA&&DATA.contributions)||[]).forEach(function(m){ m.name.toLowerCase().split(/\s+/).forEach(function(x){ s[x]=1; }); }); return s; }
   function nz(t){
     var names=nzNames();
-    return String(t).toLowerCase().replace(/[?!,;:()"'।]+/g,' ').split(/\s+/).filter(Boolean).map(function(w){
+    return String(enToBn(t)).toLowerCase().replace(/[?!,;:()"'।]+/g,' ').split(/\s+/).filter(Boolean).map(function(w){
       if(!/^[a-z]+$/.test(w)) return w;
       if(names[w]) return w;
       if(NZ.hasOwnProperty(w)) return NZ[w];
