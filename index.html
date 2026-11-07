@@ -4800,8 +4800,82 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     var mid=mids[Math.floor(Math.random()*mids.length)];
     return '<div class="hd-bye"><b>'+open+'</b><br>'+mid+'<span class="bye-wish">'+wish+' — আবার দেখা হবে! 🤝</span><span class="bye-sign">— আপনার URF Sathi</span></div>';
   }
+  /* ===== Sathi সদস্যের হয়ে ঋণের আবেদন করে দেয় — সাইটের আবেদন-পথেই (submitLoanRequest), নিশ্চিত করার পরেই ===== */
+  var DIG='০১২৩৪৫৬৭৮৯';
+  function parseLoanAmount(l){
+    var t=String(l).replace(/[০-৯]/g,function(d){return DIG.indexOf(d);});
+    var re=/([0-9][0-9,]*)[ ]*(hazar|hajar|haajar|হাজার|thousand|k)?/g, m;
+    while((m=re.exec(t))){
+      var after=t.slice(re.lastIndex).trim().split(' ')[0]||'';
+      if(/^(tarikh|tarikhe|তারিখ|din|দিন|mas|মাস|bochor|বছর|percent|%|number|নম্বর)/.test(after)) continue;
+      var n=Number(m[1].replace(/,/g,'')); if(!n) continue;
+      if(m[2]) n=n*1000;
+      if(n>=100) return n;
+    }
+    return null;
+  }
+  function loanWantQ(l){
+    return has(l,['chai','চাই','lagbe','লাগবে','dorkar','দরকার','nite chai','korte chai','apply','abedon korte','abedon korbo','আবেদন করতে','আবেদন করব','abedon kore dao','আবেদন করে দাও','applied','nibo','নেব','nebo','ami nite']) && has(l,['loan','লোন','ঋণ','rin','lone','dhar','ধার']) &&
+      !has(l,['kivabe','কীভাবে','koto taka pabo','koto pabo','কত পাব','limit','সীমা','pabo','পাব','pari','পারি','upore','niche','er upor','list','kar kar','kara','ke ke','sud','সুদ','baki','বাকি','shodh','শোধ','repay','joma','জমা','fine','ফাইন','jaruri','জরুরি','urgent','emergency','status','কবে পাব','kobe pabo']);
+  }
+  function fmtMoney(n){ return '₹'+Number(n||0).toLocaleString('en-IN'); }
+  HD.acts={};
+  function loanAction(t0){
+    if(typeof memberSession==='undefined'||!memberSession||!memberSession.userId||typeof DATA==='undefined'||!DATA) return null;
+    var l=nz(t0);
+    if(!loanWantQ(l)) return null;
+    var amount=parseLoanAmount(l); if(!amount) return null;
+    var me=String(memberSession.userId), target=me, others=findMembers(l).filter(function(x){return x.name.toLowerCase()!==me.toLowerCase();});
+    if(others.length>1) return {html:'একাধিক সদস্যের নাম মিলেছে — পুরো নাম লিখে আবার বলুন (যেমন "'+others[0].name+' er hoye '+amount+' taka loan chai")।'};
+    if(others.length===1 && !has(l,['amar','আমার'])) target=others[0].name;
+    var forSelf=target.toLowerCase()===me.toLowerCase();
+    var who=forSelf?'আপনার':('<b>'+target+'</b>-এর');
+    var rules=DATA.loanRules||{percent:60,cap:25000,interestPercent:1};
+    var avail=(DATA.fundSummary&&DATA.fundSummary.availableBalance)||0;
+    var maxEl=Math.max(0,Math.floor(Math.min(avail*rules.percent/100, rules.cap)));
+    if(typeof activeLoanByName==='function' && activeLoanByName(target)) return {html:'ℹ️ '+who+' একটি চলতি ঋণ চলছে — সেটি শেষ না হওয়া পর্যন্ত নতুন আবেদন করা যায় না (সাইটের নিয়ম)।<br>ঋণ শোধ করতে কত লাগবে জানতে লিখুন: <i>"'+(forSelf?'amar':target+' er')+' loan shodh korte koto taka lagbe"</i>'};
+    if(typeof activeLoanRequestByName==='function' && activeLoanRequestByName(target)) return {html:'ℹ️ '+who+' একটি ঋণের আবেদন আগে থেকেই প্রক্রিয়াধীন আছে — আরেকটা পাঠানো যায় না। অবস্থা দেখতে লিখুন: <i>"amar loan request er status"</i>'};
+    if(maxEl<=0) return {html:'ℹ️ এই মুহূর্তে তহবিলে যথেষ্ট Available Balance না থাকায় নতুন ঋণ দেওয়া সম্ভব নয়।'};
+    var note='';
+    if(amount>maxEl){ note='<br>⚠️ আপনি '+fmtMoney(amount)+' চেয়েছেন, কিন্তু এখন সর্বোচ্চ <b>'+fmtMoney(maxEl)+'</b> পর্যন্ত আবেদন করা যায় (Available Balance '+fmtMoney(Math.round(avail))+'-এর '+rules.percent+'%, সর্বোচ্চ '+fmtMoney(rules.cap)+'). তাই '+fmtMoney(maxEl)+'-এর আবেদন তৈরি করছি — বদলাতে চাইলে "না" চেপে আবার লিখুন।'; amount=maxEl; }
+    var today=new Date().toISOString().slice(0,10), id='a'+Date.now().toString(36)+Math.floor(Math.random()*1000);
+    HD.acts[id]={kind:'loan',amount:amount,forMember:target,max:maxEl,created:Date.now()};
+    var words=bnd(amount.toLocaleString('en-IN'))+' টাকা';
+    return {noSave:true, html:'<div id="card-'+id+'" style="border:1px solid #E7C877;border-left:4px solid #1E6B3A;border-radius:10px;padding:.6rem .75rem;background:#FFFCF2">'
+      +'<b>📨 ঋণের আবেদন — নিশ্চিত করুন</b>'+note+'<br>'
+      +'• সদস্য: '+(forSelf?'<b>'+target+'</b> (আপনি)':'<b>'+target+'</b> — <i>আপনি তাঁর হয়ে আবেদন করছেন</i>')+'<br>'
+      +'• পরিমাণ: <b style="font-size:1.1em">'+fmtMoney(amount)+'</b> ('+words+')<br>'
+      +'• কবে টাকা লাগবে: <input type="date" id="date-'+id+'" value="'+today+'" min="'+today+'" style="font:inherit;padding:.15rem .3rem;border:1px solid #ccc;border-radius:6px"><br>'
+      +'<span style="opacity:.75;font-size:.85em">সুদ মাসিক '+(rules.interestPercent||1)+'%। আবেদন আগে সংগ্রাহক ও অ্যাডমিনের কাছে যাবে।</span><br>'
+      +'<button type="button" class="hd-go" style="margin:.4rem .4rem 0 0" onclick="hdActGo(\''+id+'\')">✅ হ্যাঁ, আবেদন পাঠান</button>'
+      +'<button type="button" class="hd-go" style="margin:.4rem 0 0 0;background:#999" onclick="hdActNo(\''+id+'\')">❌ না, থাক</button></div>'};
+  }
+  window.hdActNo=function(id){
+    var c=document.getElementById('card-'+id); if(c&&c.parentNode) c.parentNode.removeChild(c);
+    delete HD.acts[id]; add('ঠিক আছে — কিছু পাঠানো হয়নি। 👍');
+  };
+  window.hdActGo=async function(id){
+    var a=HD.acts[id]; var card=document.getElementById('card-'+id);
+    if(!a||!card) return;
+    var dEl=document.getElementById('date-'+id), today=new Date().toISOString().slice(0,10), needBy=(dEl&&dEl.value)?dEl.value:today;
+    if(needBy<today){ add('⚠️ তারিখটা আজকের আগের হতে পারে না — ঠিক করে আবার চাপুন।',false,true); return; }
+    delete HD.acts[id];
+    card.innerHTML='⏳ আবেদন পাঠানো হচ্ছে...';
+    try{
+      var res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'submitLoanRequest',userId:memberSession.userId,pin:memberSession.pin,amount:a.amount,forMember:a.forMember,neededByDate:needBy})});
+      var json=await res.json();
+      if(card.parentNode) card.parentNode.removeChild(card);
+      if(!json.ok){ add('❌ আবেদন পাঠানো যায়নি: '+(json.error||'আবার চেষ্টা করুন।')); return; }
+      add('✅ <b>'+(json.message||'ঋণের আবেদন পাঠানো হয়েছে।')+'</b><br>'+fmtMoney(a.amount)+' — '+(a.forMember.toLowerCase()===String(memberSession.userId).toLowerCase()?'আপনার':a.forMember+'-এর')+' আবেদন এখন সংগ্রাহক ('+(DATA.collectorName||'')+')-এর অপেক্ষায়। অবস্থা দেখতে লিখুন: <i>"amar loan request er status"</i>');
+      try{ if(typeof loadData==='function') await loadData(true); }catch(e2){}
+    }catch(err){
+      if(card.parentNode) card.parentNode.removeChild(card);
+      add('❌ নেটওয়ার্ক সমস্যা — আবেদন পাঠানো গেছে কি না নিশ্চিত নই। <i>"amar loan request er status"</i> লিখে দেখে নিন, না থাকলে আবার চেষ্টা করুন।');
+    }
+  };
   function hdAnswer(t0){
     var ck=closingKind(t0); if(ck) return closingMsg(ck);
+    var ac=null; try{ ac=loanAction(t0); }catch(eAc){ ac=null; } if(ac) return ac;
     var t=nz(t0), r=null;
     try{ r=approvalAnswer(t); }catch(e){ r=null; }
     if(!r){ try{ r=topicAnswer(t); }catch(e2){ r=null; } }
@@ -5088,6 +5162,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     e.preventDefault(); var inp=document.getElementById('hdText'); var t=inp.value.trim(); if(!t) return; inp.value='';
     add(t.replace(/</g,'&lt;'),true);
     var ans=hdAnswer(t);
+    if(ans && typeof ans==='object'){ add(ans.html,false,!!ans.noSave); return; }
     if(ans){ add(ans); return; }
     var best=faqBest(t);
     if(best>=0){ reply(FAQ[best]); }
