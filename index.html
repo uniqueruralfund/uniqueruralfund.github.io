@@ -4861,8 +4861,9 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
       +'<button type="button" class="hd-go" style="margin:.4rem .4rem 0 0" onclick="hdActGo(\''+id+'\')">✅ হ্যাঁ, '+(over?fmtMoney(amount)+'-এর ':'')+'আবেদন পাঠান</button>'
       +'<button type="button" class="hd-go" style="margin:.4rem 0 0 0;background:#999" onclick="hdActNo(\''+id+'\')">'+(over?'❌ না, কম টাকা চাইব':'❌ না, থাক')+'</button></div>'};
   }
+  function dropCard(c){ try{ var h=c.parentNode; if(h&&h.className&&String(h.className).indexOf('hd-msg')>=0&&h.parentNode) h.parentNode.removeChild(h); else if(h) h.removeChild(c); }catch(e){} }
   window.hdActNo=function(id){
-    var c=document.getElementById('card-'+id); if(c&&c.parentNode) c.parentNode.removeChild(c);
+    var c=document.getElementById('card-'+id); if(c) dropCard(c);
     var a=HD.acts[id]; delete HD.acts[id];
     if(a&&a.over) add('ঠিক আছে — কিছু পাঠানো হয়নি। 👍 কম টাকার আবেদন করতে সরাসরি লিখুন, যেমন: <i>"amar '+Math.min(10000,a.max)+' taka loan lagbe"</i> (সর্বোচ্চ '+fmtMoney(a.max)+' পর্যন্ত)।');
     else add('ঠিক আছে — কিছু পাঠানো হয়নি। 👍');
@@ -4871,7 +4872,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     var a=HD.acts[id]; var card=document.getElementById('card-'+id);
     if(!a||!card) return;
     if(a.kind==='pay'){
-      delete HD.acts[id]; if(card.parentNode) card.parentNode.removeChild(card);
+      delete HD.acts[id]; dropCard(card);
       var okOpen=false; try{ okOpen=openPay(a); }catch(eO){ okOpen=false; }
       add(okOpen ? '📝 সাইটের ফর্ম আগে থেকে ভরে খুলে দিয়েছি। পেমেন্ট করে স্ক্রিনশট যুক্ত করে সাইটের <b>✅ পেমেন্ট করেছি</b> বোতাম চাপুন। ফর্ম বন্ধ হয়ে গেলে বাঁদিকের মেনু থেকে ০৫ পেমেন্ট (বা ঋণ পরিশোধ) পাতায় যান।' : '⚠️ ফর্মটা খুলতে পারিনি — বাঁদিকের মেনু থেকে নিজে পেমেন্ট পাতায় যান।');
       return;
@@ -4883,12 +4884,12 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     try{
       var res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'submitLoanRequest',userId:memberSession.userId,pin:memberSession.pin,amount:a.amount,forMember:a.forMember,neededByDate:needBy})});
       var json=await res.json();
-      if(card.parentNode) card.parentNode.removeChild(card);
+      dropCard(card);
       if(!json.ok){ add('❌ আবেদন পাঠানো যায়নি: '+(json.error||'আবার চেষ্টা করুন।')); return; }
       add('✅ <b>'+(json.message||'ঋণের আবেদন পাঠানো হয়েছে।')+'</b><br>'+fmtMoney(a.amount)+' — '+(a.forMember.toLowerCase()===String(memberSession.userId).toLowerCase()?'আপনার':a.forMember+'-এর')+' আবেদন এখন সংগ্রাহক ('+(DATA.collectorName||'')+')-এর অপেক্ষায়। অবস্থা দেখতে লিখুন: <i>"amar loan request er status"</i>');
       try{ if(typeof loadData==='function') await loadData(true); }catch(e2){}
     }catch(err){
-      if(card.parentNode) card.parentNode.removeChild(card);
+      dropCard(card);
       add('❌ নেটওয়ার্ক সমস্যা — আবেদন পাঠানো গেছে কি না নিশ্চিত নই। <i>"amar loan request er status"</i> লিখে দেখে নিন, না থাকলে আবার চেষ্টা করুন।');
     }
   };
@@ -4935,7 +4936,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     if(typeof memberSession==='undefined'||!memberSession||!memberSession.userId||typeof DATA==='undefined'||!DATA) return null;
     var l=nz(t0);
     if(has(l,PAY_EXCL)) return null;
-    var want=has(l,['joma korbo','jama korbo','joma dibo','jama dibo','joma debo','dibo','debo','dite chai','korte chai','pay korbo','joma diyechi','pathiyechi','diyechi','dilam','korechi','shodh korbo','shodh korte chai','shodh dibo','dite hobe','joma dite','jama dite','korchi','pathachhi','pathalam','জমা করব','জমা দেব','দিতে চাই','করতে চাই','পাঠিয়েছি','দিয়েছি','দিলাম','করেছি']);
+    var want=has(l,['joma korbo','joma korbe','jama korbe','joma dibe','jama dibe','joma debe','dibe','debe','korbe','dite chay','korte chay','joma korben','joma diben','dite chan','করবে','দেবে','দিতে চায়','করতে চায়','জমা করবেন','জমা দেবেন','jama korbo','joma dibo','jama dibo','joma debo','dibo','debo','dite chai','korte chai','pay korbo','joma diyechi','pathiyechi','diyechi','dilam','korechi','shodh korbo','shodh korte chai','shodh dibo','dite hobe','joma dite','jama dite','korchi','pathachhi','pathalam','জমা করব','জমা দেব','দিতে চাই','করতে চাই','পাঠিয়েছি','দিয়েছি','দিলাম','করেছি']);
     if(!want) return null;
     var loanW=has(l,['loan','ঋণ','লোন']), sudW=has(l,['sud','সুদ','interest']), fineW=has(l,['fine','ফাইন','jorimana','জরিমানা']);
     var contribW=has(l,['masik','মাসিক','monthly','chanda','চাঁদা','joma','jama','জমা','taka','টাকা']);
@@ -4965,7 +4966,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
         var sum=di.reduce(function(x,i){return x+loanRate(loan.months[i]);},0);
         var lk=lockFor(true);
         if(lk.locked){ type='fine'; a.type='fine'; a.sub='loan'; head='💸 আগে ঋণের সুদের ফাইন দিতে হবে'; var fl=memberDues({name:target,pay:(contribRowByName(target)||{}).pay||[]}).fl; lines.push('আপনার '+(tg.self?'':'(<b>'+target+'</b>-এর) ')+'আসল শোধের আগে বকেয়া সুদ মেটাতে হবে, আর সুদের ফাইন আগে দিতে হবে'+(fl?' (প্রায় '+fmtMoney(fl)+')':'')+'।'); }
-        else { type='loan'; a.type='loan'; a.months=di; head='📉 আগে বকেয়া সুদ মেটাতে হবে'; lines.push('সাইটের নিয়ম: বকেয়া সুদ না মেটালে ঋণের আসল শোধ করা যায় না।'); lines.push('বকেয়া সুদ: <b>'+di.length+' মাস</b> = <b>'+fmtMoney(sum)+'</b>'); lines.push('সুদ মেটানোর পর আবার বলুন: <i>"amar loan er '+(amount||'')+' taka joma korbo"</i>'); }
+        else { type='loan'; a.type='loan'; a.months=di; head='📉 আগে বকেয়া সুদ মেটাতে হবে'; lines.push(''+(loan.monthsPaid?'সাইটের নিয়ম: বকেয়া সুদ না মেটালে ঋণের আসল শোধ করা যায় না।':'সাইটের নিয়ম: আসল শোধ করার আগে অন্তত প্রথম মাসের সুদ জমা পড়তে হয় — এখনো কোনো মাসের সুদ জমা পড়েনি।')+''); lines.push('বকেয়া সুদ: <b>'+di.length+' মাস</b> = <b>'+fmtMoney(sum)+'</b>'); lines.push('সুদ মেটানোর পর আবার বলুন: <i>"amar loan er '+(amount||'')+' taka joma korbo"</i>'); }
       } else {
         a.amount=Math.min(amount,Number(loan.amount)||amount);
         if(amount>a.amount) warn='<br>⚠️ আপনি '+fmtMoney(amount)+' বলেছেন, কিন্তু ঋণের ব্যালেন্স '+fmtMoney(a.amount)+' — তাই '+fmtMoney(a.amount)+' ধরেছি।';
