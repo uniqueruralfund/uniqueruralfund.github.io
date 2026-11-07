@@ -4837,23 +4837,35 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     if(typeof activeLoanByName==='function' && activeLoanByName(target)) return {html:'ℹ️ '+who+' একটি চলতি ঋণ চলছে — সেটি শেষ না হওয়া পর্যন্ত নতুন আবেদন করা যায় না (সাইটের নিয়ম)।<br>ঋণ শোধ করতে কত লাগবে জানতে লিখুন: <i>"'+(forSelf?'amar':target+' er')+' loan shodh korte koto taka lagbe"</i>'};
     if(typeof activeLoanRequestByName==='function' && activeLoanRequestByName(target)) return {html:'ℹ️ '+who+' একটি ঋণের আবেদন আগে থেকেই প্রক্রিয়াধীন আছে — আরেকটা পাঠানো যায় না। অবস্থা দেখতে লিখুন: <i>"amar loan request er status"</i>'};
     if(maxEl<=0) return {html:'ℹ️ এই মুহূর্তে তহবিলে যথেষ্ট Available Balance না থাকায় নতুন ঋণ দেওয়া সম্ভব নয়।'};
-    var note='';
-    if(amount>maxEl){ note='<br>⚠️ আপনি '+fmtMoney(amount)+' চেয়েছেন, কিন্তু এখন সর্বোচ্চ <b>'+fmtMoney(maxEl)+'</b> পর্যন্ত আবেদন করা যায় (Available Balance '+fmtMoney(Math.round(avail))+'-এর '+rules.percent+'%, সর্বোচ্চ '+fmtMoney(rules.cap)+'). তাই '+fmtMoney(maxEl)+'-এর আবেদন তৈরি করছি — বদলাতে চাইলে "না" চেপে আবার লিখুন।'; amount=maxEl; }
+    var note='', over=false, asked=amount;
+    if(amount>maxEl){
+      over=true;
+      var pct=rules.percent||60, capv=rules.cap||25000, byPct=Math.floor(avail*pct/100), capApplied=byPct>capv;
+      note='<div style="margin:.35rem 0;padding:.5rem .65rem;border-radius:8px;background:#FFF3D6;border:1px solid #E7C877">'
+       +'<b>ℹ️ আপনি '+fmtMoney(asked)+' চেয়েছেন — কিন্তু নিয়ম অনুযায়ী এত পাওয়া যাবে না</b><br>'
+       +'📜 <b>নিয়ম:</b> ফান্ড ব্যালেন্সের <b>'+pct+'%</b> পর্যন্ত লোন নেওয়া যায়।<br>'
+       +'• এখনকার Available Balance: <b>'+fmtMoney(Math.round(avail))+'</b><br>'
+       +'• তার '+pct+'% মানে: <b>'+fmtMoney(byPct)+'</b>'+(capApplied?' — কিন্তু সর্বোচ্চ সীমা <b>'+fmtMoney(capv)+'</b>, তার বেশি নয়':'')+'<br>'
+       +'👉 <b>তাই এখন আপনি সর্বোচ্চ '+fmtMoney(maxEl)+' পর্যন্ত পাবেন</b> ('+fmtMoney(asked-maxEl)+' কম)।</div>';
+      amount=maxEl;
+    }
     var today=new Date().toISOString().slice(0,10), id='a'+Date.now().toString(36)+Math.floor(Math.random()*1000);
-    HD.acts[id]={kind:'loan',amount:amount,forMember:target,max:maxEl,created:Date.now()};
+    HD.acts[id]={kind:'loan',amount:amount,forMember:target,max:maxEl,over:over,created:Date.now()};
     var words=bnd(amount.toLocaleString('en-IN'))+' টাকা';
     return {noSave:true, html:'<div id="card-'+id+'" style="border:1px solid #E7C877;border-left:4px solid #1E6B3A;border-radius:10px;padding:.6rem .75rem;background:#FFFCF2">'
-      +'<b>📨 ঋণের আবেদন — নিশ্চিত করুন</b>'+note+'<br>'
+      +'<b>📨 ঋণের আবেদন — '+(over?'সর্বোচ্চ অঙ্কের জন্য ':'')+'নিশ্চিত করুন</b>'+note+(over?'<span style="font-size:.92em">এই সর্বোচ্চ অঙ্কেই আবেদন করবেন?</span><br>':'<br>')
       +'• সদস্য: '+(forSelf?'<b>'+target+'</b> (আপনি)':'<b>'+target+'</b> — <i>আপনি তাঁর হয়ে আবেদন করছেন</i>')+'<br>'
-      +'• পরিমাণ: <b style="font-size:1.1em">'+fmtMoney(amount)+'</b> ('+words+')<br>'
+      +'• '+(over?'আবেদনের পরিমাণ (সর্বোচ্চ)':'পরিমাণ')+': <b style="font-size:1.1em">'+fmtMoney(amount)+'</b> ('+words+')<br>'
       +'• কবে টাকা লাগবে: <input type="date" id="date-'+id+'" value="'+today+'" min="'+today+'" style="font:inherit;padding:.15rem .3rem;border:1px solid #ccc;border-radius:6px"><br>'
       +'<span style="opacity:.75;font-size:.85em">সুদ মাসিক '+(rules.interestPercent||1)+'%। আবেদন আগে সংগ্রাহক ও অ্যাডমিনের কাছে যাবে।</span><br>'
-      +'<button type="button" class="hd-go" style="margin:.4rem .4rem 0 0" onclick="hdActGo(\''+id+'\')">✅ হ্যাঁ, আবেদন পাঠান</button>'
-      +'<button type="button" class="hd-go" style="margin:.4rem 0 0 0;background:#999" onclick="hdActNo(\''+id+'\')">❌ না, থাক</button></div>'};
+      +'<button type="button" class="hd-go" style="margin:.4rem .4rem 0 0" onclick="hdActGo(\''+id+'\')">✅ হ্যাঁ, '+(over?fmtMoney(amount)+'-এর ':'')+'আবেদন পাঠান</button>'
+      +'<button type="button" class="hd-go" style="margin:.4rem 0 0 0;background:#999" onclick="hdActNo(\''+id+'\')">'+(over?'❌ না, কম টাকা চাইব':'❌ না, থাক')+'</button></div>'};
   }
   window.hdActNo=function(id){
     var c=document.getElementById('card-'+id); if(c&&c.parentNode) c.parentNode.removeChild(c);
-    delete HD.acts[id]; add('ঠিক আছে — কিছু পাঠানো হয়নি। 👍');
+    var a=HD.acts[id]; delete HD.acts[id];
+    if(a&&a.over) add('ঠিক আছে — কিছু পাঠানো হয়নি। 👍 কম টাকার আবেদন করতে সরাসরি লিখুন, যেমন: <i>"amar '+Math.min(10000,a.max)+' taka loan lagbe"</i> (সর্বোচ্চ '+fmtMoney(a.max)+' পর্যন্ত)।');
+    else add('ঠিক আছে — কিছু পাঠানো হয়নি। 👍');
   };
   window.hdActGo=async function(id){
     var a=HD.acts[id]; var card=document.getElementById('card-'+id);
