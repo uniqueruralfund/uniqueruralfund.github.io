@@ -450,7 +450,10 @@
   .hd-top{display:flex; align-items:center; gap:.5rem;}
   .hd-art{width:96px; height:auto; flex:0 0 96px; -webkit-mask-image:radial-gradient(ellipse at 50% 50%,#000 68%,transparent 100%); mask-image:radial-gradient(ellipse at 50% 50%,#000 68%,transparent 100%);}
   .hd-titles{flex:1; min-width:0;}
-  .hd-welcome{display:block; font:italic 400 1.05rem 'Tiro Bangla',Georgia,serif; color:#fff; line-height:1.2; padding-right:3.6rem; overflow-wrap:anywhere;}
+  .hd-welcome{display:block; font:italic 400 1.05rem 'Tiro Bangla',Georgia,serif; color:#fff; line-height:1.2; padding-right:5.6rem; overflow-wrap:anywhere;}
+  .hd-div{display:flex; align-items:center; gap:.5rem; margin:.5rem 0; font-size:.72rem; color:#8a7a4a; text-align:center;}
+  .hd-div::before,.hd-div::after{content:""; flex:1; height:1px; background:#E2D7B5;}
+  .hd-div span{flex:0 1 auto; line-height:1.35;}
   .hd-title{display:block; font:700 1.95rem 'Hind Siliguri',sans-serif; line-height:1.05; color:#fff; letter-spacing:.2px;}
   .hd-tag{display:block; margin-top:.2rem; font:italic 700 .82rem 'Hind Siliguri',sans-serif; color:#F5C800;}
   .hd-swoosh{display:block; width:100%; height:22px; margin-top:-2px;}
@@ -1664,6 +1667,7 @@ function updateUserChip(){
   }
 }
 function memberLogout(){
+  try{ if(window.hdOnLogout) window.hdOnLogout(); }catch(e){}   // URF Sathi: প্যানেল বন্ধ + পর্দা পরিষ্কার (সংরক্ষিত ইতিহাস থাকে)
   memberSession = null;
   memberViewCache = null;
   clearRememberedLogin();
@@ -3804,7 +3808,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
 
 <div class="hd-panel" id="hdPanel" hidden>
   <div class="hd-head">
-    <div class="hd-tools"><span class="hd-spark" aria-hidden="true">✨</span><button class="hd-x" type="button" onclick="hdToggle()" aria-label="বন্ধ করুন">✕</button></div>
+    <div class="hd-tools"><span class="hd-spark" aria-hidden="true">✨</span><button class="hd-x" type="button" onclick="hdClear()" aria-label="পুরোনো কথাবার্তা মুছুন" title="পুরোনো কথাবার্তা মুছুন" style="font-size:1.05rem">🗑️</button><button class="hd-x" type="button" onclick="hdToggle()" aria-label="বন্ধ করুন">✕</button></div>
     <div class="hd-top">
       <img class="hd-art" src="assets/urf-sathi.png" alt="Welcome" width="96" height="88">
       <div class="hd-titles"><span class="hd-welcome" id="hdWelcome">স্বাগতম</span><span class="hd-title">URF Sathi</span><span class="hd-tag">Your Trusted Financial Companion</span></div>
@@ -3847,11 +3851,33 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
      a:function(){return '📧 <a href="mailto:uniqueruralfund21@gmail.com">uniqueruralfund21@gmail.com</a><br>📍 Dhwaja, Alipur, Shyampur, Howrah – 711315, West Bengal<br>লগইনের পর সংগ্রাহক বা Prasun Jyoti-কে সরাসরি জানাতে পারেন।';}}
   ];
   function body(){ return document.getElementById('hdBody'); }
-  function add(html, me){ var d=document.createElement('div'); d.className='hd-msg'+(me?' me':''); d.innerHTML=html; body().appendChild(d); body().scrollTop=body().scrollHeight; return d; }
+  /* ---- কথাবার্তার ইতিহাস: প্রতিটি সদস্যের জন্য আলাদা, এই ডিভাইসেই সংরক্ষিত; লগআউট-লগইনের পরও থাকে ---- */
+  var HDKEY='urfSathi.chat.v1.';
+  function hdKey(){ try{ var n=(typeof memberSession!=='undefined'&&memberSession&&memberSession.userId); return n?HDKEY+String(n).toLowerCase():null; }catch(e){ return null; } }
+  function hdRead(k){ try{ var a=JSON.parse(localStorage.getItem(k)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+  function hdPush(html,me){ var k=hdKey(); if(!k) return; try{ var a=hdRead(k); a.push({h:html,m:me?1:0,t:Date.now()}); if(a.length>200) a=a.slice(-200); localStorage.setItem(k,JSON.stringify(a)); }catch(e){} }
+  function add(html, me, noSave){ var d=document.createElement('div'); d.className='hd-msg'+(me?' me':''); d.innerHTML=html; body().appendChild(d); body().scrollTop=body().scrollHeight; if(!noSave) hdPush(html,me); return d; }
+  function hdRestore(){
+    menu(); var k=hdKey(); HD.histKey=k; if(!k) return;
+    var a=hdRead(k); if(!a.length) return;
+    var dv=document.createElement('div'); dv.className='hd-div'; dv.innerHTML='<span>আগের কথাবার্তা — শুধু এই ডিভাইসে সংরক্ষিত (উপরের 🗑️ চাপলে মুছে যাবে)</span>'; body().appendChild(dv);
+    a.forEach(function(m){ var d=add(m.h, !!m.m, true); Array.prototype.forEach.call(d.querySelectorAll('.hd-go'),function(x){ x.parentNode.removeChild(x); }); });
+    var nv=document.createElement('div'); nv.className='hd-div'; nv.innerHTML='<span>এখন</span>'; body().appendChild(nv);
+    body().scrollTop=body().scrollHeight;
+  }
+  window.hdOnLogout=function(){ var p=document.getElementById('hdPanel'); if(p) p.hidden=true; try{ body().innerHTML=''; }catch(e){} HD.histKey=null; };
+  window.hdClear=function(){
+    var k=hdKey(); if(!k) return;
+    var n=hdRead(k).length;
+    var ok=true; try{ ok=confirm(n?('আপনার সব পুরোনো কথাবার্তা ('+n+'টি বার্তা) মুছে ফেলবেন? এটা আর ফেরত আনা যাবে না।'):'মোছার মতো কোনো পুরোনো কথাবার্তা নেই।'); }catch(e){}
+    if(!ok || !n) return;
+    try{ localStorage.removeItem(k); }catch(e){}
+    menu(); add('🗑️ আপনার পুরোনো কথাবার্তা মুছে ফেলা হয়েছে।', false, true);
+  };
   function backBtn(label){ return; var b=document.createElement('button'); b.type='button'; b.className='hd-q'; b.style.marginTop='.5rem'; b.textContent=label; b.onclick=menu; body().appendChild(b); body().scrollTop=body().scrollHeight; }
   function menu(){
     var b=body(); b.innerHTML='';
-    add('নিচের বক্সে আপনার প্রশ্ন লিখুন — যেমন <i>"আমার জমা কত"</i>, <i>"kon kon member loan niyeche"</i>, <i>"balance koto"</i>। আমি সাথে সাথে উত্তর দেব।');
+    add('নিচের বক্সে আপনার প্রশ্ন লিখুন — যেমন <i>"আমার জমা কত"</i>, <i>"kon kon member loan niyeche"</i>, <i>"balance koto"</i>। আমি সাথে সাথে উত্তর দেব।', false, true);
   }
   function reply(f){
     var d=add(f.a());
@@ -4821,7 +4847,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     }
   }
   window.hdRe=function(i){ var inp=document.getElementById('hdText'); if(!inp||!HD.choices||!HD.choices[i]) return; inp.value=(HD.lastQ||'')+' '+HD.choices[i]; window.hdAsk({preventDefault:function(){}}); };
-  window.hdToggle=function(){ var p=document.getElementById('hdPanel'); p.hidden=!p.hidden; if(!p.hidden){ hdGreet(); if(!body().children.length) menu(); } };
+  window.hdToggle=function(){ var p=document.getElementById('hdPanel'); p.hidden=!p.hidden; if(!p.hidden){ hdGreet(); var k=hdKey(); if(HD.histKey!==k || !body().children.length) hdRestore(); else body().scrollTop=body().scrollHeight; } };
 })();
 </script>
 
