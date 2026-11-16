@@ -4322,7 +4322,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     out+=section('✅ আপনার সিদ্ধান্ত/অনুমোদন দরকার',mine);
     if(!mine.length) out+='<br><br>✅ আপনার নিজের ধাপে এখন কিছু বাকি নেই।';
     out+=section('⏳ অন্যের ধাপে অপেক্ষায়',others);
-    if(mine.length) out+='<br><br>👉 অনুমোদন দিতে বাঁদিকের মেনু থেকে '+((nPay&&wantPay)?'<b>🧾 মাসিক জমার অনুমোদন</b>':'')+((nLoan&&wantLoan)?(nPay&&wantPay?', ':'')+'<b>🏦 ঋণ অনুমোদন</b>':'')+((nRep&&wantLoan)?((nPay&&wantPay)||(nLoan&&wantLoan)?', ':'')+'<b>💵 ঋণ পরিশোধ অনুমোদন</b>':'')+' খুলুন।';
+    if(mine.length) out+='<br><br>👉 অনুমোদন দিতে বাঁদিকের মেনু থেকে '+((nPay&&wantPay)?'<b>🧾 মাসিক জমার অনুমোদন</b>':'')+((nLoan&&wantLoan)?(nPay&&wantPay?', ':'')+'<b>🏦 ঋণ অনুমোদন</b>':'')+((nRep&&wantLoan)?((nPay&&wantPay)||(nLoan&&wantLoan)?', ':'')+'<b>💵 ঋণ পরিশোধ অনুমোদন</b>':'')+' খুলুন।<br>অথবা এখানেই লিখুন: <i>"sobar approve kore dao"</i> বা <i>"<নাম> er approve kore dao"</i> (জমা/সুদ/ফাইন/ঋণ-পরিশোধ)।';
     return out+'<br><span style="opacity:.7">(⚠️ = ৩ দিন বা তার বেশি অপেক্ষায়)</span>';
   }
   /* ===== প্রশ্ন স্বাভাবিক করা: Banglish বানান/সংক্ষেপ → একই শব্দ ===== */
@@ -5161,10 +5161,151 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
       }catch(err){ dropCard(card); add('❌ নেটওয়ার্ক সমস্যা — আবেদন গেছে কি না নিশ্চিত নই। "amar loan request er status" লিখে দেখে নিন।'); }
     }
   }
+  /* ===== সংগ্রাহক (Satyajit Das) / অ্যাডমিন (Prasun Jyoti): চ্যাটে "approve kore dao" =====
+     শুধু নিজের ধাপের জমা/সুদ/ফাইন/ঋণ-পরিশোধ। ঋণ বিতরণ, জরুরি আবেদন, নগদ-প্রাপকের ধাপ, বাতিল — মেনু থেকে।
+     নাম বললে শুধু তাঁর; "সবার" বললে নিজের ধাপের সব। সবসময় আগে কার্ড দেখায়, "হ্যাঁ" চাপলে তবেই অনুমোদন;
+     প্রতিটি সাইটের নিজস্ব approvePayment / approveLoanRepayment দিয়েই যায়। */
+  function apprPendKey(kind,p){
+    return kind==='pay' ? ('p|'+String(p.member).toLowerCase()+'|'+(p.typeLabel||'')+'|'+(p.monthLabel||'')+(String(p.typeLabel||'').indexOf('ফাইন')>=0?'|'+p.amount:''))
+                        : ('r|'+String(p.member).toLowerCase()+'|'+p.amount+'|'+(p.paymentDate||''));
+  }
+  function apprChatAction(t0){
+    if(typeof memberSession==='undefined'||!memberSession||!memberSession.userId||typeof DATA==='undefined'||!DATA) return null;
+    var l=nz(t0), w=apprWho();
+    if(!w.c && !w.a) return null;
+    var verb=has(l,['approve','approved','approval','aprove','approov','onumodon','onumoddon','anumodan','onumodan','অনুমোদন','এপ্রুভ','অ্যাপ্রুভ','অ্যাপ্রোভ','এপ্রোভ']);
+    if(!verb) return null;
+    var imp=has(l,['kore dao','kore din','koro','korun','koren','kore','dao','din','do','দাও','দিন','করো','করুন','করে','কর']);
+    var Q=/\?|？/.test(t0)||has(l,['keno','kivabe','kibhabe','kobe','kokhon','kothay','koto','kon','kara','kar kar','ke ke','list','talika','dekh','dekhao','bolo','jante','jani','hoyeche','hoyechhe','hoye geche','hoyeni','hoy ni','hoyni','holo','hobe','hoy','korbe','korechi','koreche','ki','kena','baki','ache','achhe','কেন','কীভাবে','কবে','কখন','কোথায়','কত','কোন','কারা','তালিকা','দেখ','হয়েছে','হয়নি','হবে','কি','বাকি','আছে']);
+    if(!imp || Q) return null;
+    var stages=[]; if(w.c) stages.push('collector'); if(w.a) stages.push('admin');
+    var roleTxt=(w.c&&w.a)?'সংগ্রাহক ও অ্যাডমিন':(w.c?'সংগ্রাহকের':'অ্যাডমিনের');
+    // ---- কোন ধরন ----
+    var fineW=has(l,['fine','ফাইন']), sudW=has(l,['sud','sod','shud','সুদ','interest']), jomaW=has(l,['joma','jama','জমা','chanda','চাঁদা']),
+        repW=has(l,['ashol','asol','আসল','porishodh','পরিশোধ','repay','repayment','sodh','shodh','শোধ']);
+    function kindOk(it){
+      if(!(fineW||sudW||jomaW||repW)) return true;
+      if(it.kind==='repay') return repW;
+      var ty=it.type||'';
+      if(ty.indexOf('ফাইন')>=0) return fineW;
+      if(ty.indexOf('সুদ')>=0) return sudW;
+      return jomaW;
+    }
+    // ---- আমার ধাপে অপেক্ষমাণ ----
+    var all=[];
+    (DATA.paymentRequests||[]).forEach(function(p,ix){ if(stages.indexOf(p.stage)<0) return;
+      all.push({kind:'pay',token:p.token,stage:p.stage,member:p.member,type:p.typeLabel||'জমা',month:p.monthLabel||'',amount:Number(p.amount)||0,method:p.method||'',receipt:!!p.receiptUrl,asked:p.askedAt,ix:ix,key:apprPendKey('pay',p),done:false,skip:''}); });
+    (DATA.loanRepayments||[]).forEach(function(p,ix){ if(stages.indexOf(p.stage)<0) return;
+      all.push({kind:'repay',token:p.token,stage:p.stage,member:p.member,type:'ঋণের আসল পরিশোধ',month:'',amount:Number(p.amount)||0,method:p.method||'',receipt:!!p.receiptUrl,asked:p.askedAt,ix:ix,key:apprPendKey('repay',p),done:false,skip:''}); });
+    var skippedLoan=0;
+    (DATA.loanRequests||[]).forEach(function(r){ if((r.stage==='urgent'&&w.a)||(r.stage==='collector'&&w.c)||(r.stage==='admin'&&w.a)) skippedLoan++; });
+    // ---- কার জন্য ----
+    var names=[]; all.forEach(function(it){ if(names.indexOf(it.member)<0) names.push(it.member); });
+    var words=l.split(/[^a-zঀ-৿]+/).filter(Boolean);
+    function nameHit(nm){
+      var toks=nm.toLowerCase().split(/\s+/).filter(function(x){return x.length>=3;}), s=0;
+      toks.forEach(function(tk){ if(words.some(function(wd){ return wd===tk || (wd.length>=4&&tk.indexOf(wd)===0) || (wd.length>=5&&tk.length>=5&&/^[a-z]+$/.test(wd)&&osa(wd,tk)<=1); })) s++; });
+      return s;
+    }
+    var allW=has(l,['sob','sobar','sobai','sobaike','sokol','sobaike','all','everyone','everything','সব','সবার','সবাই','সবগুলো','সবগুলি','সকল']);
+    var asked=[];
+    var sc=names.map(function(nm){return {nm:nm,s:nameHit(nm)};}).filter(function(x){return x.s>0;});
+    if(sc.length){ var top=Math.max.apply(null,sc.map(function(x){return x.s;})); asked=sc.filter(function(x){return x.s===top;}).map(function(x){return x.nm;}); }
+    // নাম বলা হয়েছে কিন্তু আমার ধাপে তার কিছু নেই
+    if(!asked.length && !allW){
+      var any=(DATA.contributions||[]).filter(function(m){return nameHit(m.name)>0;});
+      if(any.length && any.length<=3){
+        var mn=any.map(function(m){return '<b>'+m.name+'</b>';}).join(', ');
+        return {html:'ℹ️ '+mn+'-এর কোনো অনুমোদন এখন আপনার ('+roleTxt+') ধাপে বাকি নেই।'+(skippedLoan?'<br><span style="opacity:.75">(ঋণের '+skippedLoan+'টি কাজ মেনু থেকে করতে হবে।)</span>':'')};
+      }
+    }
+    var scoped=all.filter(kindOk);
+    var items;
+    if(allW){ items=scoped; }
+    else if(asked.length){ items=scoped.filter(function(it){ return asked.indexOf(it.member)>=0; }); }
+    else {
+      var nm2=[]; scoped.forEach(function(it){ if(nm2.indexOf(it.member)<0) nm2.push(it.member); });
+      if(nm2.length===0) return {html:'🎉 এখন আপনার ('+roleTxt+') ধাপে কোনো জমা/সুদ/ফাইন/পরিশোধের অনুমোদন বাকি নেই।'+(skippedLoan?'<br><span style="opacity:.8">ঋণের '+skippedLoan+'টি কাজ মেনুতে আছে (বিতরণ/জরুরি আবেদন মেনু থেকে করতে হয়)।</span>':'')};
+      if(nm2.length===1){ items=scoped; }
+      else {
+        var cnt={}; scoped.forEach(function(it){ cnt[it.member]=(cnt[it.member]||0)+1; });
+        return {html:'কার অনুমোদন করব? এখন আপনার ধাপে '+nm2.length+' জনের বাকি:<br>'+bullets(nm2.map(function(n){return '<b>'+n+'</b> — '+cnt[n]+'টি';}))
+          +'<br><br>নাম লিখে বলুন (যেমন <i>"'+nm2[0]+' er approve kore dao"</i>) অথবা সবার জন্য <i>"sobar approve kore dao"</i>।'};
+      }
+    }
+    if(!items.length) return {html:'ℹ️ এই বিষয়ে এখন আপনার ('+roleTxt+') ধাপে কোনো অনুমোদন বাকি নেই।'};
+    // ---- ডুপ্লিকেট: একই সদস্য+একই মাস/অঙ্ক একাধিক অপেক্ষমাণ থাকলে শুধু সবচেয়ে পুরনোটা ----
+    var pendAll=[];
+    (DATA.paymentRequests||[]).forEach(function(p,ix){ if(['collector','admin','recipient'].indexOf(p.stage)>=0) pendAll.push({kind:'pay',token:p.token,key:apprPendKey('pay',p),days:apprDays(p.askedAt),ix:ix}); });
+    (DATA.loanRepayments||[]).forEach(function(p,ix){ if(['collector','admin','recipient'].indexOf(p.stage)>=0) pendAll.push({kind:'repay',token:p.token,key:apprPendKey('repay',p),days:apprDays(p.askedAt),ix:ix}); });
+    items.forEach(function(it){
+      var grp=pendAll.filter(function(x){return x.key===it.key;});
+      if(grp.length<2) return;
+      grp.sort(function(a,b){ var da=a.days==null?-1:a.days, db=b.days==null?-1:b.days; return db-da || b.ix-a.ix; });   // সবচেয়ে পুরনো আগে
+      if(grp[0].token!==it.token) it.skip='একই দাবি আগেও আছে (ডুপ্লিকেট) — বাদ';
+    });
+    var okItems=items.filter(function(it){return !it.skip;}), dupItems=items.filter(function(it){return it.skip;});
+    var total=okItems.reduce(function(s,it){return s+it.amount;},0);
+    function itLine(it){
+      return '• <b>'+it.member+'</b> — '+it.type+(it.month?' ('+it.month+')':'')+' '+rs(it.amount)+(it.method?' · '+it.method:'')+((it.method&&it.method.indexOf('অনলাইন')>=0&&!it.receipt)?' ⚠️ রসিদ নেই':'')+apprAge(it.asked);
+    }
+    var id=newId();
+    if(!okItems.length){
+      return {html:'⚠️ আপনার ধাপে '+dupItems.length+'টি দাবি আছে, কিন্তু সবই ডুপ্লিকেট (একই মাসের আগের দাবি আগেই আছে):<br>'+dupItems.slice(0,8).map(itLine).join('<br>')+'<br><br>এগুলো মেনুর অনুমোদন পাতা থেকে দেখে নিন — একটা রাখুন, বাকিটা বাতিল করুন।'};
+    }
+    HD.acts[id]={kind:'apprbulk',items:okItems,created:Date.now(),running:false};
+    var shown=okItems.slice(0,15).map(itLine).join('<br>')+(okItems.length>15?'<br>…আরও '+(okItems.length-15)+'টি':'');
+    var who=(asked.length&&!allW)?asked.map(function(n){return '<b>'+n+'</b>';}).join(', ')+'-এর':'সবার';
+    var inner='<b>📋 '+who+' অনুমোদন — নিশ্চিত করুন</b><br><span style="opacity:.8;font-size:.9em">আপনার ধাপ: '+roleTxt+' · '+okItems.length+'টি · মোট '+rs(total)+'</span><div style="margin:.4rem 0">'+shown+'</div>'
+      +(dupItems.length?'<div style="margin:.3rem 0;padding:.4rem .55rem;border-radius:8px;background:#FFF3D6;border:1px solid #E7C877;font-size:.9em">⚠️ <b>'+dupItems.length+'টি ডুপ্লিকেট দাবি বাদ রাখা হয়েছে</b> (একই সদস্যের একই মাসের একটা দাবি আগে থেকেই আছে):<br>'+dupItems.slice(0,6).map(itLine).join('<br>')+'</div>':'')
+      +(skippedLoan?'<span style="opacity:.75;font-size:.85em">ঋণের '+skippedLoan+'টি কাজ (বিতরণ/জরুরি আবেদন) এখানে হবে না — মেনু থেকে করুন।</span><br>':'')
+      +'<span style="opacity:.75;font-size:.85em">"হ্যাঁ" চাপলে সাইটের নিজস্ব অনুমোদন এক-এক করে চলবে।</span><br>';
+    return {noSave:true, html:'<div id="card-'+id+'" style="border:1px solid #E7C877;border-left:4px solid #1E6B3A;border-radius:10px;padding:.6rem .75rem;background:#FFFCF2">'+inner
+      +'<button type="button" class="hd-go" style="margin:.4rem .4rem 0 0" onclick="hdApprGo(\''+id+'\')">✅ হ্যাঁ, '+okItems.length+'টি অনুমোদন করুন ('+rs(total)+')</button>'
+      +noBtn(id,'❌ না, থাক')+'</div>'};
+  }
+  window.hdApprGo=async function(id){
+    var a=HD.acts[id], card=document.getElementById('card-'+id);
+    if(!a||a.kind!=='apprbulk'||!card||a.running) return;
+    var needAdmin=a.items.some(function(i){return i.stage==='admin';});
+    if(needAdmin && (typeof editPin==='undefined'||!editPin)){
+      try{ openPinBox(); }catch(e){}
+      add('🔐 অ্যাডমিন ধাপের অনুমোদনের জন্য আগে <b>এডিট মোড (PIN)</b> চালু করুন, তারপর আবার "হ্যাঁ" চাপুন।',false,true);
+      return;
+    }
+    a.running=true;
+    card.innerHTML='⏳ অনুমোদন চলছে… (একটু অপেক্ষা করুন, পাতা বন্ধ করবেন না)';
+    try{ await refreshAfter(); }catch(e0){}
+    function stillPending(it){
+      var arr=it.kind==='pay'?(DATA.paymentRequests||[]):(DATA.loanRepayments||[]);
+      return arr.some(function(p){ return p.token===it.token && p.stage===it.stage; });
+    }
+    var okN=0, okSum=0, bad=[], gone=0;
+    for(var i=0;i<a.items.length;i++){
+      var it=a.items[i];
+      card.innerHTML='⏳ অনুমোদন চলছে… '+(i+1)+'/'+a.items.length+' — '+it.member;
+      if(!stillPending(it)){ gone++; continue; }   // এর মধ্যে অন্য কেউ/অন্য জায়গা থেকে হয়ে গেছে
+      var body={action:it.kind==='pay'?'approvePayment':'approveLoanRepayment',token:it.token,stage:it.stage,reason:'URF Sathi দিয়ে অনুমোদন'};
+      if(it.stage==='admin'){ body.pin=editPin; } else { body.userId=memberSession.userId; body.pin=memberSession.pin; }
+      try{
+        var json=await postBody(body);
+        if(json&&json.ok){ okN++; okSum+=it.amount; it.done=true; }
+        else bad.push('<b>'+it.member+'</b> — '+it.type+(it.month?' ('+it.month+')':'')+': '+String((json&&json.error)||'হয়নি').replace(/[<>&]/g,''));
+      }catch(err){ bad.push('<b>'+it.member+'</b> — '+it.type+': নেটওয়ার্ক সমস্যা, হয়েছে কি না নিশ্চিত নই'); }
+    }
+    delete HD.acts[id]; dropCard(card);
+    try{ await refreshAfter(); }catch(e1){}
+    var out=okN?('✅ <b>'+okN+'টি অনুমোদন হয়েছে</b> (মোট '+rs(okSum)+')।'):'❌ কোনোটাই অনুমোদন হয়নি।';
+    if(gone) out+='<br>ℹ️ '+gone+'টি আগেই অন্য জায়গা থেকে হয়ে গিয়েছিল।';
+    if(bad.length) out+='<br>⚠️ <b>'+bad.length+'টি হয়নি:</b><br>'+bullets(bad);
+    if(okN) out+='<br><span style="opacity:.75;font-size:.85em">(অনুমোদনের মন্তব্যে "URF Sathi দিয়ে অনুমোদন" লেখা আছে।)</span>';
+    add(out);
+  };
   function hdAnswer(t0){
     var ck=closingKind(t0); if(ck) return closingMsg(ck);
     var ac=null; try{ ac=navAction(t0); }catch(eN){ ac=null; } if(ac) return ac;
     try{ ac=taskAction(t0); }catch(eT){ ac=null; } if(ac) return ac;
+    try{ ac=apprChatAction(t0); }catch(eAp){ ac=null; } if(ac) return ac;
     try{ ac=loanAction(t0); }catch(eAc){ ac=null; } if(ac) return ac;
     try{ ac=payAction(t0); }catch(eAc2){ ac=null; } if(ac) return ac;
     var t=nz(t0), r=null;
