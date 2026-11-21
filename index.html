@@ -5563,6 +5563,42 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     })();
     return {noSave:true, html:'<div id="card-'+id+'" style="border:1px solid #E7C877;border-left:4px solid #1E6B3A;border-radius:10px;padding:.6rem .75rem;background:#FFFCF2">⏳ '+label+'</div>'};
   }
+  /* সদস্যের নাম খোঁজা (পুরো নাম/আংশিক/ছোট বানান-ভুল); একাধিক সমান মিললে many = তাদের নাম */
+  function reminderWho(l){
+    var words=l.split(/[^a-zঀ-৿]+/).filter(Boolean), best=0, hits=[];
+    (DATA.contributions||[]).forEach(function(m){
+      var toks=m.name.toLowerCase().split(/\s+/).filter(function(x){return x.length>=3;}), sc=0;
+      toks.forEach(function(tk){ if(words.some(function(wd){ return wd===tk || (wd.length>=4&&tk.indexOf(wd)===0) || (wd.length>=4&&tk.length>=4&&/^[a-z]+$/.test(wd)&&osa(wd,tk)<=1); })) sc++; });
+      if(sc>0){ if(sc>best){ best=sc; hits=[m.name]; } else if(sc===best) hits.push(m.name); }
+    });
+    if(hits.length>1) return {many:hits.slice(0,8)};
+    return {name:hits[0]||''};
+  }
+  /* কার্ড: আগে পূর্বরূপ (কিছু পাঠানো হয় না); কেউ পাবেন এমন হলে "হ্যাঁ, পাঠান" বোতাম */
+  function reminderPlanCard(sel){
+    var id=newId(), tries=0, body=sel.all?{all:true}:{names:sel.names};
+    (function fill(){
+      var el=document.getElementById('card-'+id);
+      if(!el){ if(++tries<40) setTimeout(fill,150); return; }
+      postBody(Object.assign({action:'reminderPlan',userId:memberSession.userId,pin:memberSession.pin},body)).then(function(j){
+        if(!(j&&j.ok)){ el.innerHTML='❌ '+String((j&&j.error)||'পাওয়া যায়নি').replace(/[<>&]/g,''); return; }
+        if(!j.n){ el.innerHTML=j.html; return; }
+        HD.acts[id]={kind:'remsend',body:body,n:j.n,running:false};
+        el.innerHTML=j.html+'<button type="button" class="hd-go" style="margin:.4rem .4rem 0 0" onclick="hdRemSend(\''+id+'\')">✅ হ্যাঁ, '+j.n+' জনকে ইমেইল পাঠান</button>'+noBtn(id,'❌ না, থাক');
+      }).catch(function(){ el.innerHTML='❌ নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।'; });
+    })();
+    return {noSave:true, html:'<div id="card-'+id+'" style="border:1px solid #E7C877;border-left:4px solid #1E6B3A;border-radius:10px;padding:.6rem .75rem;background:#FFFCF2">⏳ কাকে কী যাবে হিসাব হচ্ছে… (কিছু পাঠানো হচ্ছে না)</div>'};
+  }
+  window.hdRemSend=async function(id){
+    var a=HD.acts[id], card=document.getElementById('card-'+id);
+    if(!a||a.kind!=='remsend'||!card||a.running) return;
+    a.running=true; card.innerHTML='⏳ ইমেইল পাঠানো হচ্ছে… (পাতা বন্ধ করবেন না)';
+    try{
+      var j=await postBody(Object.assign({action:'sendReminders',userId:memberSession.userId,pin:memberSession.pin},a.body));
+      delete HD.acts[id]; dropCard(card);
+      add(j&&j.ok ? j.html : '❌ '+String((j&&j.error)||'পাঠানো যায়নি').replace(/[<>&]/g,''));
+    }catch(e){ delete HD.acts[id]; card.innerHTML='❌ নেটওয়ার্ক সমস্যা — ইমেইল গেছে কি না নিশ্চিত নই। Sheet-এর "Reminder Log" পাতা দেখুন, আবার চাইলে একই কমান্ড দিন (একই দিনে কেউ দুবার পাবেন না)।'; }
+  };
   function reportAction(t0){
     if(typeof memberSession==='undefined'||!memberSession||!memberSession.userId||typeof DATA==='undefined'||!DATA) return null;
     var l=nz(t0), w=apprWho();
@@ -5581,6 +5617,14 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
                    :'বন্ধ করলে কোনো স্বয়ংক্রিয় ইমেইল (মনে করানো বা রিপোর্ট) যাবে না।')+'</span>',
           '<button type="button" class="hd-go" style="margin:.4rem .4rem 0 0" onclick="hdRemSw(\''+idS+'\')">✅ হ্যাঁ, '+(onNow?'চালু':'বন্ধ')+' করুন</button>'+noBtn(idS,'❌ না, থাক'))};
       }
+    }
+    if(has(l,['reminder','মনে করান','mone koran','mone koriye','smaran','স্মরণ']) && has(l,['pathao','pathan','pathai','pathiye','pathate','send','পাঠাও','পাঠান','পাঠিয়ে','dao','din','দাও','দিন'])){
+      var allR=has(l,['sobaike','sobar','sobai','sokol','sob','all','সবাইকে','সবার','সবাই','সকল']);
+      var who=reminderWho(l);
+      if(who.many) return {html:'কোন জন? একাধিক নাম মিলেছে — পুরো নাম লিখে বলুন:<br>'+bullets(who.many.map(function(n){return '<b>'+n+'</b>';}))+'<br>যেমন: <i>"'+who.many[0]+' k reminder pathao"</i>'};
+      if(who.name) return reminderPlanCard({names:[who.name]});
+      if(allR) return reminderPlanCard({all:true});
+      return {html:'কাকে মনে করাব? নাম লিখে বলুন (যেমন <i>"Utpal Das k reminder pathao"</i>) অথবা যাঁদের কিছু বাকি সবাইকে: <i>"sobaike reminder pathao"</i>। আগে কাকে কী যাবে দেখাব, আপনি "হ্যাঁ" চাপলে তবেই ইমেইল যাবে।'};
     }
     if(has(l,['report','রিপোর্ট','riport','summary','সারাংশ','sarangsho'])){
       var prev=has(l,['gato','গত','ager','আগের','last','previous']);
