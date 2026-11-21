@@ -2098,11 +2098,11 @@ function paymentFooterHTML(type, required){
       <div class="pay-field" id="payReceiptField" style="margin-top:1rem;">
         <label class="field-label" for="payReceiptInput">পেমেন্টের স্ক্রিনশট (আবশ্যক)</label>
         <input type="file" accept="image/*,application/pdf" id="payReceiptInput" class="pay-select"
-               onchange="urfOcrPick(this,'payOcrBox',function(){var a=document.getElementById('payAmount');return a?Number(a.dataset.amount||a.value):0;},function(){var d=document.getElementById('payDate');return d?d.value:'';})">
+               onchange="urfOcrPick(this,'payOcrBox',function(){var a=document.getElementById('payAmount');return a?Number(a.dataset.amount||a.value):0;},function(){var d=document.getElementById('payDate');return d?d.value:'';},'payClaimBtn','payDate','payMethod')">
         <div id="payOcrBox" class="hint-text" style="margin-top:.4rem;line-height:1.5;"></div>
       </div>
       <div class="pay-actions">
-        <button class="pay-btn claim" onclick="confirmPaymentClaim(event,'${type}')">✅ পেমেন্ট করেছি</button>
+        <button class="pay-btn claim" id="payClaimBtn" onclick="confirmPaymentClaim(event,'${type}')">✅ পেমেন্ট করেছি</button>
       </div>
       <div class="msg-err" id="payErr" hidden></div>
       <div class="msg-ok" id="payOk" hidden></div>
@@ -2483,7 +2483,7 @@ async function confirmPaymentClaim(ev, type){
     let ocr = null;
     if(file && payMethod !== 'cash'){
       ocr = await urfReadReceipt(file, amount, payDate);
-      if(ocr.read && ocr.state.amount === 'bad' && !confirm('⚠️ রসিদে ₹'+amount+' খুঁজে পাইনি'+(ocr.parsed.best!=null?' (রসিদে ₹'+ocr.parsed.best+' মনে হচ্ছে)':'')+'।\nতবুও কি এই রসিদসহ জমা দেবেন?')) return;
+      const why = urfBlockReason(ocr, amount, payDate); if(why){ errBox.textContent = '⛔ ' + why; errBox.hidden = false; return; }
     }
     const cashRecipientEl = document.getElementById('payCashRecipient');
     const cashRecipient = (payMethod === 'cash' && cashRecipientEl) ? cashRecipientEl.value : '';
@@ -2514,8 +2514,9 @@ async function confirmPaymentClaim(ev, type){
 }
 
 /* ===== রসিদ পড়া (OCR) — সবটাই ফোনের ভেতরে, ছবি বাইরে যায় না =====
-   শুধু সতর্কতা দেয়, নিজে কিছু আটকায় না। একমাত্র ব্যতিক্রম: একই রসিদ নম্বর (UTR) আগেই ব্যবহার হয়ে থাকলে
-   সার্ভার দাবিটা নেয় না (সার্ভারেই মেলানো হয়)। OCR টাকা আসল কিনা প্রমাণ করে না — সেটা সংগ্রাহকের UPI/ব্যাংকে দেখা। */
+   জমা দেওয়া আটকায় (ফর্মের বোতাম বন্ধ + সার্ভারেও) শুধু এই নিশ্চিত সমস্যায়: রসিদের টাকা স্পষ্টভাবে আলাদা, রসিদের তারিখ
+   সদস্যের দেওয়া তারিখ থেকে ১ দিনের বেশি আলাদা, একই রসিদ (UTR বা একই ছবির ফাইল) আগেই ব্যবহার হয়েছে।
+   রসিদ পড়তে না পারলে/অনিশ্চিত হলে আটকায় না — অনুমোদনকারী "⚠️" দেখেন। OCR টাকা আসল কিনা প্রমাণ করে না — সেটা সংগ্রাহকের UPI/ব্যাংকে দেখা। */
 /*OCR-BEGIN*/
 function urfBnDigits(s){ return String(s||'').replace(/[০-৯]/g,function(d){ return '০১২৩৪৫৬৭৮৯'.indexOf(d); }); }
 var URF_MONTHS={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
@@ -2537,12 +2538,13 @@ var URF_DATE_RES=[
   /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b/ig,       // Nov 15, 2026
   /\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4}|\d{2})\b/g                                                          // 15/11/2026 (দিন/মাস)
 ];
-function urfFindDate(t){
-  var m, iso;
-  URF_DATE_RES[0].lastIndex=0; while((m=URF_DATE_RES[0].exec(t))){ iso=urfIsoDate(m[3],URF_MONTHS[m[2].toLowerCase()],m[1]); if(iso) return {iso:iso,text:m[0]}; }
-  URF_DATE_RES[1].lastIndex=0; while((m=URF_DATE_RES[1].exec(t))){ iso=urfIsoDate(m[3],URF_MONTHS[m[1].toLowerCase()],m[2]); if(iso) return {iso:iso,text:m[0]}; }
-  URF_DATE_RES[2].lastIndex=0; while((m=URF_DATE_RES[2].exec(t))){ iso=urfIsoDate(m[3],(+m[2])-1,m[1]); if(iso) return {iso:iso,text:m[0]}; }
-  return null;
+function urfFindDates(t){          // রসিদের সব তারিখ (প্রথমটাই নয়) — যেকোনো একটা মিললেই চলবে
+  var m, out=[];
+  function add(x){ if(x && out.indexOf(x)<0) out.push(x); }
+  URF_DATE_RES[0].lastIndex=0; while((m=URF_DATE_RES[0].exec(t))){ add(urfIsoDate(m[3],URF_MONTHS[m[2].toLowerCase()],m[1])); }
+  URF_DATE_RES[1].lastIndex=0; while((m=URF_DATE_RES[1].exec(t))){ add(urfIsoDate(m[3],URF_MONTHS[m[1].toLowerCase()],m[2])); }
+  URF_DATE_RES[2].lastIndex=0; while((m=URF_DATE_RES[2].exec(t))){ add(urfIsoDate(m[3],(+m[2])-1,m[1])); }
+  return out;
 }
 function urfFindUtrs(t){          // সব সম্ভাব্য রসিদ নম্বর; ১২ অঙ্কের UPI UTR আগে
   var m, c=[], lab=/(?:utr|upi\s*ref(?:erence)?(?:\s*(?:no|id|number))?|transaction\s*id|txn\s*id|ref(?:erence)?\s*(?:no|number|id)|rrn)\b[^A-Za-z0-9]{0,8}([A-Za-z0-9][A-Za-z0-9 \-]{9,34})/ig;
@@ -2558,9 +2560,10 @@ function urfFindUtrs(t){          // সব সম্ভাব্য রসি�
 /* রসিদের লেখা থেকে অঙ্ক/তারিখ/UTR বের করে; expected = সাইট যত টাকা চায় */
 function urfParseReceiptText(raw, expected){
   var t=urfBnDigits(raw).replace(/\r/g,'');
-  var out={amounts:[],hasExpected:false,maybe:false,best:null,date:'',dateText:'',utr:'',utrs:[]};
+  var out={amounts:[],hasExpected:false,maybe:false,best:null,bestSrc:'',paidWord:false,date:'',dates:[],utr:'',utrs:[]};
   out.utrs=urfFindUtrs(t); out.utr=out.utrs[0]||'';
-  var dd=urfFindDate(t); if(dd){ out.date=dd.iso; out.dateText=dd.text; }
+  out.dates=urfFindDates(t); out.date=out.dates[0]||'';
+  out.paidWord=/paid|sent|success|complet|debited|transfer|payment/i.test(t);
   var s=t;
   out.utrs.forEach(function(u){ s=s.replace(new RegExp(u.split('').join('\\s?'),'g'),' '); });
   s=s.replace(URF_DATE_RES[0],' ').replace(URF_DATE_RES[1],' ').replace(URF_DATE_RES[2],' ')      // তারিখ বাদ
@@ -2578,18 +2581,36 @@ function urfParseReceiptText(raw, expected){
     out.maybe = toks.some(function(x){ return x.length===es.length+1 && x.charAt(0)==='2' && x.slice(1)===es; });
   }
   var cm=s.match(/(?:₹|\brs\.?|\binr)\s*(\d{1,3}(?:,\d{2,3})+|\d+)(\.\d{1,2})?/i);
-  if(cm) out.best=parseFloat(cm[1].replace(/,/g,'')+(cm[2]||''));
-  else { var lines=s.split('\n'); for(var i=0;i<lines.length;i++){ var lm=lines[i].match(/^[^\dA-Za-z]*(\d{1,3}(?:,\d{2,3})+|\d+)(\.\d{1,2})?\s*$/); if(lm){ out.best=parseFloat(lm[1].replace(/,/g,'')+(lm[2]||'')); break; } } }
+  if(cm){ out.best=parseFloat(cm[1].replace(/,/g,'')+(cm[2]||'')); out.bestSrc='marker'; }
+  else { var lines=s.split('\n'); for(var i=0;i<lines.length;i++){ var lm=lines[i].match(/^[^\dA-Za-z]*(\d{1,3}(?:,\d{2,3})+|\d+)(\.\d{1,2})?\s*$/); if(lm){ out.best=parseFloat(lm[1].replace(/,/g,'')+(lm[2]||'')); out.bestSrc='line'; break; } } }
+  if(!(out.best>0)){ out.best=null; out.bestSrc=''; }
   return out;
 }
-/* পার্সের ফল → অবস্থা: amount ok|maybe|bad|none, date ok|bad|none */
+/* পার্সের ফল → অবস্থা। amount: ok | maybe | unsure | bad | none ; date: ok | bad | none
+   "bad" = নিশ্চিত গরমিল (এতেই আটকায়): ₹/Rs চিহ্নের পাশের টাকা আলাদা, অথবা একা-লাইনের টাকা ≥১০ ও রসিদে paid/success ধরনের শব্দ আছে।
+   অন্য সব অনিশ্চিত ক্ষেত্র "unsure" — আটকায় না, শুধু ⚠️। তারিখ "bad" শুধু তখন, যখন রসিদের কোনো তারিখই ±১ দিনের মধ্যে নেই। */
 function urfReceiptStates(p, expected, chosenIso){
-  var st={amount:'none',date:'none',utr:!!p.utr};
+  var st={amount:'none',date:'none',utr:!!p.utr,dateSeen:p.date||''};
   if(p.hasExpected) st.amount='ok';
   else if(p.maybe) st.amount='maybe';
-  else if(p.amounts.length) st.amount='bad';
-  if(p.date && chosenIso){ var df=urfDayDiff(p.date,chosenIso); st.date=(df!==null&&Math.abs(df)<=1)?'ok':'bad'; }
+  else if(p.amounts.length){
+    var firm = p.best!=null && (p.bestSrc==='marker' || (p.bestSrc==='line' && p.best>=10 && p.paidWord));
+    st.amount = firm ? 'bad' : 'unsure';
+  }
+  if(p.dates && p.dates.length && chosenIso){
+    var near=null, nd=null;
+    p.dates.forEach(function(d){ var df=urfDayDiff(d,chosenIso); if(df!==null && (nd===null || Math.abs(df)<Math.abs(nd))){ nd=df; near=d; } });
+    if(near!==null){ st.dateSeen=near; st.date=(Math.abs(nd)<=1)?'ok':'bad'; }
+  }
   return st;
+}
+/* জমা দেওয়া আটকানোর কারণ (বাংলায়); কিছু না থাকলে '' */
+function urfBlockReason(r, expected, chosenIso){
+  if(!r || !r.read || !r.parsed) return '';
+  var st=r.state, p=r.parsed, L=[], e='₹'+Number(expected||0).toLocaleString('en-IN');
+  if(st.amount==='bad') L.push('রসিদে ₹'+Number(p.best).toLocaleString('en-IN')+' দেখা যাচ্ছে, কিন্তু '+e+' দিতে হবে — ঠিক টাকার রসিদ দিন।');
+  if(st.date==='bad') L.push('রসিদের তারিখ '+urfIsoShow(st.dateSeen||p.date)+', কিন্তু আপনি '+urfIsoShow(chosenIso)+' দিয়েছেন — তারিখ ঠিক করুন বা সঠিক রসিদ দিন।');
+  return L.join(' ');
 }
 /*OCR-END*/
 var URF_OCR_LIB=null;
@@ -2629,44 +2650,75 @@ async function urfOcrPass(file, psm){
   file[key]=text; return text;
 }
 function urfRace(pr, ms){ return Promise.race([pr, new Promise(function(_,rej){ setTimeout(function(){ rej(new Error('timeout')); }, ms); })]); }
+/* ফাইলের "আঙুলের ছাপ" (SHA-256) — একই ছবির ফাইল দুবার দিলে সার্ভার ধরে, OCR পড়ুক বা না পড়ুক */
+async function urfFileHash(file){
+  try{
+    if(file.__urfHash!==undefined) return file.__urfHash;
+    var d=await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+    var h=Array.prototype.map.call(new Uint8Array(d),function(x){ return ('0'+x.toString(16)).slice(-2); }).join('');
+    file.__urfHash=h; return h;
+  }catch(e){ return ''; }
+}
 /* কখনো ভেঙে পড়ে না: না পারলে {read:false} ফেরত দেয় (দাবি আটকায় না) */
 async function urfReadReceipt(file, expected, chosenIso){
+  var hash=await urfFileHash(file);
   try{
     var t1=await urfRace(urfOcrPass(file,'3'),30000);
-    if(t1===null) return {read:false,why:'pdf',state:{amount:'none',date:'none',utr:false},parsed:null};
+    if(t1===null) return {read:false,why:'pdf',hash:hash,state:{amount:'none',date:'none',utr:false},parsed:null};
     var p=urfParseReceiptText(t1, expected), st=urfReceiptStates(p,expected,chosenIso);
     if(st.amount!=='ok' || !p.utr){                       // কিছু না মিললে দ্বিতীয় পাসে আবার পড়ি, দুটো লেখা জুড়ে দেখি
       try{ var t2=await urfRace(urfOcrPass(file,'11'),30000);
         if(t2){ p=urfParseReceiptText(t1+'\n'+t2, expected); st=urfReceiptStates(p,expected,chosenIso); } }catch(e2){}
     }
-    return {read:true,parsed:p,state:st};
-  }catch(e){ return {read:false,why:'fail',state:{amount:'none',date:'none',utr:false},parsed:null}; }
+    return {read:true,hash:hash,text:(typeof t2==='string'&&t2?t1+'\n'+t2:t1),parsed:p,state:st};
+  }catch(e){ return {read:false,why:'fail',hash:hash,state:{amount:'none',date:'none',utr:false},parsed:null}; }
 }
 function urfOcrFields(r){          // সার্ভারে পাঠানোর অংশ
-  if(!r||!r.read||!r.parsed) return {};
-  var p=r.parsed;
-  return {utr:p.utr||'', utrAll:(p.utrs||[]).join(','), ocrAmountState:r.state.amount, ocrAmountSeen:(p.best!=null?p.best:''), ocrDate:p.date||'', ocrDateState:r.state.date};
+  if(!r) return {};
+  var f={}; if(r.hash) f.imgHash=r.hash;
+  if(r.read && r.parsed){
+    var p=r.parsed;
+    f.utr=p.utr||''; f.utrAll=(p.utrs||[]).join(','); f.ocrAmountState=r.state.amount;
+    f.ocrAmountSeen=(p.best!=null?p.best:''); f.ocrDate=r.state.dateSeen||p.date||''; f.ocrDateState=r.state.date;
+  }
+  return f;
 }
 function urfOcrHtml(r, expected, chosenIso){
   if(!r) return '';
-  if(!r.read) return r.why==='pdf' ? 'ℹ️ PDF রসিদ স্বয়ংক্রিয়ভাবে পড়া হয় না — সংগ্রাহক দেখে নেবেন।' : 'ℹ️ রসিদ স্বয়ংক্রিয়ভাবে পড়া যায়নি — তবুও জমা দিতে পারবেন, সংগ্রাহক দেখে নেবেন।';
+  if(!r.read) return r.why==='pdf' ? 'ℹ️ PDF রসিদ স্বয়ংক্রিয়ভাবে পড়া হয় না — সংগ্রাহক দেখে নেবেন।' : '⚠️ রসিদ স্বয়ংক্রিয়ভাবে পড়া যায়নি (ইন্টারনেট ধীর বা ছবি অস্পষ্ট হতে পারে) — তবুও জমা দিতে পারবেন, সংগ্রাহক হাতে মিলিয়ে নেবেন।';
   var p=r.parsed, st=r.state, L=[], e='₹'+Number(expected||0).toLocaleString('en-IN');
   if(st.amount==='ok') L.push('✅ রসিদে '+e+' পাওয়া গেছে — অঙ্ক মিলেছে');
   else if(st.amount==='maybe') L.push('⚠️ রসিদে '+e+' থাকতে পারে, কিন্তু নিশ্চিত পড়া যায়নি'+(p.best!=null?' (রসিদে ₹'+Number(p.best).toLocaleString('en-IN')+' মনে হচ্ছে)':''));
-  else if(st.amount==='bad') L.push('⚠️ রসিদে '+e+' খুঁজে পাইনি'+(p.best!=null?' (রসিদে ₹'+Number(p.best).toLocaleString('en-IN')+' মনে হচ্ছে)':'')+' — ঠিক রসিদ দিয়েছেন তো?');
-  else L.push('ℹ️ রসিদ থেকে অঙ্ক পড়া যায়নি');
-  if(st.date==='ok') L.push('✅ তারিখ মিলেছে ('+urfIsoShow(p.date)+')');
-  else if(st.date==='bad') L.push('⚠️ রসিদের তারিখ '+urfIsoShow(p.date)+', আপনি দিয়েছেন '+urfIsoShow(chosenIso));
+  else if(st.amount==='bad') L.push('❌ রসিদে '+e+' খুঁজে পাইনি'+(p.best!=null?' (রসিদে ₹'+Number(p.best).toLocaleString('en-IN')+' দেখা যাচ্ছে)':''));
+  else if(st.amount==='unsure') L.push('⚠️ রসিদে '+e+' আছে কিনা নিশ্চিত পড়া যায়নি — সংগ্রাহক হাতে মিলিয়ে নেবেন');
+  else L.push('ℹ️ রসিদ থেকে অঙ্ক পড়া যায়নি — সংগ্রাহক হাতে মিলিয়ে নেবেন');
+  if(st.date==='ok') L.push('✅ তারিখ মিলেছে ('+urfIsoShow(st.dateSeen||p.date)+')');
+  else if(st.date==='bad') L.push('❌ রসিদের তারিখ '+urfIsoShow(st.dateSeen||p.date)+', আপনি দিয়েছেন '+urfIsoShow(chosenIso));
   if(p.utr) L.push('🔎 রসিদ নম্বর (UTR) পড়া গেছে: …'+p.utr.slice(-4));
   return L.join('<br>');
 }
-async function urfOcrPick(input, boxId, getExpected, getDate){
+/* রসিদ বাছলে পড়ে ফল দেখায়; নিশ্চিত গরমিল থাকলে "পেমেন্ট করেছি" বোতাম বন্ধ করে দেয়।
+   তারিখ বা পদ্ধতি (নগদ) বদলালে সাথে সাথে আবার মিলিয়ে বোতাম খোলে/বন্ধ করে। btnId/dateId/methodId ঐচ্ছিক। */
+async function urfOcrPick(input, boxId, getExpected, getDate, btnId, dateId, methodId){
   var box=document.getElementById(boxId); if(!box) return;
-  var f=input.files&&input.files[0]; if(!f){ box.innerHTML=''; return; }
-  box.innerHTML='⏳ রসিদ পড়া হচ্ছে… (প্রথমবার একটু সময় লাগতে পারে)';
-  var expected=getExpected(), iso=getDate();
-  var r=await urfReadReceipt(f, expected, iso);
-  box.innerHTML=urfOcrHtml(r, expected, iso);
+  var btn=btnId?document.getElementById(btnId):null;
+  function lock(reason){ if(btn){ btn.disabled=!!reason; btn.title=reason||''; btn.style.opacity=reason?'.5':''; } }
+  var f=input.files&&input.files[0];
+  if(!f){ box.innerHTML=''; lock(''); return; }
+  box.innerHTML='⏳ রসিদ পড়া হচ্ছে… (প্রথমবার একটু সময় লাগতে পারে)'; lock('');
+  var r=await urfReadReceipt(f, getExpected(), getDate());
+  function render(){
+    var m=methodId?document.getElementById(methodId):null, exp=getExpected(), iso=getDate();
+    if(m && m.value==='cash'){ box.innerHTML=''; lock(''); return; }
+    var rr=r;                                   // টাকা/তারিখ বদলালে একই লেখা নতুন মান দিয়ে আবার পার্স করি
+    if(r.read && r.parsed){ var pp=(typeof r.text==='string')?urfParseReceiptText(r.text,exp):r.parsed; rr=Object.assign({},r,{parsed:pp,state:urfReceiptStates(pp,exp,iso)}); }
+    var why=urfBlockReason(rr,exp,iso);
+    box.innerHTML=urfOcrHtml(rr,exp,iso)+(why?'<br><b style="color:#b3261e">⛔ এই অবস্থায় জমা দেওয়া যাবে না: '+why+'</b>':'');
+    lock(why);
+  }
+  render();
+  [dateId,methodId].forEach(function(id){ var el=id?document.getElementById(id):null; if(!el) return;
+    if(el.__urfH) el.removeEventListener('change',el.__urfH); el.__urfH=render; el.addEventListener('change',render); });
 }
 
 // Shrinks a phone-camera photo before it goes over the network — a raw
@@ -2720,7 +2772,7 @@ async function onReceiptFileChosen(ev, token){
     const receipt = await compressReceiptFile(file);
     const preq = (DATA.paymentRequests||[]).find(x=>x.token===token);
     const ocr = await urfReadReceipt(file, preq?Number(preq.amount):0, preq?urfDmyToIso(preq.paymentDate):'');
-    if(preq && ocr.read && ocr.state.amount === 'bad' && !confirm('⚠️ রসিদে ₹'+preq.amount+' খুঁজে পাইনি'+(ocr.parsed.best!=null?' (রসিদে ₹'+ocr.parsed.best+' মনে হচ্ছে)':'')+'।\nতবুও কি এই রসিদ যুক্ত করবেন?')){ flashSaved('রসিদ যুক্ত করা হয়নি', true); return; }
+    const why = preq ? urfBlockReason(ocr, Number(preq.amount), urfDmyToIso(preq.paymentDate)) : ''; if(why){ flashSaved('রসিদ যুক্ত করা হয়নি', true); if(errBox){ errBox.textContent = '⛔ ' + why; errBox.hidden = false; } return; }
     const res = await fetch(SCRIPT_URL, {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=utf-8'},
@@ -3047,11 +3099,11 @@ function loanRepayFooterHTML(){
       <div class="pay-field" id="loanRepayReceiptField" style="margin-top:1rem;">
         <label class="field-label" for="loanRepayReceiptInput">পেমেন্টের স্ক্রিনশট (আবশ্যক)</label>
         <input type="file" accept="image/*,application/pdf" id="loanRepayReceiptInput" class="pay-select"
-               onchange="urfOcrPick(this,'loanRepayOcrBox',function(){var a=document.getElementById('loanRepayAmountInput');return a?Number(a.value):0;},function(){var d=document.getElementById('loanRepayDate');return d?d.value:'';})">
+               onchange="urfOcrPick(this,'loanRepayOcrBox',function(){var a=document.getElementById('loanRepayAmountInput');return a?Number(a.value):0;},function(){var d=document.getElementById('loanRepayDate');return d?d.value:'';},'loanRepayClaimBtn','loanRepayDate','loanRepayMethod')">
         <div id="loanRepayOcrBox" class="hint-text" style="margin-top:.4rem;line-height:1.5;"></div>
       </div>
       <div class="pay-actions">
-        <button class="pay-btn claim" onclick="confirmLoanRepayClaim(event)">✅ পরিশোধ করেছি</button>
+        <button class="pay-btn claim" id="loanRepayClaimBtn" onclick="confirmLoanRepayClaim(event)">✅ পরিশোধ করেছি</button>
       </div>
       <div class="msg-err" id="loanRepayErr" hidden></div>
       <div class="msg-ok" id="loanRepayOk" hidden></div>
@@ -3235,7 +3287,7 @@ async function confirmLoanRepayClaim(ev){
     let ocr = null;
     if(file && method !== 'cash'){
       ocr = await urfReadReceipt(file, amount, paymentDate);
-      if(ocr.read && ocr.state.amount === 'bad' && !confirm('⚠️ রসিদে ₹'+amount+' খুঁজে পাইনি'+(ocr.parsed.best!=null?' (রসিদে ₹'+ocr.parsed.best+' মনে হচ্ছে)':'')+'।\nতবুও কি এই রসিদসহ জমা দেবেন?')) return;
+      const why = urfBlockReason(ocr, amount, paymentDate); if(why){ errBox.textContent = '⛔ ' + why; errBox.hidden = false; return; }
     }
     const cashRecipientEl = document.getElementById('loanRepayCashRecipient');
     const cashRecipient = (method === 'cash' && cashRecipientEl) ? cashRecipientEl.value : '';
@@ -5318,7 +5370,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
       var rc=await compressReceiptFile(file);
       var preq=(DATA.paymentRequests||[]).find(function(x){return x.token===it.token;});
       var ocr=await urfReadReceipt(file, preq?Number(preq.amount):0, preq?urfDmyToIso(preq.paymentDate):'');
-      if(preq && ocr.read && ocr.state.amount==='bad' && !confirm('⚠️ রসিদে ₹'+preq.amount+' খুঁজে পাইনি'+(ocr.parsed.best!=null?' (রসিদে ₹'+ocr.parsed.best+' মনে হচ্ছে)':'')+'।\nতবুও কি এই রসিদ যুক্ত করবেন?')){ it.done=false; markItemDone(id,i,'রসিদ যুক্ত করা হয়নি — সঠিক রসিদ বেছে আবার চেষ্টা করুন।'); return; }
+      var why=preq?urfBlockReason(ocr,Number(preq.amount),urfDmyToIso(preq.paymentDate)):''; if(why){ it.done=false; markItemDone(id,i,'⛔ রসিদ যুক্ত হয়নি: '+why.replace(/[<>&]/g,'')+' (সঠিক রসিদ বেছে আবার চেষ্টা করুন)'); return; }
       var json=await postBody(Object.assign({action:'attachPaymentReceipt',token:it.token,userId:memberSession.userId,pin:memberSession.pin,receiptData:rc.data,receiptMime:rc.mime}, urfOcrFields(ocr)));
       if(!json.ok){ it.done=false; markItemDone(id,i,'❌ হয়নি: '+String(json.error||'আবার চেষ্টা করুন.').replace(/[<>&]/g,'')); return; }
       markItemDone(id,i,'✅ রসিদ যুক্ত হয়েছে'); add('✅ রসিদ যুক্ত হয়েছে — '+(DATA.collectorName||'সংগ্রাহক')+' এবার দ্রুত যাচাই করতে পারবেন।'); await refreshAfter();
