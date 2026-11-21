@@ -1843,7 +1843,7 @@ function buildApprovalCardHTML(idSuffix, readOnly){
           ['পেমেন্টের তারিখ', p.paymentDate||'—'],
           ['কবে জমা দিয়েছে', p.askedAt||'—']
         ];
-        if(p.ocrNote) rows.push(['রসিদ পরীক্ষা (OCR)', p.ocrNote]);
+        { const g=urfReceiptGrade(p.method,p.ocrNote); rows.push(['রসিদ পরীক্ষা', urfGradeIcon(g)+' '+(g==='cash'?'নগদ — রসিদ নেই, সংগ্রাহক নিজে হাতে মিলিয়ে নেবেন':(p.ocrNote||'রসিদ স্বয়ংক্রিয়ভাবে পড়া হয়নি — হাতে মিলিয়ে নিন'))]); }
         if(p.cashRecipient){
           rows.push([p.cashRecipient+' টাকা পেয়েছেন', p.recipientApprovedAt||'—']);
         }
@@ -2023,7 +2023,7 @@ function buildLoanRepayApprovalCardHTML(idSuffix, readOnly){
           ['পরিশোধের তারিখ', r.paymentDate||'—'], ['মাধ্যম', r.method], ['রসিদ', receipt],
           ['কবে জমা দিয়েছে', r.askedAt||'—']
         ];
-        if(r.ocrNote) rows.push(['রসিদ পরীক্ষা (OCR)', r.ocrNote]);
+        { const g=urfReceiptGrade(r.method,r.ocrNote); rows.push(['রসিদ পরীক্ষা', urfGradeIcon(g)+' '+(g==='cash'?'নগদ — রসিদ নেই, সংগ্রাহক নিজে হাতে মিলিয়ে নেবেন':(r.ocrNote||'রসিদ স্বয়ংক্রিয়ভাবে পড়া হয়নি — হাতে মিলিয়ে নিন'))]); }
         if(r.cashRecipient){
           rows.push([r.cashRecipient+' টাকা পেয়েছেন', r.recipientApprovedAt||'—']);
         }
@@ -2721,6 +2721,15 @@ async function urfOcrPick(input, boxId, getExpected, getDate, btnId, dateId, met
     if(el.__urfH) el.removeEventListener('change',el.__urfH); el.__urfH=render; el.addEventListener('change',render); });
 }
 
+/* অনুমোদনকারীর জন্য রং: 🟢 সবুজ = অঙ্ক ✅ + তারিখ ✅ + নতুন UTR ✅ (কোনো ⚠️ নেই); 💵 নগদ = রসিদ নেই, সংগ্রাহক নিজে জানেন;
+   🟡 হলুদ = বাকি সব (পড়া যায়নি/অনিশ্চিত/কিছু মেলেনি) — হাতে দেখে নিন। এটা শুধু বাছাই, অনুমোদন সবসময় মানুষের হাতে। */
+function urfReceiptGrade(method, note){
+  var n=String(note||''), m=String(method||'');
+  if(m.indexOf('নগদ')>=0) return 'cash';
+  if(/অঙ্ক ✅/.test(n) && /তারিখ ✅/.test(n) && /UTR …[0-9A-Za-z]{4} নতুন ✅/.test(n) && n.indexOf('⚠️')<0) return 'green';
+  return 'yellow';
+}
+function urfGradeIcon(g){ return g==='green'?'🟢':(g==='cash'?'💵':'🟡'); }
 // Shrinks a phone-camera photo before it goes over the network — a raw
 // screenshot can be several MB, which is slow on mobile data and wasteful to
 // store. 1000px wide at JPEG quality 0.72 keeps the receipt readable at a
@@ -4549,7 +4558,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     out+=section('✅ আপনার সিদ্ধান্ত/অনুমোদন দরকার',mine);
     if(!mine.length) out+='<br><br>✅ আপনার নিজের ধাপে এখন কিছু বাকি নেই।';
     out+=section('⏳ অন্যের ধাপে অপেক্ষায়',others);
-    if(mine.length) out+='<br><br>👉 অনুমোদন দিতে বাঁদিকের মেনু থেকে '+((nPay&&wantPay)?'<b>🧾 মাসিক জমার অনুমোদন</b>':'')+((nLoan&&wantLoan)?(nPay&&wantPay?', ':'')+'<b>🏦 ঋণ অনুমোদন</b>':'')+((nRep&&wantLoan)?((nPay&&wantPay)||(nLoan&&wantLoan)?', ':'')+'<b>💵 ঋণ পরিশোধ অনুমোদন</b>':'')+' খুলুন।<br>অথবা এখানেই লিখুন: <i>"sobar approve kore dao"</i> বা <i>"<নাম> er approve kore dao"</i> (জমা/সুদ/ফাইন/ঋণ-পরিশোধ)।';
+    if(mine.length) out+='<br><br>👉 অনুমোদন দিতে বাঁদিকের মেনু থেকে '+((nPay&&wantPay)?'<b>🧾 মাসিক জমার অনুমোদন</b>':'')+((nLoan&&wantLoan)?(nPay&&wantPay?', ':'')+'<b>🏦 ঋণ অনুমোদন</b>':'')+((nRep&&wantLoan)?((nPay&&wantPay)||(nLoan&&wantLoan)?', ':'')+'<b>💵 ঋণ পরিশোধ অনুমোদন</b>':'')+' খুলুন।<br>অথবা এখানেই লিখুন: <i>"sobuj approve kore dao"</i> (শুধু সব-মেলা সবুজগুলো), <i>"sobar approve kore dao"</i> বা <i>"<নাম> er approve kore dao"</i> (জমা/সুদ/ফাইন/ঋণ-পরিশোধ)।';
     return out+'<br><span style="opacity:.7">(⚠️ = ৩ দিন বা তার বেশি অপেক্ষায়)</span>';
   }
   /* ===== প্রশ্ন স্বাভাবিক করা: Banglish বানান/সংক্ষেপ → একই শব্দ ===== */
@@ -5438,9 +5447,11 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
       return s;
     }
     var allW=has(l,['sob','sobar','sobai','sobaike','sokol','sobaike','all','everyone','everything','সব','সবার','সবাই','সবগুলো','সবগুলি','সকল']);
+    var greenW=has(l,['sobuj','sabuj','shobuj','green','সবুজ']);        // "সবুজ গুলো approve kore dao"
     var asked=[];
     var sc=names.map(function(nm){return {nm:nm,s:nameHit(nm)};}).filter(function(x){return x.s>0;});
     if(sc.length){ var top=Math.max.apply(null,sc.map(function(x){return x.s;})); asked=sc.filter(function(x){return x.s===top;}).map(function(x){return x.nm;}); }
+    if(greenW && !asked.length) allW=true;                              // সবুজ বললে নাম ছাড়াই সবার সবুজগুলো
     // নাম বলা হয়েছে কিন্তু আমার ধাপে তার কিছু নেই
     if(!asked.length && !allW){
       var any=(DATA.contributions||[]).filter(function(m){return nameHit(m.name)>0;});
@@ -5464,6 +5475,12 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
       }
     }
     if(!items.length) return {html:'ℹ️ এই বিষয়ে এখন আপনার ('+roleTxt+') ধাপে কোনো অনুমোদন বাকি নেই।'};
+    items.forEach(function(it){ it.grade=urfReceiptGrade(it.method,it.ocr); });
+    if(greenW){
+      var notGreen=items.filter(function(it){return it.grade!=='green';}).length;
+      items=items.filter(function(it){return it.grade==='green';});
+      if(!items.length) return {html:'🟢 এখন কোনো সবুজ (সব মেলা) দাবি নেই।'+(notGreen?'<br>🟡/💵 '+notGreen+'টি হাতে দেখতে হবে — <i>"sobar approve kore dao"</i> বললে তালিকা দেখাব, বা মেনুর অনুমোদন পাতা খুলুন।':'')};
+    }
     // ---- ডুপ্লিকেট: একই সদস্য+একই মাস/অঙ্ক একাধিক অপেক্ষমাণ থাকলে শুধু সবচেয়ে পুরনোটা ----
     var pendAll=[];
     (DATA.paymentRequests||[]).forEach(function(p,ix){ if(['collector','admin','recipient'].indexOf(p.stage)>=0) pendAll.push({kind:'pay',token:p.token,key:apprPendKey('pay',p),days:apprDays(p.askedAt),ix:ix}); });
@@ -5475,9 +5492,11 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
       if(grp[0].token!==it.token) it.skip='একই দাবি আগেও আছে (ডুপ্লিকেট) — বাদ';
     });
     var okItems=items.filter(function(it){return !it.skip;}), dupItems=items.filter(function(it){return it.skip;});
+    var GR={green:0,yellow:1,cash:2}; okItems=okItems.map(function(it,ix){return {it:it,ix:ix};}).sort(function(a,b){ return (GR[a.it.grade]-GR[b.it.grade]) || (a.ix-b.ix); }).map(function(x){return x.it;});   // সবুজ আগে
+    var gC={green:0,yellow:0,cash:0}; okItems.forEach(function(it){ gC[it.grade]++; });
     var total=okItems.reduce(function(s,it){return s+it.amount;},0);
     function itLine(it){
-      return '• <b>'+it.member+'</b> — '+it.type+(it.month?' ('+it.month+')':'')+' '+rs(it.amount)+(it.method?' · '+it.method:'')+((it.method&&it.method.indexOf('অনলাইন')>=0&&!it.receipt)?' ⚠️ রসিদ নেই':'')+apprAge(it.asked)+(it.ocr?'<br>&nbsp;&nbsp;🔎 '+it.ocr:'');
+      return urfGradeIcon(it.grade)+' <b>'+it.member+'</b> — '+it.type+(it.month?' ('+it.month+')':'')+' '+rs(it.amount)+(it.method?' · '+it.method:'')+((it.method&&it.method.indexOf('অনলাইন')>=0&&!it.receipt)?' ⚠️ রসিদ নেই':'')+apprAge(it.asked)+(it.ocr?'<br>&nbsp;&nbsp;🔎 '+it.ocr:'');
     }
     var id=newId();
     if(!okItems.length){
@@ -5485,8 +5504,8 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     }
     HD.acts[id]={kind:'apprbulk',items:okItems,created:Date.now(),running:false};
     var shown=okItems.slice(0,15).map(itLine).join('<br>')+(okItems.length>15?'<br>…আরও '+(okItems.length-15)+'টি':'');
-    var who=(asked.length&&!allW)?asked.map(function(n){return '<b>'+n+'</b>';}).join(', ')+'-এর':'সবার';
-    var inner='<b>📋 '+who+' অনুমোদন — নিশ্চিত করুন</b><br><span style="opacity:.8;font-size:.9em">আপনার ধাপ: '+roleTxt+' · '+okItems.length+'টি · মোট '+rs(total)+'</span><div style="margin:.4rem 0">'+shown+'</div>'
+    var who=(asked.length&&!allW)?asked.map(function(n){return '<b>'+n+'</b>';}).join(', ')+'-এর':(greenW?'সবুজ (সব মেলা) দাবিগুলোর':'সবার');
+    var inner='<b>📋 '+who+' অনুমোদন — নিশ্চিত করুন</b><br><span style="opacity:.8;font-size:.9em">আপনার ধাপ: '+roleTxt+' · '+okItems.length+'টি · মোট '+rs(total)+' &nbsp;(🟢 '+gC.green+' · 🟡 '+gC.yellow+' · 💵 '+gC.cash+')</span><div style="margin:.4rem 0">'+shown+'</div>'
       +(dupItems.length?'<div style="margin:.3rem 0;padding:.4rem .55rem;border-radius:8px;background:#FFF3D6;border:1px solid #E7C877;font-size:.9em">⚠️ <b>'+dupItems.length+'টি ডুপ্লিকেট দাবি বাদ রাখা হয়েছে</b> (একই সদস্যের একই মাসের একটা দাবি আগে থেকেই আছে):<br>'+dupItems.slice(0,6).map(itLine).join('<br>')+'</div>':'')
       +(skippedLoan?'<span style="opacity:.75;font-size:.85em">ঋণের '+skippedLoan+'টি কাজ (বিতরণ/জরুরি আবেদন) এখানে হবে না — মেনু থেকে করুন।</span><br>':'')
       +'<span style="opacity:.75;font-size:.85em">"হ্যাঁ" চাপলে সাইটের নিজস্ব অনুমোদন এক-এক করে চলবে।</span><br>';
@@ -5531,11 +5550,60 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     if(okN) out+='<br><span style="opacity:.75;font-size:.85em">(অনুমোদনের মন্তব্যে "URF Sathi দিয়ে অনুমোদন" লেখা আছে।)</span>';
     add(out);
   };
+  /* ===== মাসিক রিপোর্ট + মনে করানোর পূর্বরূপ — শুধু সংগ্রাহক (Satyajit Das) ও অ্যাডমিন (Prasun Jyoti); পূর্বরূপ শুধু Prasun =====
+     "ei masher report dao" / "gato masher report" / "reminder preview dekhao". সার্ভার আবার নিজের পাসওয়ার্ডে যাচাই করে। কিছু পাঠায় না। */
+  function asyncCard(label, body){
+    var id=newId(), tries=0;
+    (function fill(){
+      var el=document.getElementById('card-'+id);
+      if(!el){ if(++tries<40) setTimeout(fill,150); return; }
+      postBody(Object.assign({userId:memberSession.userId,pin:memberSession.pin},body)).then(function(j){
+        el.innerHTML=(j&&j.ok)?j.html:'❌ '+String((j&&j.error)||'পাওয়া যায়নি').replace(/[<>&]/g,'');
+      }).catch(function(){ el.innerHTML='❌ নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।'; });
+    })();
+    return {noSave:true, html:'<div id="card-'+id+'" style="border:1px solid #E7C877;border-left:4px solid #1E6B3A;border-radius:10px;padding:.6rem .75rem;background:#FFFCF2">⏳ '+label+'</div>'};
+  }
+  function reportAction(t0){
+    if(typeof memberSession==='undefined'||!memberSession||!memberSession.userId||typeof DATA==='undefined'||!DATA) return null;
+    var l=nz(t0), w=apprWho();
+    if(!w.c && !w.a) return null;
+    if(has(l,['kivabe','kibhabe','keno','কেন','কীভাবে','niyom','নিয়ম','kobe','কবে'])) return null;
+    if(w.a && has(l,['reminder','মনে করান','mone koran','mone koriye','smaran','স্মরণ']) && has(l,['preview','purborup','পূর্বরূপ','dekhao','dekhi','দেখাও','dekhan','ke ke','kake','কাকে','list','talika','তালিকা','pabe','pathabe','পাঠাবে'])){
+      return asyncCard('মনে করানোর পূর্বরূপ বানানো হচ্ছে… (কিছু পাঠানো হবে না)',{action:'reminderPreview'});
+    }
+    if(w.a && has(l,['reminder','মনে করান','mone koran','mone koriye','smaran','স্মরণ'])){
+      var onW=has(l,['chalu','চালু','shuru','শুরু','start','on']), offW=has(l,['bondho','bandho','বন্ধ','stop','off']);
+      if(onW||offW){
+        var idS=newId(), onNow=onW&&!offW; HD.acts[idS]={kind:'remsw',on:onNow,running:false};
+        return {noSave:true, html:wrapCard(idS,
+          '<b>📧 স্বয়ংক্রিয় মনে করানো '+(onNow?'চালু':'বন্ধ')+' করবেন?</b><br><span style="font-size:.9em;opacity:.85">'
+          +(onNow?'চালু হলে প্রতি মাসের <b>১২ ও ১৪ তারিখ সকালে</b>, যাঁর জমা বা ঋণের সুদ বাকি শুধু তাঁকেই ইমেইল যাবে (অনুমোদনের অপেক্ষায় থাকা দাবি বাদ), আর <b>১৬ তারিখে</b> মাসিক রিপোর্ট আপনাকে ও সংগ্রাহককে। আগে <i>"reminder preview dekhao"</i> দিয়ে কাকে কী যেত দেখে নিতে পারেন।'
+                   :'বন্ধ করলে কোনো স্বয়ংক্রিয় ইমেইল (মনে করানো বা রিপোর্ট) যাবে না।')+'</span>',
+          '<button type="button" class="hd-go" style="margin:.4rem .4rem 0 0" onclick="hdRemSw(\''+idS+'\')">✅ হ্যাঁ, '+(onNow?'চালু':'বন্ধ')+' করুন</button>'+noBtn(idS,'❌ না, থাক'))};
+      }
+    }
+    if(has(l,['report','রিপোর্ট','riport','summary','সারাংশ','sarangsho'])){
+      var prev=has(l,['gato','গত','ager','আগের','last','previous']);
+      return asyncCard('রিপোর্ট বানানো হচ্ছে…',{action:'monthlyReport',monthOffset:prev?-1:0});
+    }
+    return null;
+  }
+  window.hdRemSw=async function(id){
+    var a=HD.acts[id], card=document.getElementById('card-'+id);
+    if(!a||a.kind!=='remsw'||!card||a.running) return;
+    a.running=true; card.innerHTML='⏳ হচ্ছে…';
+    try{
+      var j=await postBody({action:'reminderSwitch',userId:memberSession.userId,pin:memberSession.pin,on:a.on});
+      delete HD.acts[id]; dropCard(card);
+      add(j&&j.ok ? '✅ স্বয়ংক্রিয় মনে করানো এখন <b>'+(j.on?'চালু':'বন্ধ')+'</b>।' : '❌ '+String((j&&j.error)||'হয়নি').replace(/[<>&]/g,''));
+    }catch(e){ a.running=false; card.innerHTML='❌ নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন।'; }
+  };
   function hdAnswer(t0){
     var ck=closingKind(t0); if(ck) return closingMsg(ck);
     var ac=null; try{ ac=navAction(t0); }catch(eN){ ac=null; } if(ac) return ac;
     try{ ac=taskAction(t0); }catch(eT){ ac=null; } if(ac) return ac;
     try{ ac=apprChatAction(t0); }catch(eAp){ ac=null; } if(ac) return ac;
+    try{ ac=reportAction(t0); }catch(eRp){ ac=null; } if(ac) return ac;
     try{ ac=loanAction(t0); }catch(eAc){ ac=null; } if(ac) return ac;
     try{ ac=payAction(t0); }catch(eAc2){ ac=null; } if(ac) return ac;
     var t=nz(t0), r=null;
