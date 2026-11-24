@@ -2613,6 +2613,54 @@ function urfBlockReason(r, expected, chosenIso){
   return L.join(' ');
 }
 /*OCR-END*/
+/* ---- PDF রসিদ: pdf.js দিয়ে (১) ভেতরের লেখা (GPay/PhonePe-র PDF-এ থাকে) (২) না থাকলে পাতার ছবি তুলে OCR ---- */
+var URF_PDF_LIB=null;
+function urfIsPdf(file){ return /pdf/i.test(file.type||'') || /\.pdf$/i.test(file.name||''); }
+function urfLoadPdfJs(){
+  if(window.pdfjsLib) return Promise.resolve();
+  if(URF_PDF_LIB) return URF_PDF_LIB;
+  URF_PDF_LIB=new Promise(function(res,rej){
+    var s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
+    s.onload=function(){ try{ window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'; }catch(e){} res(); };
+    s.onerror=function(){ URF_PDF_LIB=null; rej(new Error('pdfjs')); };
+    document.head.appendChild(s);
+  });
+  return URF_PDF_LIB;
+}
+async function urfPdfOpen(file){
+  if(file.__urfPdfDoc) return file.__urfPdfDoc;
+  await urfLoadPdfJs();
+  file.__urfPdfDoc=await window.pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
+  return file.__urfPdfDoc;
+}
+async function urfPdfText(file){
+  if(file.__urfPdfTxt!==undefined) return file.__urfPdfTxt;
+  var doc=await urfPdfOpen(file), out=[];
+  for(var i=1;i<=Math.min(doc.numPages,2);i++){
+    var pg=await doc.getPage(i), tc=await pg.getTextContent(), line='', lastY=null;
+    tc.items.forEach(function(it){ var y=it.transform?it.transform[5]:0; if(lastY!==null && Math.abs(y-lastY)>2) line+='\n'; else if(line) line+=' '; line+=it.str; lastY=y; });
+    out.push(line);
+  }
+  file.__urfPdfTxt=out.join('\n'); return file.__urfPdfTxt;
+}
+async function urfPdfToCanvas(file){
+  var doc=await urfPdfOpen(file), pg=await doc.getPage(1), v0=pg.getViewport({scale:1});
+  var target=v0.width<1100?1300:(v0.width>1700?1700:v0.width), vp=pg.getViewport({scale:target/v0.width});
+  var c=document.createElement('canvas'); c.width=Math.round(vp.width); c.height=Math.round(vp.height);
+  var cx=c.getContext('2d'); cx.fillStyle='#fff'; cx.fillRect(0,0,c.width,c.height);
+  await pg.render({canvasContext:cx,viewport:vp}).promise;
+  return c;
+}
+/* ভেতরের লেখা যথেষ্ট (৪০+ অক্ষর) হলে সেটাই নিই (নির্ভুল, দ্রুত); না হলে (স্ক্যান/ছবি-ভরা PDF) পাতার ছবি OCR করি */
+async function urfPdfPass(file, psm){
+  var txt=''; try{ txt=await urfPdfText(file); }catch(e){}
+  if(txt.replace(/\s+/g,'').length>=40) return psm==='3' ? txt : '';
+  await urfLoadTesseract();
+  var canvas=await urfPdfToCanvas(file), worker=await Tesseract.createWorker('eng'), text='';
+  try{ await worker.setParameters({tessedit_pageseg_mode:psm}); var r=await worker.recognize(canvas); text=(r&&r.data&&r.data.text)||''; }
+  finally{ try{ await worker.terminate(); }catch(e){} }
+  return text;
+}
 var URF_OCR_LIB=null;
 function urfLoadTesseract(){
   if(window.Tesseract) return Promise.resolve();
@@ -2642,7 +2690,8 @@ function urfFileToCanvas(file){
 async function urfOcrPass(file, psm){
   var key='__urfT'+psm;
   if(file[key]!==undefined) return file[key];
-  if(!/^image\//.test(file.type||'')) { file[key]=null; return null; }               // PDF: স্বয়ংক্রিয় পড়া হয় না
+  if(urfIsPdf(file)){ file[key]=await urfPdfPass(file,psm); return file[key]; }       // PDF: ভেতরের লেখা + পাতার ছবি পড়ি
+  if(!/^image\//.test(file.type||'')) { file[key]=null; return null; }               // ছবি বা PDF ছাড়া অন্য ফাইল পড়া হয় না
   await urfLoadTesseract();
   var canvas=await urfFileToCanvas(file), worker=await Tesseract.createWorker('eng'), text='';
   try{ await worker.setParameters({tessedit_pageseg_mode:psm}); var r=await worker.recognize(canvas); text=(r&&r.data&&r.data.text)||''; }
@@ -2685,7 +2734,7 @@ function urfOcrFields(r){          // সার্ভারে পাঠান�
 }
 function urfOcrHtml(r, expected, chosenIso){
   if(!r) return '';
-  if(!r.read) return r.why==='pdf' ? 'ℹ️ PDF রসিদ স্বয়ংক্রিয়ভাবে পড়া হয় না — সংগ্রাহক দেখে নেবেন।' : '⚠️ রসিদ স্বয়ংক্রিয়ভাবে পড়া যায়নি (ইন্টারনেট ধীর বা ছবি অস্পষ্ট হতে পারে) — তবুও জমা দিতে পারবেন, সংগ্রাহক হাতে মিলিয়ে নেবেন।';
+  if(!r.read) return r.why==='pdf' ? 'ℹ️ এই ফাইলটি স্বয়ংক্রিয়ভাবে পড়া যায় না (ছবি বা PDF দিন) — সংগ্রাহক দেখে নেবেন।' : '⚠️ রসিদ স্বয়ংক্রিয়ভাবে পড়া যায়নি (ইন্টারনেট ধীর বা ছবি অস্পষ্ট হতে পারে) — তবুও জমা দিতে পারবেন, সংগ্রাহক হাতে মিলিয়ে নেবেন।';
   var p=r.parsed, st=r.state, L=[], e='₹'+Number(expected||0).toLocaleString('en-IN');
   if(st.amount==='ok') L.push('✅ রসিদে '+e+' পাওয়া গেছে — অঙ্ক মিলেছে');
   else if(st.amount==='maybe') L.push('⚠️ রসিদে '+e+' থাকতে পারে, কিন্তু নিশ্চিত পড়া যায়নি'+(p.best!=null?' (রসিদে ₹'+Number(p.best).toLocaleString('en-IN')+' মনে হচ্ছে)':''));
@@ -2705,8 +2754,10 @@ async function urfOcrPick(input, boxId, getExpected, getDate, btnId, dateId, met
   function lock(reason){ if(btn){ btn.disabled=!!reason; btn.title=reason||''; btn.style.opacity=reason?'.5':''; } }
   var f=input.files&&input.files[0];
   if(!f){ box.innerHTML=''; lock(''); return; }
-  box.innerHTML='⏳ রসিদ পড়া হচ্ছে… (প্রথমবার একটু সময় লাগতে পারে)'; lock('');
+  var tok=input.__urfTok=(input.__urfTok||0)+1;
+  box.innerHTML='⏳ রসিদ পড়া ও মেলানো হচ্ছে… (প্রথমবার একটু সময় লাগতে পারে) — শেষ না হওয়া পর্যন্ত বোতাম বন্ধ'; lock('রসিদ মেলানো চলছে — একটু অপেক্ষা করুন');
   var r=await urfReadReceipt(f, getExpected(), getDate());
+  if(tok!==input.__urfTok) return;               // এর মধ্যে অন্য ফাইল বাছা হয়েছে
   function render(){
     var m=methodId?document.getElementById(methodId):null, exp=getExpected(), iso=getDate();
     if(m && m.value==='cash'){ box.innerHTML=''; lock(''); return; }
