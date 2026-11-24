@@ -2419,6 +2419,7 @@ async function confirmPaymentClaim(ev, type){
   const errBox = document.getElementById('payErr');
   const okBox = document.getElementById('payOk');
   errBox.hidden = true; okBox.hidden = true;
+  { const ri = document.getElementById('payReceiptInput'); if(ri && ri.__urfBusy){ errBox.textContent = '⏳ রসিদ মেলানো চলছে — শেষ হলে আবার "পেমেন্ট করেছি" চাপুন।'; errBox.hidden = false; return; } }
 
   const isFine = type === 'fine';
   let monthLabel, monthIndexes = [];
@@ -2753,11 +2754,12 @@ async function urfOcrPick(input, boxId, getExpected, getDate, btnId, dateId, met
   var btn=btnId?document.getElementById(btnId):null;
   function lock(reason){ if(btn){ btn.disabled=!!reason; btn.title=reason||''; btn.style.opacity=reason?'.5':''; } }
   var f=input.files&&input.files[0];
-  if(!f){ box.innerHTML=''; lock(''); return; }
-  var tok=input.__urfTok=(input.__urfTok||0)+1;
+  if(!f){ input.__urfTok=(input.__urfTok||0)+1; input.__urfBusy=false; box.innerHTML=''; lock(''); return; }
+  var tok=input.__urfTok=(input.__urfTok||0)+1; input.__urfBusy=true;       // মেলানো চলছে: জমা দেওয়ার কোনো পথই খোলা নয়
   box.innerHTML='⏳ রসিদ পড়া ও মেলানো হচ্ছে… (প্রথমবার একটু সময় লাগতে পারে) — শেষ না হওয়া পর্যন্ত বোতাম বন্ধ'; lock('রসিদ মেলানো চলছে — একটু অপেক্ষা করুন');
   var r=await urfReadReceipt(f, getExpected(), getDate());
   if(tok!==input.__urfTok) return;               // এর মধ্যে অন্য ফাইল বাছা হয়েছে
+  input.__urfBusy=false;
   function render(){
     var m=methodId?document.getElementById(methodId):null, exp=getExpected(), iso=getDate();
     if(m && m.value==='cash'){ box.innerHTML=''; lock(''); return; }
@@ -3305,6 +3307,7 @@ async function confirmLoanRepayClaim(ev){
   const errBox = document.getElementById('loanRepayErr');
   const okBox = document.getElementById('loanRepayOk');
   errBox.hidden = true; okBox.hidden = true;
+  { const ri = document.getElementById('loanRepayReceiptInput'); if(ri && ri.__urfBusy){ errBox.textContent = '⏳ রসিদ মেলানো চলছে — শেষ হলে আবার "পরিশোধ করেছি" চাপুন।'; errBox.hidden = false; return; } }
 
   const forWhomEl = document.getElementById('loanRepayForWhom');
   const forMember = forWhomEl && forWhomEl.value ? forWhomEl.value : memberSession.userId;
