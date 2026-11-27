@@ -5738,7 +5738,7 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
       +body+'\n\n*মোট বাকি: '+rs(tot)+' ('+bnd(list.length)+' জন)*\n\nসাইট/অ্যাপের "পেমেন্ট" পাতা থেকে রসিদসহ জমা দিন। ধন্যবাদ।\n— '+sender;
   }
   function waCard(){
-    var sender=(memberSession&&memberSession.userId)||'', today=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+    var sender='Unique Rural Fund', today=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
     var list=(DATA.contributions||[]).map(waDuesOf).filter(function(x){ return x.total>0; }).sort(function(a,b){ return b.total-a.total; });
     if(!list.length) return {html:'✅ এখন কারও বাকি বা ফাইন নেই।'};
     list.forEach(function(x){ x.msg=waMsgFor(x,sender,today); x.phone=waPhone(x.name); });
