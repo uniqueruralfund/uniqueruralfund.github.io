@@ -2558,12 +2558,27 @@ function urfFindUtrs(t){          // সব সম্ভাব্য রসি�
   c.sort(function(x,y){ return (/^\d{12}$/.test(y)?1:0)-(/^\d{12}$/.test(x)?1:0); });
   return c;
 }
+/* রসিদের "তারিখ + সময়(am/pm)" জোড়া। ফোনের উপরের ঘড়িতে am/pm থাকে না, তাই সেটা ধরি না — তাই একই রসিদের দুটো স্ক্রিনশটে একই জোড়া আসে */
+function urfFindDateTimes(t){
+  var out=[], m, specs=[[URF_DATE_RES[0],function(x){ return urfIsoDate(x[3],URF_MONTHS[x[2].toLowerCase()],x[1]); }],
+                         [URF_DATE_RES[1],function(x){ return urfIsoDate(x[3],URF_MONTHS[x[1].toLowerCase()],x[2]); }]];
+  specs.forEach(function(sp){
+    var re=sp[0]; re.lastIndex=0;
+    while((m=re.exec(t))){
+      var iso=sp[1](m); if(!iso) continue;
+      var near=t.slice(Math.max(0,m.index-22),m.index)+'  '+t.slice(m.index+m[0].length,m.index+m[0].length+22);
+      var tm=near.match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*([ap])\.?\s?m\b/i);
+      if(tm){ var hh=+tm[1], mi=+tm[2]; if(hh>=1&&hh<=12&&mi<60){ var h24=(hh%12)+(/p/i.test(tm[3])?12:0); out.push({iso:iso,hhmm:('0'+h24).slice(-2)+('0'+mi).slice(-2)}); } }
+    }
+  });
+  return out;
+}
 /* রসিদের লেখা থেকে অঙ্ক/তারিখ/UTR বের করে; expected = সাইট যত টাকা চায় */
 function urfParseReceiptText(raw, expected){
   var t=urfBnDigits(raw).replace(/\r/g,'');
   var out={amounts:[],hasExpected:false,maybe:false,best:null,bestSrc:'',paidWord:false,date:'',dates:[],utr:'',utrs:[]};
   out.utrs=urfFindUtrs(t); out.utr=out.utrs[0]||'';
-  out.dates=urfFindDates(t); out.date=out.dates[0]||'';
+  out.dates=urfFindDates(t); out.date=out.dates[0]||''; out.dateTimes=urfFindDateTimes(t); out.expected=Number(expected)||0;
   out.paidWord=/paid|sent|success|complet|debited|transfer|payment/i.test(t);
   var s=t;
   out.utrs.forEach(function(u){ s=s.replace(new RegExp(u.split('').join('\\s?'),'g'),' '); });
@@ -2585,6 +2600,14 @@ function urfParseReceiptText(raw, expected){
   if(cm){ out.best=parseFloat(cm[1].replace(/,/g,'')+(cm[2]||'')); out.bestSrc='marker'; }
   else { var lines=s.split('\n'); for(var i=0;i<lines.length;i++){ var lm=lines[i].match(/^[^\dA-Za-z]*(\d{1,3}(?:,\d{2,3})+|\d+)(\.\d{1,2})?\s*$/); if(lm){ out.best=parseFloat(lm[1].replace(/,/g,'')+(lm[2]||'')); out.bestSrc='line'; break; } } }
   if(!(out.best>0)){ out.best=null; out.bestSrc=''; }
+  /* রসিদের অঙ্ক আর চাওয়া অঙ্কের সম্পর্ক: glitch = একটা বাড়তি অঙ্ক (টিক ✓ বা ₹ চিহ্ন অঙ্ক পড়া হয়েছে, যেমন ১০০ → ১০০০),
+     trunc = অঙ্ক কাটা পড়েছে, over = বেশি, under = কম। শুধু "under" নিশ্চিত গরমিল — কম টাকার রসিদই ঝুঁকি। */
+  out.relation='';
+  if(e>0 && out.best!=null && !out.hasExpected){
+    var bs=String(Math.round(out.best)), es2=String(Math.round(e));
+    if(out.best>e) out.relation=(bs.length===es2.length+1 && (bs.slice(1)===es2 || bs.slice(0,-1)===es2))?'glitch':'over';
+    else out.relation=(es2.indexOf(bs)===0 || es2.slice(-bs.length)===bs)?'trunc':'under';
+  }
   return out;
 }
 /* পার্সের ফল → অবস্থা। amount: ok | maybe | unsure | bad | none ; date: ok | bad | none
@@ -2593,10 +2616,10 @@ function urfParseReceiptText(raw, expected){
 function urfReceiptStates(p, expected, chosenIso){
   var st={amount:'none',date:'none',utr:!!p.utr,dateSeen:p.date||''};
   if(p.hasExpected) st.amount='ok';
-  else if(p.maybe) st.amount='maybe';
+  else if(p.maybe || p.relation==='glitch') st.amount='maybe';
   else if(p.amounts.length){
     var firm = p.best!=null && (p.bestSrc==='marker' || (p.bestSrc==='line' && p.best>=10 && p.paidWord));
-    st.amount = firm ? 'bad' : 'unsure';
+    st.amount = (firm && p.relation==='under') ? 'bad' : 'unsure';          // বেশি/কাটা/বাড়তি-অঙ্ক হলে আটকাই না, শুধু ⚠️
   }
   if(p.dates && p.dates.length && chosenIso){
     var near=null, nd=null;
@@ -2730,6 +2753,9 @@ function urfOcrFields(r){          // সার্ভারে পাঠান�
     var p=r.parsed;
     f.utr=p.utr||''; f.utrAll=(p.utrs||[]).join(','); f.ocrAmountState=r.state.amount;
     f.ocrAmountSeen=(p.best!=null?p.best:''); f.ocrDate=r.state.dateSeen||p.date||''; f.ocrDateState=r.state.date;
+    if(r.state.amount==='ok' && p.expected>0 && p.dateTimes && p.dateTimes.length){            // "তারিখ+সময়+টাকা" চাবি — UTR না থাকলেও একই রসিদ চেনা যায়
+      var dt0=p.dateTimes[0]; f.fp='FP'+dt0.iso.replace(/-/g,'')+'T'+dt0.hhmm+'A'+Math.round(p.expected);
+    }
   }
   return f;
 }
@@ -2740,7 +2766,7 @@ function urfOcrHtml(r, expected, chosenIso){
   if(st.amount==='ok') L.push('✅ রসিদে '+e+' পাওয়া গেছে — অঙ্ক মিলেছে');
   else if(st.amount==='maybe') L.push('⚠️ রসিদে '+e+' থাকতে পারে, কিন্তু নিশ্চিত পড়া যায়নি'+(p.best!=null?' (রসিদে ₹'+Number(p.best).toLocaleString('en-IN')+' মনে হচ্ছে)':''));
   else if(st.amount==='bad') L.push('❌ রসিদে '+e+' খুঁজে পাইনি'+(p.best!=null?' (রসিদে ₹'+Number(p.best).toLocaleString('en-IN')+' দেখা যাচ্ছে)':''));
-  else if(st.amount==='unsure') L.push('⚠️ রসিদে '+e+' আছে কিনা নিশ্চিত পড়া যায়নি — সংগ্রাহক হাতে মিলিয়ে নেবেন');
+  else if(st.amount==='unsure') L.push('⚠️ রসিদে '+e+' আছে কিনা নিশ্চিত পড়া যায়নি'+(p.best!=null?' (রসিদে ₹'+Number(p.best).toLocaleString('en-IN')+' মনে হচ্ছে)':'')+' — সংগ্রাহক হাতে মিলিয়ে নেবেন');
   else L.push('ℹ️ রসিদ থেকে অঙ্ক পড়া যায়নি — সংগ্রাহক হাতে মিলিয়ে নেবেন');
   if(st.date==='ok') L.push('✅ তারিখ মিলেছে ('+urfIsoShow(st.dateSeen||p.date)+')');
   else if(st.date==='bad') L.push('❌ রসিদের তারিখ '+urfIsoShow(st.dateSeen||p.date)+', আপনি দিয়েছেন '+urfIsoShow(chosenIso));
@@ -2752,6 +2778,7 @@ function urfOcrHtml(r, expected, chosenIso){
 async function urfOcrPick(input, boxId, getExpected, getDate, btnId, dateId, methodId){
   var box=document.getElementById(boxId); if(!box) return;
   var btn=btnId?document.getElementById(btnId):null;
+  ['payErr','payOk','loanRepayErr','loanRepayOk'].forEach(function(i){ var e=document.getElementById(i); if(e) e.hidden=true; });   // আগের পুরনো লাল/সবুজ বার্তা মুছি
   function lock(reason){ if(btn){ btn.disabled=!!reason; btn.title=reason||''; btn.style.opacity=reason?'.5':''; } }
   var f=input.files&&input.files[0];
   if(!f){ input.__urfTok=(input.__urfTok||0)+1; input.__urfBusy=false; box.innerHTML=''; lock(''); return; }
@@ -5658,6 +5685,9 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     var l=nz(t0), w=apprWho();
     if(!w.c && !w.a) return null;
     if(has(l,['kivabe','kibhabe','keno','কেন','কীভাবে','niyom','নিয়ম','kobe','কবে'])) return null;
+    if(w.a && has(l,['rosid','রসিদ','receipt','rasid']) && has(l,['chabi','চাবি','purono','পুরনো','puran','old','key']) && has(l,['bosao','বসাও','bosan','dao','দাও','koro','করো','dekhao','দেখাও','dekhi','list'])){
+      return asyncCard('পুরনো রসিদের তালিকা বানানো হচ্ছে… (এখনো কিছু লেখা হবে না)',{action:'backfillReceiptKeys',dryRun:true});
+    }
     if(w.a && has(l,['reminder','মনে করান','mone koran','mone koriye','smaran','স্মরণ']) && has(l,['preview','purborup','পূর্বরূপ','dekhao','dekhi','দেখাও','dekhan','ke ke','kake','কাকে','list','talika','তালিকা','pabe','pathabe','পাঠাবে'])){
       return asyncCard('মনে করানোর পূর্বরূপ বানানো হচ্ছে… (কিছু পাঠানো হবে না)',{action:'reminderPreview'});
     }
@@ -5686,6 +5716,14 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
     }
     return null;
   }
+  window.hdBackfillGo=async function(btn){
+    var card=btn&&btn.closest?btn.closest('[id^="card-"]'):null; if(!card||btn.disabled) return;
+    btn.disabled=true; card.innerHTML='⏳ ব্যাকআপ কপি বানিয়ে চাবি বসানো হচ্ছে…';
+    try{
+      var j=await postBody({action:'backfillReceiptKeys',userId:memberSession.userId,pin:memberSession.pin,dryRun:false});
+      card.innerHTML=(j&&j.ok)?j.html:'❌ '+String((j&&j.error)||'হয়নি').replace(/[<>&]/g,'');
+    }catch(e){ card.innerHTML='❌ নেটওয়ার্ক সমস্যা — আবার চেষ্টা করুন (কিছু লেখা হয়ে থাকলে আগে তালিকা দেখে নিন)।'; }
+  };
   window.hdRemSw=async function(id){
     var a=HD.acts[id], card=document.getElementById('card-'+id);
     if(!a||a.kind!=='remsw'||!card||a.running) return;
