@@ -5705,11 +5705,64 @@ setInterval(()=>loadData(true), AUTO_REFRESH_SEC*1000);
       add(j&&j.ok ? j.html : '❌ '+String((j&&j.error)||'পাঠানো যায়নি').replace(/[<>&]/g,''));
     }catch(e){ delete HD.acts[id]; card.innerHTML='❌ নেটওয়ার্ক সমস্যা — ইমেইল গেছে কি না নিশ্চিত নই। Sheet-এর "Reminder Log" পাতা দেখুন, আবার চাইলে একই কমান্ড দিন (একই দিনে কেউ দুবার পাবেন না)।'; }
   };
+  /* ===== বাকি/ফাইন আছে এমন সদস্যদের WhatsApp বার্তা (শুধু সংগ্রাহক/অ্যাডমিন) — সাইট নিজে কিছু পাঠায় না, Send চাপেন আপনি ===== */
+  function waPhone(nm){
+    var b=(DATA.birthdays||[]).filter(function(x){ return String(x.name).toLowerCase()===String(nm).toLowerCase(); })[0];
+    var p=String((b&&b.mobile)||'').replace(/[^\d]/g,'');
+    if(p.length===11&&p.charAt(0)==='0') p=p.slice(1);
+    if(p.length===10) p='91'+p;
+    return (p.length===12&&p.indexOf('91')===0)?p:'';
+  }
+  function waDuesOf(m){
+    var d=memberDues(m), fmDue=(d.fm&&!d.cm)?d.fm:0, flDue=(d.fl&&!d.cl)?d.fl:0, lines=[];
+    if(d.un.length) lines.push('মাসিক জমা '+rs(d.un.length*d.rate)+' ('+bnd(d.un.length)+' মাস: '+d.un.join(', ')+')');
+    if(d.lateN) lines.push('ঋণের সুদ '+rs(d.intAmt)+' ('+bnd(d.lateN)+' মাস'+(d.post10?', এর মধ্যে '+bnd(d.post10)+' মাস ১০% হারে':'')+')');
+    if(fmDue) lines.push('মাসিক জমার ফাইন '+rs(fmDue));
+    if(flDue) lines.push('ঋণের সুদের ফাইন '+rs(flDue));
+    var pend=(DATA.paymentRequests||[]).filter(function(p){ return String(p.member||'').toLowerCase()===m.name.toLowerCase() && p.stage!=='done' && p.stage!=='rejected'; }).length;
+    return {name:m.name, lines:lines, total:fmDue+flDue+d.intAmt+d.un.length*d.rate, pend:pend};
+  }
+  function waMsgFor(x, sender, today){
+    return 'নমস্কার '+x.name+' 🙏\nUnique Rural Fund থেকে মনে করিয়ে দিচ্ছি — আজ ('+today+') পর্যন্ত আপনার বাকি:\n'
+      +x.lines.map(function(l){ return '• '+l; }).join('\n')+'\n*মোট বাকি: '+rs(x.total)+'*\n\n'
+      +'সাইট/অ্যাপের "পেমেন্ট" পাতা থেকে রসিদসহ জমা দিন। কোনো ভুল মনে হলে জানাবেন। ধন্যবাদ।\n— '+sender;
+  }
+  function waGroupMsg(list, sender, today){
+    var tot=0, body=list.map(function(x,i){ tot+=x.total; return (i+1)+'. *'+x.name+'* — '+rs(x.total)+'\n'+x.lines.map(function(l){ return '   • '+l; }).join('\n'); }).join('\n\n');
+    return '📢 *Unique Rural Fund — বাকি ও ফাইনের তালিকা*\nতারিখ: '+today+'\n(যে মাসের ১৬ তারিখ পার হয়েছে সেটাই বকেয়া; প্রতি ২ মাস বকেয়ায় ১ মাসের হারে ফাইন)\n\n'
+      +body+'\n\n*মোট বাকি: '+rs(tot)+' ('+bnd(list.length)+' জন)*\n\nসাইট/অ্যাপের "পেমেন্ট" পাতা থেকে রসিদসহ জমা দিন। ধন্যবাদ।\n— '+sender;
+  }
+  function waCard(){
+    var sender=(memberSession&&memberSession.userId)||'', today=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+    var list=(DATA.contributions||[]).map(waDuesOf).filter(function(x){ return x.total>0; }).sort(function(a,b){ return b.total-a.total; });
+    if(!list.length) return {html:'✅ এখন কারও বাকি বা ফাইন নেই।'};
+    list.forEach(function(x){ x.msg=waMsgFor(x,sender,today); x.phone=waPhone(x.name); });
+    HD.wa={group:waGroupMsg(list,sender,today), persons:list};
+    function esc(t){ return String(t).replace(/[<>&"]/g,function(c){ return {'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]; }); }
+    var rows=list.map(function(x,i){
+      var link=x.phone?'<a href="https://wa.me/'+x.phone+'?text='+encodeURIComponent(x.msg)+'" target="_blank" rel="noopener" class="hd-go" style="display:inline-block;text-decoration:none;margin:.25rem .35rem 0 0">📲 WhatsApp</a>'
+                       :'<span style="opacity:.75">📵 নম্বর নেই</span> ';
+      return '<div style="margin:.55rem 0;padding:.4rem .55rem;border:1px solid #E7C877;border-radius:8px;background:#fff"><b>'+esc(x.name)+'</b> — <b>'+rs(x.total)+'</b><br><span style="font-size:.88em;opacity:.85">'+x.lines.map(esc).join('<br>')+'</span>'+(x.pend?'<br><span style="color:#9A6A00">⏳ '+bnd(x.pend)+'টি দাবি অনুমোদনের অপেক্ষায় আছে — পাঠানোর আগে দেখে নিন</span>':'')+'<br>'
+        +link+'<button type="button" class="hd-go" style="margin-top:.25rem" onclick="hdWaCopy(this,'+i+')">📋 বার্তা কপি</button></div>';
+    }).join('');
+    var tot=list.reduce(function(a,x){ return a+x.total; },0);
+    return {noSave:true, html:'<b>📲 বাকি বা ফাইন আছে এমন '+bnd(list.length)+' জন — মোট '+rs(tot)+'</b><br><span style="font-size:.88em;opacity:.85">"📲 WhatsApp" চাপলে আপনার WhatsApp ওই সদস্যের নম্বরে আগে থেকে লেখা বার্তাসহ খুলবে — <b>Send আপনি চাপবেন</b>, সাইট নিজে কিছু পাঠায় না। হিসাব সাইটের ফাইন/বকেয়ার নিজস্ব নিয়মে।</span><br>'
+      +'<button type="button" class="hd-go" style="margin:.4rem 0" onclick="hdWaCopy(this,-1)">📋 গ্রুপের জন্য সবার তালিকা কপি করুন</button>'+rows};
+  }
+  window.hdWaCopy=function(btn,i){
+    var W=HD.wa; if(!W) return;
+    var text=(i<0)?W.group:(W.persons[i]&&W.persons[i].msg); if(!text) return;
+    var old=btn.textContent;
+    function done(){ btn.textContent='✅ কপি হয়েছে'; setTimeout(function(){ btn.textContent=old; },1800); }
+    try{ navigator.clipboard.writeText(text).then(done,function(){ window.prompt('কপি করে নিন:',text); }); }
+    catch(e){ window.prompt('কপি করে নিন:',text); }
+  };
   function reportAction(t0){
     if(typeof memberSession==='undefined'||!memberSession||!memberSession.userId||typeof DATA==='undefined'||!DATA) return null;
     var l=nz(t0), w=apprWho();
     if(!w.c && !w.a) return null;
     if(has(l,['kivabe','kibhabe','keno','কেন','কীভাবে','niyom','নিয়ম','kobe','কবে'])) return null;
+    if((w.a||w.c) && has(l,['whatsapp','watsapp','whatsup','হোয়াটসঅ্যাপ','হোয়াটসঅ্যাপে','হোয়াটস']) && has(l,['baki','বাকি','fine','ফাইন','bokeya','বকেয়া','list','talika','তালিকা','jader','যাদের'])) return waCard();
     if(w.a && has(l,['rosid','রসিদ','receipt','rasid']) && has(l,['chabi','চাবি','purono','পুরনো','puran','old','key']) && has(l,['bosao','বসাও','bosan','dao','দাও','koro','করো','dekhao','দেখাও','dekhi','list'])){
       return asyncCard('পুরনো রসিদের তালিকা বানানো হচ্ছে… (এখনো কিছু লেখা হবে না)',{action:'backfillReceiptKeys',dryRun:true});
     }
