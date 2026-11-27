@@ -2775,6 +2775,27 @@ function urfOcrHtml(r, expected, chosenIso){
 }
 /* রসিদ বাছলে পড়ে ফল দেখায়; নিশ্চিত গরমিল থাকলে "পেমেন্ট করেছি" বোতাম বন্ধ করে দেয়।
    তারিখ বা পদ্ধতি (নগদ) বদলালে সাথে সাথে আবার মিলিয়ে বোতাম খোলে/বন্ধ করে। btnId/dateId/methodId ঐচ্ছিক। */
+/* সংকুচিত ছবির SHA-256 — ঠিক যে বাইট সার্ভারে যাবে তার ছাপ; সার্ভারের রাখা ছাপের সাথে মেলে (ফাইলের নাম বদলালেও একই) */
+async function urfCompressedHash(file){
+  try{
+    var c=await compressReceiptFile(file), bin=atob(c.data), u=new Uint8Array(bin.length);
+    for(var i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i);
+    var d=await crypto.subtle.digest('SHA-256',u);
+    return Array.prototype.map.call(new Uint8Array(d),function(x){ return ('0'+x.toString(16)).slice(-2); }).join('');
+  }catch(e){ return ''; }
+}
+/* রসিদ বাছার সাথে সাথে সার্ভারকে জিজ্ঞেস: এই রসিদ আগে ব্যবহার হয়েছে? হয়ে থাকলে কারণের বার্তা ফেরত; না হলে বা নেটওয়ার্ক-সমস্যায় '' (কখনো আটকায় না — জমার সময় সার্ভার আবার দেখে) */
+async function urfDupCheck(r, file, boxId){
+  try{
+    if(typeof memberSession==='undefined'||!memberSession||!memberSession.userId||!memberSession.pin||typeof SCRIPT_URL==='undefined') return '';
+    var f=Object.assign({},urfOcrFields(r)||{}); f.chash=await urfCompressedHash(file);
+    var who=(boxId==='loanRepayOcrBox'?(document.getElementById('loanRepayForWhom')||{}).value:(typeof payForName!=='undefined'?payForName:''))||'';
+    var res=await urfRace(fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify(Object.assign({action:'checkReceiptDup',userId:memberSession.userId,pin:memberSession.pin,forMember:who},f))}),20000);
+    var j=await res.json();
+    return (j&&j.ok&&j.dup)?String(j.message||'এই রসিদ আগেই ব্যবহার হয়েছে।'):'';
+  }catch(e){ return ''; }
+}
 async function urfOcrPick(input, boxId, getExpected, getDate, btnId, dateId, methodId){
   var box=document.getElementById(boxId); if(!box) return;
   var btn=btnId?document.getElementById(btnId):null;
@@ -2786,6 +2807,9 @@ async function urfOcrPick(input, boxId, getExpected, getDate, btnId, dateId, met
   box.innerHTML='⏳ রসিদ পড়া ও মেলানো হচ্ছে… (প্রথমবার একটু সময় লাগতে পারে) — শেষ না হওয়া পর্যন্ত বোতাম বন্ধ'; lock('রসিদ মেলানো চলছে — একটু অপেক্ষা করুন');
   var r=await urfReadReceipt(f, getExpected(), getDate());
   if(tok!==input.__urfTok) return;               // এর মধ্যে অন্য ফাইল বাছা হয়েছে
+  var mNow=methodId?document.getElementById(methodId):null;
+  var dupMsg=(mNow&&mNow.value==='cash')?'':await urfDupCheck(r,f,boxId);     // আগে ব্যবহার হয়েছে কিনা (পুরনো দাবিসহ)
+  if(tok!==input.__urfTok) return;
   input.__urfBusy=false;
   function render(){
     var m=methodId?document.getElementById(methodId):null, exp=getExpected(), iso=getDate();
@@ -2793,6 +2817,7 @@ async function urfOcrPick(input, boxId, getExpected, getDate, btnId, dateId, met
     var rr=r;                                   // টাকা/তারিখ বদলালে একই লেখা নতুন মান দিয়ে আবার পার্স করি
     if(r.read && r.parsed){ var pp=(typeof r.text==='string')?urfParseReceiptText(r.text,exp):r.parsed; rr=Object.assign({},r,{parsed:pp,state:urfReceiptStates(pp,exp,iso)}); }
     var why=urfBlockReason(rr,exp,iso);
+    if(dupMsg) why=(why?why+' ':'')+dupMsg;
     box.innerHTML=urfOcrHtml(rr,exp,iso)+(why?'<br><b style="color:#b3261e">⛔ এই অবস্থায় জমা দেওয়া যাবে না: '+why+'</b>':'');
     lock(why);
   }
